@@ -1,16 +1,8 @@
 {
   "name": "przemai",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "PrzemAI Executive Assistant",
+  "main": "scripts/testTelegram.js",
   "type": "commonjs",
-  "dependencies": {
-    "playwright": "^1.61.1"
-  }
-}
+  "scripts": {
+    "start": "

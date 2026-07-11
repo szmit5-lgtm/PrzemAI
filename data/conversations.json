@@ -1,0 +1,72 @@
+[
+  {
+    "date": "2026-07-10T13:49:28.659Z",
+    "user": "Podsumuj spotkanie: Jan przygotuje ofertę do piątku. Anna wyśle dokumentację. Spotkanie z klientem odbędzie się w poniedziałek.",
+    "assistant": "## 1. Krótkie podsumowanie\nUstalono przygotowanie oferty, wysłanie dokumentacji oraz termin spotkania z klientem.\n\n## 2. Kluczowe ustalenia\n- Oferta zostanie przygotowana do piątku.\n- Dokumentacja zostanie wysłana.\n- Spotkanie z klientem odbędzie się w poniedziałek.\n\n## 3. Zadania\n- Przygotowanie oferty.\n- Wysłanie dokumentacji.\n- Organizacja / udział w spotkaniu z klientem.\n\n## 4. Terminy\n- Oferta: do piątku.\n- Spotkanie z klientem: poniedziałek.\n- Dokumentacja: brak wskazanego terminu.\n\n## 5. Osoby odpowiedzialne\n- Jan — przygotowanie oferty.\n- Anna — wysłanie dokumentacji.\n- Osoba odpowiedzialna za spotkanie z klientem: nie wskazano."
+  },
+  {
+    "date": "2026-07-10T13:52:27.420Z",
+    "user": "Napisz maila do klienta z podziekowaniem za spotkanie ",
+    "assistant": "1. **Krótkie podsumowanie**  \n   Należy przygotować maila do klienta z podziękowaniem za spotkanie.\n\n2. **Kluczowe ustalenia**  \n   - Mail ma być skierowany do klienta.  \n   - Treść powinna zawierać podziękowanie za spotkanie.\n\n3. **Zadania**  \n   - Przygotować treść maila z podziękowaniem.  \n   - Wysłać maila do klienta.\n\n4. **Terminy**  \n   - Nie wskazano konkretnego terminu.\n\n5. **Osoby odpowiedzialne**  \n   - Nie wskazano konkretnej osoby odpowiedzialnej."
+  },
+  {
+    "date": "2026-07-10T13:58:08.318Z",
+    "user": "node scripts/testRegistry.js",
+    "assistant": "I can’t run commands directly in your environment. You can run:\n\n```bash\nnode scripts/testRegistry.js\n```\n\nfrom your project root.\n\nIf it errors, paste the output here and I’ll help debug it."
+  },
+  {
+    "date": "2026-07-10T14:00:53.723Z",
+    "user": "Napisz maila do klienta z podziękowaniem za spotkanie.",
+    "assistant": "1. **Krótkie podsumowanie**  \nNależy przygotować maila do klienta z podziękowaniem za spotkanie.\n\n2. **Kluczowe ustalenia**  \n- Mail ma mieć charakter podziękowania.  \n- Odbiorcą wiadomości jest klient.  \n- Celem jest podtrzymanie profesjonalnej relacji po spotkaniu.\n\n3. **Zadania**  \n- Przygotować treść maila z podziękowaniem za spotkanie.  \n- Wysłać wiadomość do klienta.\n\n4. **Terminy**  \n- Nie wskazano konkretnego terminu.\n\n5. **Osoby odpowiedzialne**  \n- Nie wskazano konkretnej osoby odpowiedzialnej."
+  },
+  {
+    "date": "2026-07-10T14:02:16.463Z",
+    "user": "type agents\\executive\\ExecutiveAgent.js",
+    "assistant": "I can’t directly access your filesystem to run:\n\n```bat\ntype agents\\executive\\ExecutiveAgent.js\n```\n\nIf you paste the contents of `agents\\executive\\ExecutiveAgent.js` here, I can help review, explain, debug, or modify it."
+  },
+  {
+    "date": "2026-07-10T14:11:24.956Z",
+    "user": "Napisz maila do klienta z podziękowaniem za spotkanie.",
+    "assistant": "### 1. Krótkie podsumowanie  \nNależy przygotować i wysłać maila do klienta z podziękowaniem za spotkanie.\n\n### 2. Kluczowe ustalenia  \n- Mail ma zawierać podziękowanie za spotkanie z klientem.  \n- Brak dodatkowych informacji dotyczących treści maila, ustaleń ze spotkania lub dalszych kroków.\n\n### 3. Zadania  \n- Przygotować treść maila do klienta.  \n- Wysłać maila z podziękowaniem za spotkanie.\n\n### 4. Terminy  \n- Nie wskazano konkretnego terminu realizacji.\n\n### 5. Osoby odpowiedzialne  \n- Nie wskazano konkretnej osoby odpowiedzialnej."
+  },
+  {
+    "date": "2026-07-10T14:18:15.672Z",
+    "user": "Cześć",
+    "assistant": "Cześć! W czym mogę pomóc?"
+  },
+  {
+    "date": "2026-07-10T14:18:17.850Z",
+    "user": "Opowiedz mi jakiś kawał dobry",
+    "assistant": "Pewien facet przychodzi do lekarza:\n\n— Panie doktorze, mam problem… Nikt mnie nie traktuje poważnie.  \nLekarz przegląda kartę, patrzy na niego i mówi:  \n— Pan żartuje."
+  },
+  {
+    "date": "2026-07-10T14:18:34.410Z",
+    "user": "Albo znajdź mi dzisiaj wakacje w Bieszczadach?",
+    "assistant": "Jasne — mogę pomóc, tylko doprecyzuj proszę, czy chodzi o **wyjazd od dzisiaj**, czy po prostu mam Ci **dzisiaj znaleźć propozycje**.\n\nPodaj mi 5 rzeczy, a zawężę najlepszą opcję w Bieszczadach:\n\n1. **Termin:** od kiedy do kiedy?  \n2. **Ile osób:** dorośli/dzieci?  \n3. **Budżet:** za noc albo za cały pobyt?  \n4. **Typ wyjazdu:** cisza i natura / jezioro Solińskie / chodzenie po górach / z dziećmi / romantycznie?  \n5. **Nocleg:** domek, agroturystyka, hotel, pensjonat, glamping? Pies?  \n\nNa szybko — kierunki w Bieszczadach:\n- **Polańczyk / Solina** — jezioro, restauracje, atrakcje, bardziej turystycznie.  \n- **Wetlina / Smerek / Ustrzyki Górne** — najlepsze na szlaki: Połonina Wetlińska, Caryńska, Tarnica.  \n- **Cisna** — fajny kompromis: klimat, kolejka bieszczadzka, knajpki.  \n- **Lutowiska / Muczne** — cisza, natura, mniej ludzi.  \n- **Ustrzyki Dolne** — wygodna baza, tańsze noclegi, więcej sklepów/usług.\n\nJeśli chcesz wyjazd **od dzisiaj lub jutra**, najlepiej szukać i od razu dzwonić do obiektów — last minute w Bieszczadach często nie jest aktualizowane online. Podeślij parametry, a przygotuję Ci konkretną listę miejscowości i typów noclegów, które mają największy sens."
+  },
+  {
+    "date": "2026-07-10T14:50:10.792Z",
+    "user": "Napisz maila do klienta z podziękowaniem za spotkanie.",
+    "assistant": "Temat: Podziękowanie za spotkanie\n\nSzanowni Państwo,\n\ndziękuję za dzisiejsze spotkanie oraz poświęcony czas. Cieszę się, że mieliśmy okazję omówić Państwa potrzeby i możliwe kierunki współpracy.\n\nDoceniam otwartą rozmowę oraz przekazane informacje, które pozwolą nam lepiej dopasować proponowane rozwiązania do Państwa oczekiwań.\n\nW razie dodatkowych pytań pozostaję do Państwa dyspozycji.\n\nZ poważaniem,  \n[Imię i nazwisko]"
+  },
+  {
+    "date": "2026-07-10T14:50:26.647Z",
+    "user": "Podsumuj spotkanie:",
+    "assistant": "Nie widzę treści spotkania do podsumowania — po dwukropku nie ma transkrypcji ani notatek.\n\nProszę wklej tekst spotkania, a przygotuję:\n\n1. Krótkie podsumowanie  \n2. Kluczowe ustalenia  \n3. Zadania  \n4. Terminy  \n5. Osoby odpowiedzialne  \n\nMożesz wkleić surową transkrypcję, notatki lub punkty ze spotkania."
+  },
+  {
+    "date": "2026-07-10T14:51:29.467Z",
+    "user": "Podsumuj spotkanie:Jan przygotuje ofertę.Anna wyśle dokumentację.",
+    "assistant": "### 1. Krótkie podsumowanie\nPodczas spotkania ustalono, że Jan przygotuje ofertę, a Anna wyśle dokumentację.\n\n### 2. Kluczowe ustalenia\n- Należy przygotować ofertę.\n- Należy wysłać dokumentację.\n\n### 3. Zadania\n- Przygotowanie oferty.\n- Wysłanie dokumentacji.\n\n### 4. Terminy\n- Nie określono terminów.\n\n### 5. Osoby odpowiedzialne\n- Jan — przygotowanie oferty.\n- Anna — wysłanie dokumentacji."
+  },
+  {
+    "date": "2026-07-10T14:51:47.027Z",
+    "user": "Opowiedz ciekawostkę o sztucznej inteligencji.",
+    "assistant": "Ciekawostka: pierwsze chatboty powstały dużo wcześniej, niż większość osób myśli. Już w 1966 roku Joseph Weizenbaum stworzył program **ELIZA**, który udawał psychoterapeutę, odpowiadając prostymi pytaniami typu „Dlaczego tak uważasz?”.  \n\nCo ciekawe, mimo że ELIZA nie „rozumiała” rozmowy, wiele osób miało wrażenie, że naprawdę je słucha — to zjawisko nazwano później **efektem ELIZY**."
+  },
+  {
+    "date": "2026-07-11T16:57:35.190Z",
+    "user": "Cześć",
+    "assistant": "Cześć! W czym mogę pomóc?"
+  }
+]

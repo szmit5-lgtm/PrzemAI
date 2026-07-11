@@ -1,36 +1,26 @@
-const BrowserEngine = require("../../core/browser/BrowserEngine");
+const BaseAgent = require("../../core/BaseAgent");
 
-class ShoppingAgent {
+class ShoppingAgent extends BaseAgent {
 
     constructor() {
-        this.browser = new BrowserEngine();
+        super("Shopping");
     }
 
     async run(product) {
 
-        console.log("🛒 Szukam produktu:", product);
+        await this.start();
 
-        await this.browser.start();
+        console.log("🛒 Szukam:", product);
 
-        await this.browser.open("https://allegro.pl");
+        await this.browser.searchGoogle(product);
 
-        // Poczekaj aż strona się załaduje
-        await this.browser.wait(5);
+        const title = await this.browser.getTitle();
 
-        // Wpisz nazwę produktu
-        await this.browser.type('input[type="search"]', product);
+        console.log("📄", title);
 
-        // Naciśnij Enter
-        await this.browser.press("Enter");
+        await this.browser.screenshot("google_search");
 
-        // Poczekaj na wyniki
-        await this.browser.wait(10);
-
-        // Zrób zrzut ekranu
-        await this.browser.screenshot("wyniki_allegro");
-
-        // Zamknij przeglądarkę
-        await this.browser.close();
+        await this.finish();
 
     }
 

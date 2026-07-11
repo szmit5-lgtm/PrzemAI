@@ -74,7 +74,25 @@ class BrowserEngine {
             fullPage: true
         });
 
-        console.log("📸 Zapisano:", name);
+        console.log("📸 Screenshot zapisany:", name);
+
+    }
+
+    async searchGoogle(query) {
+
+        await this.open("https://www.google.pl");
+
+        await this.type('textarea[name="q"]', query);
+
+        await this.press("Enter");
+
+        await this.wait(3);
+
+    }
+
+    async getTitle() {
+
+        return await this.page.title();
 
     }
 
