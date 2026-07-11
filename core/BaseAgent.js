@@ -1,7 +1,7 @@
 const BrowserManager = require("./browser/BrowserManager");
 const AIEngine = require("./ai/AIEngine");
 const MemoryEngine = require("./memory/MemoryEngine");
-const Logger = require("./logger/Logger");
+const Logger = require("./logger/logger");
 
 class BaseAgent {
 
