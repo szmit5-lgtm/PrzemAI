@@ -3,7 +3,7 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api").default || require("node-telegram-bot-api");
 
 const ExecutiveAgent = require("../../agents/executive/ExecutiveAgent");
-const Logger = require("../../core/logger/Logger");
+const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
 
 class PrzemAIBot {
