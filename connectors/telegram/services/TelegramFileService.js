@@ -7,9 +7,7 @@ const path = require("path");
 class TelegramFileService {
 
     constructor(bot) {
-
         this.bot = bot;
-
     }
 
     async download(fileId) {
@@ -19,14 +17,18 @@ class TelegramFileService {
         const url =
             `https://api.telegram.org/file/bot${process.env.TELEGRAM_TOKEN}/${file.file_path}`;
 
-        const fileName = path.basename(file.file_path);
-
-        const savePath = path.join(
+        const downloadDir = path.join(
             process.cwd(),
             "downloads",
-            "audio",
-            fileName
+            "audio"
         );
+
+        // Utwórz katalog, jeśli nie istnieje
+        fs.mkdirSync(downloadDir, { recursive: true });
+
+        const fileName = path.basename(file.file_path);
+
+        const savePath = path.join(downloadDir, fileName);
 
         const response = await axios({
             url,
@@ -34,11 +36,11 @@ class TelegramFileService {
             responseType: "stream"
         });
 
-        const writer = fs.createWriteStream(savePath);
-
-        response.data.pipe(writer);
-
         return new Promise((resolve, reject) => {
+
+            const writer = fs.createWriteStream(savePath);
+
+            response.data.pipe(writer);
 
             writer.on("finish", () => resolve(savePath));
 

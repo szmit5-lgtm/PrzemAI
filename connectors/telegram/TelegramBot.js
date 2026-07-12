@@ -1,10 +1,15 @@
 require("dotenv").config();
 
-const TelegramBot = require("node-telegram-bot-api").default || require("node-telegram-bot-api");
+const TelegramBot =
+    require("node-telegram-bot-api").default ||
+    require("node-telegram-bot-api");
 
 const ExecutiveAgent = require("../../agents/executive/ExecutiveAgent");
+const MeetingAgent = require("../../agents/meeting/MeetingAgent");
+
 const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
+const SpeechToText = require("../../core/audio/SpeechToText");
 
 class PrzemAIBot {
 
@@ -16,9 +21,13 @@ class PrzemAIBot {
 
         this.executive = new ExecutiveAgent();
 
+        this.meeting = new MeetingAgent();
+
         this.logger = new Logger();
 
         this.fileService = new TelegramFileService(this.bot);
+
+        this.speech = new SpeechToText();
 
     }
 
@@ -32,15 +41,15 @@ class PrzemAIBot {
 
             try {
 
-                // ===========================
+                // ==========================================
                 // OBSŁUGA WIADOMOŚCI GŁOSOWYCH
-                // ===========================
+                // ==========================================
 
                 if (msg.voice) {
 
                     await this.bot.sendMessage(
                         chatId,
-                        "🎤 Otrzymałem nagranie. Pobieram plik..."
+                        "🎤 Otrzymałem nagranie.\n\n⬇️ Pobieram..."
                     );
 
                     const filePath = await this.fileService.download(
@@ -51,24 +60,38 @@ class PrzemAIBot {
 
                     await this.bot.sendMessage(
                         chatId,
-                        "✅ Nagranie zapisane.\n\n" + filePath
+                        "🧠 Transkrybuję nagranie..."
                     );
+
+                    const transcript =
+                        await this.speech.transcribe(filePath);
+
+                    this.logger.info("Transcript created.");
+
+                    await this.bot.sendMessage(
+                        chatId,
+                        "🤖 Analizuję spotkanie..."
+                    );
+
+                    const summary =
+                        await this.meeting.process(transcript);
+
+                    await this.bot.sendMessage(chatId, summary);
 
                     return;
 
                 }
 
-                // ===========================
+                // ==========================================
                 // OBSŁUGA WIADOMOŚCI TEKSTOWYCH
-                // ===========================
+                // ==========================================
 
-                const text = msg.text;
+                if (!msg.text) return;
 
-                if (!text) return;
+                this.logger.info("Telegram: " + msg.text);
 
-                this.logger.info("Telegram: " + text);
-
-                const answer = await this.executive.process(text);
+                const answer =
+                    await this.executive.process(msg.text);
 
                 await this.bot.sendMessage(chatId, answer);
 
@@ -76,11 +99,11 @@ class PrzemAIBot {
 
                 console.error(err);
 
-                this.logger.error(err.message);
+                this.logger.error(err.stack || err.message);
 
                 await this.bot.sendMessage(
                     chatId,
-                    "❌ Wystąpił błąd podczas przetwarzania wiadomości."
+                    "❌ Wystąpił błąd.\n\n" + err.message
                 );
 
             }

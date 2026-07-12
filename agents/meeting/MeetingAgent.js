@@ -1,5 +1,4 @@
 const BaseAgent = require("../../core/BaseAgent");
-const AIEngine = require("../../core/ai/AIEngine");
 
 class MeetingAgent extends BaseAgent {
 
@@ -7,24 +6,48 @@ class MeetingAgent extends BaseAgent {
 
         super("Meeting");
 
-        this.ai = new AIEngine();
+    }
+
+    async process(text) {
+
+        return await this.summarize(text);
 
     }
 
     async summarize(text) {
 
         const prompt = `
-Jesteś asystentem biznesowym.
+Jesteś profesjonalnym asystentem biznesowym.
 
-Na podstawie tekstu przygotuj:
+Przeanalizuj transkrypcję spotkania i przygotuj odpowiedź w następującej formie.
 
-1. Krótkie podsumowanie.
-2. Kluczowe ustalenia.
-3. Zadania.
-4. Terminy.
-5. Osoby odpowiedzialne (jeżeli występują).
+# 📋 Podsumowanie
 
-Tekst:
+(kilka zdań)
+
+# ✅ Najważniejsze ustalenia
+
+- ...
+
+# 👤 Zadania
+
+- [ ] Zadanie — Osoba odpowiedzialna
+
+# 📅 Terminy
+
+- ...
+
+# ⚠ Ryzyka
+
+- ...
+
+# 🎯 Decyzje
+
+- ...
+
+Jeżeli jakiejś informacji nie ma w transkrypcji, napisz "Nie określono".
+
+Transkrypcja:
 
 ${text}
 `;
