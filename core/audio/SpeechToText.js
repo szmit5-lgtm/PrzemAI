@@ -1,7 +1,14 @@
 require("dotenv").config();
 
 const fs = require("fs");
+const path = require("path");
+
+const ffmpeg = require("fluent-ffmpeg");
+const ffmpegPath = require("ffmpeg-static");
+
 const OpenAI = require("openai");
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 class SpeechToText {
 
@@ -13,15 +20,36 @@ class SpeechToText {
 
     }
 
-    async transcribe(filePath) {
+    convertToMp3(inputFile) {
 
-        const transcription = await this.client.audio.transcriptions.create({
+        return new Promise((resolve, reject) => {
 
-            file: fs.createReadStream(filePath),
+            const outputFile =
+                inputFile.replace(".oga", ".mp3");
 
-            model: "gpt-4o-mini-transcribe"
+            ffmpeg(inputFile)
+                .audioCodec("libmp3lame")
+                .format("mp3")
+                .save(outputFile)
+                .on("end", () => resolve(outputFile))
+                .on("error", reject);
 
         });
+
+    }
+
+    async transcribe(filePath) {
+
+        const mp3 = await this.convertToMp3(filePath);
+
+        const transcription =
+            await this.client.audio.transcriptions.create({
+
+                file: fs.createReadStream(mp3),
+
+                model: "gpt-4o-mini-transcribe"
+
+            });
 
         return transcription.text;
 
