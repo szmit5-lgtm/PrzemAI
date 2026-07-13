@@ -6,6 +6,7 @@ const TelegramBot =
 
 const ExecutiveAgent = require("../../agents/executive/ExecutiveAgent");
 const MeetingAgent = require("../../agents/meeting/MeetingAgent");
+const DocumentAgent = require("../../agents/document/DocumentAgent");
 
 const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
@@ -21,15 +22,14 @@ class PrzemAIBot {
         });
 
         this.executive = new ExecutiveAgent();
-
         this.meeting = new MeetingAgent();
+        this.documentAgent = new DocumentAgent();
 
         this.logger = new Logger();
 
         this.fileService = new TelegramFileService(this.bot);
 
         this.speech = new SpeechToText();
-
         this.document = new DocumentEngine();
 
     }
@@ -45,7 +45,7 @@ class PrzemAIBot {
             try {
 
                 // ==========================================
-                // OBSŁUGA WIADOMOŚCI GŁOSOWYCH
+                // GŁOS
                 // ==========================================
 
                 if (msg.voice) {
@@ -59,22 +59,8 @@ class PrzemAIBot {
                         msg.voice.file_id
                     );
 
-                    this.logger.info("Voice saved: " + filePath);
-
-                    await this.bot.sendMessage(
-                        chatId,
-                        "🧠 Transkrybuję nagranie..."
-                    );
-
                     const transcript =
                         await this.speech.transcribe(filePath);
-
-                    this.logger.info("Transcript created.");
-
-                    await this.bot.sendMessage(
-                        chatId,
-                        "🤖 Analizuję spotkanie..."
-                    );
 
                     const summary =
                         await this.meeting.process(transcript);
@@ -82,11 +68,10 @@ class PrzemAIBot {
                     await this.bot.sendMessage(chatId, summary);
 
                     return;
-
                 }
 
                 // ==========================================
-                // OBSŁUGA DOKUMENTÓW
+                // DOKUMENT
                 // ==========================================
 
                 if (msg.document) {
@@ -96,33 +81,38 @@ class PrzemAIBot {
                         "📄 Otrzymałem dokument.\n\n⬇️ Pobieram..."
                     );
 
-                    const filePath = await this.fileService.download(
-                        msg.document.file_id,
-                        "documents"
-                    );
+                    const filePath =
+                        await this.fileService.download(
+                            msg.document.file_id,
+                            "documents"
+                        );
 
-                    this.logger.info("Document saved: " + filePath);
+                    await this.bot.sendMessage(
+                        chatId,
+                        "📖 Odczytuję dokument..."
+                    );
 
                     const text =
                         await this.document.extractText(filePath);
 
                     await this.bot.sendMessage(
                         chatId,
-                        "✅ Dokument odczytany.\n\n" +
-                        text.substring(0, 1000)
+                        "🤖 Analizuję dokument..."
                     );
 
-                    return;
+                    const answer =
+                        await this.documentAgent.process(text);
 
+                    await this.bot.sendMessage(chatId, answer);
+
+                    return;
                 }
 
                 // ==========================================
-                // OBSŁUGA WIADOMOŚCI TEKSTOWYCH
+                // TEKST
                 // ==========================================
 
                 if (!msg.text) return;
-
-                this.logger.info("Telegram: " + msg.text);
 
                 const answer =
                     await this.executive.process(msg.text);
