@@ -55,9 +55,8 @@ class PrzemAIBot {
                         "🎤 Otrzymałem nagranie.\n\n⬇️ Pobieram..."
                     );
 
-                    const filePath = await this.fileService.download(
-                        msg.voice.file_id
-                    );
+                    const filePath =
+                        await this.fileService.download(msg.voice.file_id);
 
                     const transcript =
                         await this.speech.transcribe(filePath);
@@ -103,7 +102,16 @@ class PrzemAIBot {
                     const answer =
                         await this.documentAgent.process(text);
 
-                    await this.bot.sendMessage(chatId, answer);
+                    const MAX = 4000;
+
+                    for (let i = 0; i < answer.length; i += MAX) {
+
+                        await this.bot.sendMessage(
+                            chatId,
+                            answer.substring(i, i + MAX)
+                        );
+
+                    }
 
                     return;
                 }

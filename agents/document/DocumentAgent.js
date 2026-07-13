@@ -9,23 +9,39 @@ class DocumentAgent extends BaseAgent {
     async process(text) {
 
         const prompt = `
-Jesteś ekspertem od analizy dokumentów.
+Jesteś ekspertem od analizy dokumentów biznesowych.
 
-Na podstawie przesłanego tekstu przygotuj:
+Przygotuj ZWIĘZŁĄ analizę.
 
-# 📋 Krótkie streszczenie
+CAŁA odpowiedź ma mieć maksymalnie 2500 znaków.
 
-# ✅ Najważniejsze informacje
+Odpowiedz dokładnie w tym formacie:
 
-# ⚠ Ryzyka
+📋 STRESZCZENIE
+(max. 5 zdań)
 
-# 📅 Terminy
+✅ KLUCZOWE INFORMACJE
+- punkt
+- punkt
+- punkt
 
-# 💰 Zobowiązania finansowe
+⚠ RYZYKA
+- punkt
+- punkt
 
-# 📌 Rekomendacje
+📅 TERMINY
+- punkt
+- punkt
 
-Tekst:
+💰 FINANSE
+- punkt
+- punkt
+
+📌 REKOMENDACJA
+
+Napisz krótką rekomendację dla zarządu (maks. 5 zdań).
+
+Dokument:
 
 ${text}
 `;
