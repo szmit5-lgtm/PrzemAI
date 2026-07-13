@@ -7,9 +7,9 @@ class IntentClassifier {
     async classify(text) {
 
         const prompt = `
-Jesteś klasyfikatorem poleceń.
+Jesteś klasyfikatorem wiadomości dla systemu PrzemAI.
 
-Zwróć WYŁĄCZNIE poprawny JSON.
+Odpowiadasz WYŁĄCZNIE poprawnym JSON.
 
 Dostępne moduły:
 
@@ -18,6 +18,7 @@ MEETING
 LEGAL
 FINANCE
 SHOPPING
+MAIL
 
 Dostępne zadania:
 
@@ -28,15 +29,24 @@ ANALYZE_CONTRACT
 ANALYZE_FINANCE
 SEARCH_PRODUCT
 
-Format:
+Na podstawie wiadomości rozpoznaj również:
+
+- project
+- category
+- tags
+
+Format odpowiedzi:
 
 {
-  "module":"GENERAL",
-  "task":"CHAT",
-  "confidence":0.99
+    "module":"GENERAL",
+    "task":"CHAT",
+    "project":"GENERAL",
+    "category":"GENERAL",
+    "tags":["..."],
+    "confidence":0.99
 }
 
-Polecenie:
+Wiadomość:
 
 ${text}
 `;
@@ -44,12 +54,17 @@ ${text}
         const response = await this.ai.ask(prompt);
 
         try {
+
             return JSON.parse(response);
+
         } catch {
 
             return {
                 module: "GENERAL",
                 task: "CHAT",
+                project: "GENERAL",
+                category: "GENERAL",
+                tags: [],
                 confidence: 0
             };
 

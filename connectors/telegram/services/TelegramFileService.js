@@ -10,18 +10,18 @@ class TelegramFileService {
         this.bot = bot;
     }
 
-    async download(fileId) {
+   async download(fileId, folder = "audio") {
 
         const file = await this.bot.getFile(fileId);
 
         const url =
             `https://api.telegram.org/file/bot${process.env.TELEGRAM_TOKEN}/${file.file_path}`;
 
-        const downloadDir = path.join(
-            process.cwd(),
-            "downloads",
-            "audio"
-        );
+      const downloadDir = path.join(
+    process.cwd(),
+    "downloads",
+    folder
+);
 
         // Utwórz katalog, jeśli nie istnieje
         fs.mkdirSync(downloadDir, { recursive: true });

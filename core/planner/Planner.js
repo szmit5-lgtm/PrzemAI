@@ -2,9 +2,25 @@ class Planner {
 
     createPlan(intent) {
 
+        // Komenda pamięci
+        if (
+            intent.task === "MEMORY_SEARCH" ||
+            intent.module === "MEMORY"
+        ) {
+
+            return [
+                {
+                    agent: "GENERAL",
+                    action: "memory"
+                }
+            ];
+
+        }
+
         switch (intent.task) {
 
             case "WRITE_EMAIL":
+
                 return [
                     {
                         agent: "MAIL",
@@ -13,6 +29,7 @@ class Planner {
                 ];
 
             case "SUMMARIZE_MEETING":
+
                 return [
                     {
                         agent: "MEETING",
@@ -20,11 +37,22 @@ class Planner {
                     }
                 ];
 
+            case "SEARCH_PRODUCT":
+
+                return [
+                    {
+                        agent: "SHOPPING",
+                        action: "search"
+                    }
+                ];
+
+            case "CHAT":
             default:
+
                 return [
                     {
                         agent: "GENERAL",
-                        action: "chat"
+                        action: "process"
                     }
                 ];
 
