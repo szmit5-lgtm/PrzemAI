@@ -16,7 +16,7 @@
     "mammoth": "^1.12.0",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^6.45.0",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "playwright": "^1.61.1"
   }
 }
