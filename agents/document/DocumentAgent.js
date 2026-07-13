@@ -8,45 +8,34 @@ class DocumentAgent extends BaseAgent {
 
     async process(text) {
 
+        console.log("=== DOCUMENT AGENT START ===");
+        console.log("Document length:", text.length);
+
         const prompt = `
 Jesteś ekspertem od analizy dokumentów biznesowych.
 
-Przygotuj ZWIĘZŁĄ analizę.
+Przygotuj krótką analizę dokumentu.
 
-CAŁA odpowiedź ma mieć maksymalnie 2500 znaków.
+Odpowiedź ma mieć MAKSYMALNIE 1500 znaków.
 
-Odpowiedz dokładnie w tym formacie:
-
-📋 STRESZCZENIE
-(max. 5 zdań)
-
-✅ KLUCZOWE INFORMACJE
-- punkt
-- punkt
-- punkt
-
-⚠ RYZYKA
-- punkt
-- punkt
-
-📅 TERMINY
-- punkt
-- punkt
-
-💰 FINANSE
-- punkt
-- punkt
-
-📌 REKOMENDACJA
-
-Napisz krótką rekomendację dla zarządu (maks. 5 zdań).
+Uwzględnij:
+- Streszczenie
+- Kluczowe informacje
+- Ryzyka
+- Terminy
+- Rekomendację
 
 Dokument:
 
 ${text}
 `;
 
-        return await this.ai.ask(prompt);
+        const answer = await this.ai.ask(prompt);
+
+        console.log("=== DOCUMENT AGENT END ===");
+        console.log("Answer length:", answer.length);
+
+        return answer;
 
     }
 
