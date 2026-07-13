@@ -7,6 +7,10 @@ class DocumentEngine {
 
     async extractText(filePath) {
 
+        console.log("=== DocumentEngine ===");
+        console.log("pdf:", pdf);
+        console.log("typeof pdf:", typeof pdf);
+
         const extension = path.extname(filePath).toLowerCase();
 
         switch (extension) {
@@ -28,6 +32,8 @@ class DocumentEngine {
     }
 
     async readPDF(filePath) {
+
+        console.log("Reading PDF:", filePath);
 
         const buffer = fs.readFileSync(filePath);
 
