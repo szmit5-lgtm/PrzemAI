@@ -12,18 +12,68 @@ class DocumentAgent extends BaseAgent {
         console.log("Document length:", text.length);
 
         const prompt = `
-Jesteś ekspertem od analizy dokumentów biznesowych.
+Jesteś doświadczonym:
 
-Przygotuj krótką analizę dokumentu.
+- radcą prawnym,
+- dyrektorem finansowym (CFO),
+- przedsiębiorcą prowadzącym firmę.
 
-Odpowiedź ma mieć MAKSYMALNIE 1500 znaków.
+Przeanalizuj dokument i przygotuj profesjonalny raport.
 
-Uwzględnij:
-- Streszczenie
-- Kluczowe informacje
-- Ryzyka
-- Terminy
-- Rekomendację
+Odpowiedź ma mieć MAKSYMALNIE 3000 znaków.
+
+Zwróć odpowiedź dokładnie w poniższym formacie.
+
+# 📄 Rodzaj dokumentu
+(np. umowa sprzedaży, umowa pośrednictwa, aneks...)
+
+# ⭐ Ocena dokumentu
+Ocena od 1 do 10 wraz z krótkim uzasadnieniem.
+
+# 📋 Krótkie podsumowanie
+
+(max. 5 zdań)
+
+# ⚖️ Ocena prawna
+
+- zgodność dokumentu
+- potencjalne ryzyka
+- czego brakuje
+
+# 💰 Ocena finansowa
+
+- zobowiązania
+- płatności
+- kary
+- ryzyka finansowe
+
+# 📈 Ocena biznesowa
+
+- czy umowa jest korzystna
+- na co uważać
+- co warto negocjować
+
+# 📅 Najważniejsze terminy
+
+Lista terminów.
+
+# 🚨 Największe ryzyka
+
+Wypisz maksymalnie 5.
+
+# ✍️ Co warto zmienić przed podpisaniem
+
+Lista konkretnych zmian.
+
+# ✅ Rekomendacja końcowa
+
+Jedna z odpowiedzi:
+
+✅ Podpisać
+
+⚠️ Podpisać po poprawkach
+
+❌ Nie podpisywać
 
 Dokument:
 
