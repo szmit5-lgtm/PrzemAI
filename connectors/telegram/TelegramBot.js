@@ -5,14 +5,13 @@ const TelegramBot =
     require("node-telegram-bot-api");
 
 const ExecutiveAgent = require("../../agents/executive/ExecutiveAgent");
-const MeetingAgent = require("../../agents/meeting/MeetingAgent");
 
 const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
-const SpeechToText = require("../../core/audio/SpeechToText");
 
-// NOWY HANDLER
+// Handlery
 const DocumentHandler = require("./handlers/DocumentHandler");
+const VoiceHandler = require("./handlers/VoiceHandler");
 
 class PrzemAIBot {
 
@@ -23,16 +22,17 @@ class PrzemAIBot {
         });
 
         this.executive = new ExecutiveAgent();
-        this.meeting = new MeetingAgent();
 
         this.logger = new Logger();
 
         this.fileService = new TelegramFileService(this.bot);
 
-        this.speech = new SpeechToText();
-
-        // NOWY HANDLER
         this.documentHandler = new DocumentHandler(
+            this.bot,
+            this.fileService
+        );
+
+        this.voiceHandler = new VoiceHandler(
             this.bot,
             this.fileService
         );
@@ -49,35 +49,24 @@ class PrzemAIBot {
 
             try {
 
-                // ==========================================
+                // ==========================
                 // GŁOS
-                // ==========================================
+                // ==========================
 
                 if (msg.voice) {
 
-                    await this.bot.sendMessage(
+                    await this.voiceHandler.handle(
                         chatId,
-                        "🎤 Otrzymałem nagranie.\n\n⬇️ Pobieram..."
+                        msg.voice
                     );
-
-                    const filePath =
-                        await this.fileService.download(msg.voice.file_id);
-
-                    const transcript =
-                        await this.speech.transcribe(filePath);
-
-                    const summary =
-                        await this.meeting.process(transcript);
-
-                    await this.bot.sendMessage(chatId, summary);
 
                     return;
 
                 }
 
-                // ==========================================
+                // ==========================
                 // DOKUMENT
-                // ==========================================
+                // ==========================
 
                 if (msg.document) {
 
@@ -90,9 +79,9 @@ class PrzemAIBot {
 
                 }
 
-                // ==========================================
+                // ==========================
                 // TEKST
-                // ==========================================
+                // ==========================
 
                 if (!msg.text) return;
 
