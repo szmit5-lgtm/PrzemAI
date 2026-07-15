@@ -8,57 +8,81 @@ class GeneralAgent extends BaseAgent {
 
     async process(text) {
 
-        // Szukamy podobnych rozmów
         const history = this.memory.search(text);
 
         let context = "";
 
         if (history.length > 0) {
 
-            context =
-                "Poprzednie rozmowy:\n\n" +
+            context = history
+                .slice(-10)
+                .map(item => {
 
-                history
-                    .slice(-5)
-                    .map(item =>
-                        `Użytkownik: ${item.user}\nAsystent: ${item.assistant}`
-                    )
-                    .join("\n\n");
+                    switch (item.type) {
+
+                        case "conversation":
+                            return `ROZMOWA
+Użytkownik: ${item.user}
+Asystent: ${item.assistant}`;
+
+                        case "document":
+                            return `DOKUMENT
+Tytuł: ${item.title}
+
+${item.summary}`;
+
+                        case "meeting":
+                            return `SPOTKANIE
+${item.summary}`;
+
+                        case "fact":
+                            return `FAKT
+${item.name}: ${item.value}`;
+
+                        default:
+                            return JSON.stringify(item);
+
+                    }
+
+                })
+                .join("\n\n----------------------\n\n");
 
         }
 
         const prompt = `
+Masz do dyspozycji pamięć PrzemAI.
+
 ${context}
 
-Aktualna wiadomość użytkownika:
+==========================
+
+Aktualne pytanie użytkownika:
 
 ${text}
 
-Odpowiedz możliwie najlepiej, wykorzystując wcześniejsze informacje,
-jeżeli są przydatne.
+Jeżeli w pamięci znajdują się przydatne informacje,
+wykorzystaj je.
+
+Jeżeli nie ma nic przydatnego,
+odpowiedz normalnie.
 `;
 
-        return await this.ai.ask(prompt);
+        const answer = await this.ai.ask(prompt);
 
-    }
+        this.memory.saveConversation(
 
-    async memory(query) {
+            text,
 
-        const results = this.memory.search(query);
+            answer,
 
-        if (results.length === 0) {
-            return "Nie znalazłem żadnych zapisanych informacji.";
-        }
+            {
+                project: "GENERAL",
+                category: "CHAT",
+                source: "TELEGRAM",
+                tags: ["conversation"]
+            }
 
-        let answer = `📚 Znalazłem ${results.length} wpisów.\n\n`;
-
-        for (const item of results.slice(-10).reverse()) {
-
-            answer +=
-                `📅 ${new Date(item.date).toLocaleDateString("pl-PL")}\n` +
-                `👤 ${item.user}\n\n`;
-
-        }
+        );
 
         return answer;
 
