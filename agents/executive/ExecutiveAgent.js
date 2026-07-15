@@ -25,6 +25,47 @@ class ExecutiveAgent extends BaseAgent {
 
         this.logger.info("Nowe polecenie: " + text);
 
+        // ==========================================
+        // MEMORY FIRST
+        // ==========================================
+
+        const lower = text.toLowerCase();
+
+        if (
+            lower.includes("pamiętasz") ||
+            lower.includes("pamięć") ||
+            lower.includes("analizowaliśmy") ||
+            lower.includes("szukaj") ||
+            lower.includes("znajdź") ||
+            lower.includes("pokaż")
+        ) {
+
+            this.logger.info("Memory search...");
+
+            const results = this.memory.search(text);
+
+            if (results.length > 0) {
+
+                let answer = `🧠 Znalazłem ${results.length} wpisów.\n\n`;
+
+                for (const item of results.slice(-5).reverse()) {
+
+                    answer +=
+                        `📂 ${item.type || "inne"}\n` +
+                        `${item.title || item.name || item.user || "-"}\n\n`;
+
+                }
+
+                return answer;
+
+            }
+
+        }
+
+        // ==========================================
+        // NORMALNA OBSŁUGA
+        // ==========================================
+
         const intent = await this.classifier.classify(text);
 
         this.logger.info(JSON.stringify(intent));
