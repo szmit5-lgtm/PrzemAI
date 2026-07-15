@@ -6,12 +6,13 @@ const TelegramBot =
 
 const ExecutiveAgent = require("../../agents/executive/ExecutiveAgent");
 const MeetingAgent = require("../../agents/meeting/MeetingAgent");
-const DocumentAgent = require("../../agents/document/DocumentAgent");
 
 const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
 const SpeechToText = require("../../core/audio/SpeechToText");
-const DocumentEngine = require("../../core/document/DocumentEngine");
+
+// NOWY HANDLER
+const DocumentHandler = require("./handlers/DocumentHandler");
 
 class PrzemAIBot {
 
@@ -23,14 +24,18 @@ class PrzemAIBot {
 
         this.executive = new ExecutiveAgent();
         this.meeting = new MeetingAgent();
-        this.documentAgent = new DocumentAgent();
 
         this.logger = new Logger();
 
         this.fileService = new TelegramFileService(this.bot);
 
         this.speech = new SpeechToText();
-        this.document = new DocumentEngine();
+
+        // NOWY HANDLER
+        this.documentHandler = new DocumentHandler(
+            this.bot,
+            this.fileService
+        );
 
     }
 
@@ -67,6 +72,7 @@ class PrzemAIBot {
                     await this.bot.sendMessage(chatId, summary);
 
                     return;
+
                 }
 
                 // ==========================================
@@ -75,45 +81,13 @@ class PrzemAIBot {
 
                 if (msg.document) {
 
-                    await this.bot.sendMessage(
+                    await this.documentHandler.handle(
                         chatId,
-                        "📄 Otrzymałem dokument.\n\n⬇️ Pobieram..."
+                        msg.document
                     );
-
-                    const filePath =
-                        await this.fileService.download(
-                            msg.document.file_id,
-                            "documents"
-                        );
-
-                    await this.bot.sendMessage(
-                        chatId,
-                        "📖 Odczytuję dokument..."
-                    );
-
-                    const text =
-                        await this.document.extractText(filePath);
-
-                    await this.bot.sendMessage(
-                        chatId,
-                        "🤖 Analizuję dokument..."
-                    );
-
-                    const answer =
-                        await this.documentAgent.process(text);
-
-                    const MAX = 4000;
-
-                    for (let i = 0; i < answer.length; i += MAX) {
-
-                        await this.bot.sendMessage(
-                            chatId,
-                            answer.substring(i, i + MAX)
-                        );
-
-                    }
 
                     return;
+
                 }
 
                 // ==========================================

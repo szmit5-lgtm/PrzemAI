@@ -1,0 +1,13 @@
+[
+  {
+    "id": 1784123068198,
+    "createdAt": "2026-07-15T13:44:28.198Z",
+    "type": "fact",
+    "name": "TEST",
+    "value": "To działa",
+    "project": "GENERAL",
+    "category": "FACT",
+    "source": "AI",
+    "tags": []
+  }
+]
