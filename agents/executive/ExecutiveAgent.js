@@ -26,7 +26,7 @@ class ExecutiveAgent extends BaseAgent {
         this.logger.info("Nowe polecenie: " + text);
 
         // ==========================================
-        // MEMORY FIRST
+        // WYSZUKIWANIE W PAMIĘCI
         // ==========================================
 
         const lower = text.toLowerCase();
@@ -63,16 +63,12 @@ class ExecutiveAgent extends BaseAgent {
         }
 
         // ==========================================
-        // NORMALNA OBSŁUGA
+        // STANDARDOWA OBSŁUGA
         // ==========================================
 
         const intent = await this.classifier.classify(text);
 
-        this.logger.info(JSON.stringify(intent));
-
         const plan = this.planner.createPlan(intent);
-
-        this.logger.info(JSON.stringify(plan));
 
         const answer = await this.executor.execute(plan, text);
 

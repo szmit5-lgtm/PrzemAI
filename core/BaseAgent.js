@@ -1,6 +1,6 @@
 const BrowserManager = require("./browser/BrowserManager");
 const AIEngine = require("./ai/AIEngine");
-const MemoryEngine = require("./memory/MemoryEngine");
+const MemoryService = require("./memory/MemoryService");
 const Logger = require("./logger/logger");
 
 class BaseAgent {
@@ -13,7 +13,7 @@ class BaseAgent {
 
         this.ai = new AIEngine();
 
-        this.memory = new MemoryEngine();
+        this.memory = new MemoryService();
 
         this.logger = new Logger();
 
