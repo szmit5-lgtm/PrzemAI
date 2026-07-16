@@ -5,6 +5,8 @@ const Planner = require("../../core/planner/Planner");
 const Executor = require("../../core/executor/Executor");
 const Bootstrap = require("../../core/bootstrap/Bootstrap");
 
+const FactExtractor = require("../../core/memory/FactExtractor");
+
 class ExecutiveAgent extends BaseAgent {
 
     constructor() {
@@ -19,11 +21,28 @@ class ExecutiveAgent extends BaseAgent {
 
         this.executor = new Executor(this.registry);
 
+        this.factExtractor = new FactExtractor();
+
     }
 
     async process(text) {
 
         this.logger.info("Nowe polecenie: " + text);
+
+        // ==========================================
+        // WYCIĄGANIE FAKTÓW
+        // ==========================================
+
+        const facts = this.factExtractor.extract(text);
+
+        for (const fact of facts) {
+
+            this.memory.saveFact(
+                fact.name,
+                fact.value
+            );
+
+        }
 
         // ==========================================
         // WYSZUKIWANIE W PAMIĘCI
@@ -39,8 +58,6 @@ class ExecutiveAgent extends BaseAgent {
             lower.includes("znajdź") ||
             lower.includes("pokaż")
         ) {
-
-            this.logger.info("Memory search...");
 
             const results = this.memory.search(text);
 
