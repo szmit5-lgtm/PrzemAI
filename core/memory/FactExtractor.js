@@ -2,6 +2,9 @@ class FactExtractor {
 
     extract(text) {
 
+        console.log("=== FACT EXTRACTOR ===");
+        console.log("Tekst:", text);
+
         const facts = [];
 
         // Imię
@@ -43,6 +46,8 @@ class FactExtractor {
                 value: match[0]
             });
         }
+
+        console.log("Znalezione fakty:", facts);
 
         return facts;
 
