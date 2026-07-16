@@ -4,14 +4,13 @@ const TelegramBot =
     require("node-telegram-bot-api").default ||
     require("node-telegram-bot-api");
 
-const ExecutiveAgent = require("../../agents/executive/ExecutiveAgent");
-
 const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
 
 // Handlery
-const DocumentHandler = require("./handlers/DocumentHandler");
 const VoiceHandler = require("./handlers/VoiceHandler");
+const DocumentHandler = require("./handlers/DocumentHandler");
+const TextHandler = require("./handlers/TextHandler");
 
 class PrzemAIBot {
 
@@ -21,20 +20,22 @@ class PrzemAIBot {
             polling: true
         });
 
-        this.executive = new ExecutiveAgent();
-
         this.logger = new Logger();
 
         this.fileService = new TelegramFileService(this.bot);
+
+        this.voiceHandler = new VoiceHandler(
+            this.bot,
+            this.fileService
+        );
 
         this.documentHandler = new DocumentHandler(
             this.bot,
             this.fileService
         );
 
-        this.voiceHandler = new VoiceHandler(
-            this.bot,
-            this.fileService
+        this.textHandler = new TextHandler(
+            this.bot
         );
 
     }
@@ -83,12 +84,16 @@ class PrzemAIBot {
                 // TEKST
                 // ==========================
 
-                if (!msg.text) return;
+                if (msg.text) {
 
-                const answer =
-                    await this.executive.process(msg.text);
+                    await this.textHandler.handle(
+                        chatId,
+                        msg.text
+                    );
 
-                await this.bot.sendMessage(chatId, answer);
+                    return;
+
+                }
 
             } catch (err) {
 
