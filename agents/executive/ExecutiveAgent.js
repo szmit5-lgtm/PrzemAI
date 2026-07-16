@@ -6,6 +6,7 @@ const Executor = require("../../core/executor/Executor");
 const Bootstrap = require("../../core/bootstrap/Bootstrap");
 
 const FactExtractor = require("../../core/memory/FactExtractor");
+const KnowledgeService = require("../../core/knowledge/KnowledgeService");
 
 class ExecutiveAgent extends BaseAgent {
 
@@ -23,6 +24,8 @@ class ExecutiveAgent extends BaseAgent {
 
         this.factExtractor = new FactExtractor();
 
+        this.knowledge = new KnowledgeService();
+
     }
 
     async process(text) {
@@ -30,7 +33,7 @@ class ExecutiveAgent extends BaseAgent {
         this.logger.info("Nowe polecenie: " + text);
 
         // ==========================================
-        // WYCIĄGANIE FAKTÓW
+        // ZAPIS FAKTÓW
         // ==========================================
 
         const facts = this.factExtractor.extract(text);
@@ -45,37 +48,20 @@ class ExecutiveAgent extends BaseAgent {
         }
 
         // ==========================================
-        // WYSZUKIWANIE W PAMIĘCI
+        // ODPOWIEDŹ Z WIEDZY
         // ==========================================
 
-        const lower = text.toLowerCase();
+        const knowledgeAnswer =
+            this.knowledge.answer(text);
 
-        if (
-            lower.includes("pamiętasz") ||
-            lower.includes("pamięć") ||
-            lower.includes("analizowaliśmy") ||
-            lower.includes("szukaj") ||
-            lower.includes("znajdź") ||
-            lower.includes("pokaż")
-        ) {
+        if (knowledgeAnswer) {
 
-            const results = this.memory.search(text);
+            this.memory.saveConversation(
+                text,
+                knowledgeAnswer
+            );
 
-            if (results.length > 0) {
-
-                let answer = `🧠 Znalazłem ${results.length} wpisów.\n\n`;
-
-                for (const item of results.slice(-5).reverse()) {
-
-                    answer +=
-                        `📂 ${item.type || "inne"}\n` +
-                        `${item.title || item.name || item.user || "-"}\n\n`;
-
-                }
-
-                return answer;
-
-            }
+            return knowledgeAnswer;
 
         }
 
@@ -83,13 +69,19 @@ class ExecutiveAgent extends BaseAgent {
         // STANDARDOWA OBSŁUGA
         // ==========================================
 
-        const intent = await this.classifier.classify(text);
+        const intent =
+            await this.classifier.classify(text);
 
-        const plan = this.planner.createPlan(intent);
+        const plan =
+            this.planner.createPlan(intent);
 
-        const answer = await this.executor.execute(plan, text);
+        const answer =
+            await this.executor.execute(plan, text);
 
-        this.memory.saveConversation(text, answer);
+        this.memory.saveConversation(
+            text,
+            answer
+        );
 
         return answer;
 
