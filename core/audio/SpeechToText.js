@@ -24,8 +24,16 @@ class SpeechToText {
 
         return new Promise((resolve, reject) => {
 
-            const outputFile =
-                inputFile.replace(".oga", ".mp3");
+            const ext = path.extname(inputFile).toLowerCase();
+
+            // Jeśli plik jest już MP3, nie konwertujemy
+            if (ext === ".mp3") {
+
+                return resolve(inputFile);
+
+            }
+
+            const outputFile = inputFile.replace(ext, ".mp3");
 
             ffmpeg(inputFile)
                 .audioCodec("libmp3lame")
