@@ -1,13 +1,17 @@
+const path = require("path");
+
 const DocumentAgent = require("../../../agents/document/DocumentAgent");
 const DocumentEngine = require("../../../core/document/DocumentEngine");
 
 class DocumentHandler {
 
-    constructor(bot, fileService) {
+    constructor(bot, fileService, mediaHandler) {
 
         this.bot = bot;
 
         this.fileService = fileService;
+
+        this.mediaHandler = mediaHandler;
 
         this.document = new DocumentEngine();
 
@@ -16,6 +20,23 @@ class DocumentHandler {
     }
 
     async handle(chatId, document) {
+
+        const extension = path.extname(document.file_name || "").toLowerCase();
+
+        if ([
+            ".mp3",
+            ".m4a",
+            ".wav",
+            ".mp4",
+            ".mpeg"
+        ].includes(extension)) {
+
+            return await this.mediaHandler.handle(
+                chatId,
+                document
+            );
+
+        }
 
         await this.bot.sendMessage(
             chatId,

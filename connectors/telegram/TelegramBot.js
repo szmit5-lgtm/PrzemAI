@@ -8,7 +8,7 @@ const Logger = require("../../core/logger/logger");
 const TelegramFileService = require("./services/TelegramFileService");
 
 // Handlery
-const VoiceHandler = require("./handlers/VoiceHandler");
+const MediaHandler = require("./handlers/MediaHandler");
 const DocumentHandler = require("./handlers/DocumentHandler");
 const TextHandler = require("./handlers/TextHandler");
 
@@ -24,14 +24,15 @@ class PrzemAIBot {
 
         this.fileService = new TelegramFileService(this.bot);
 
-        this.voiceHandler = new VoiceHandler(
+        this.mediaHandler = new MediaHandler(
             this.bot,
             this.fileService
         );
 
         this.documentHandler = new DocumentHandler(
             this.bot,
-            this.fileService
+            this.fileService,
+            this.mediaHandler
         );
 
         this.textHandler = new TextHandler(
@@ -51,12 +52,12 @@ class PrzemAIBot {
             try {
 
                 // ==========================
-                // GŁOS
+                // VOICE
                 // ==========================
 
                 if (msg.voice) {
 
-                    await this.voiceHandler.handle(
+                    await this.mediaHandler.handle(
                         chatId,
                         msg.voice
                     );
@@ -66,7 +67,22 @@ class PrzemAIBot {
                 }
 
                 // ==========================
-                // DOKUMENT
+                // AUDIO
+                // ==========================
+
+                if (msg.audio) {
+
+                    await this.mediaHandler.handle(
+                        chatId,
+                        msg.audio
+                    );
+
+                    return;
+
+                }
+
+                // ==========================
+                // DOCUMENT
                 // ==========================
 
                 if (msg.document) {
@@ -81,7 +97,7 @@ class PrzemAIBot {
                 }
 
                 // ==========================
-                // TEKST
+                // TEXT
                 // ==========================
 
                 if (msg.text) {
