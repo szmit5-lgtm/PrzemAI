@@ -45,17 +45,41 @@ class PrzemAIBot {
 
         console.log("🤖 PrzemAI Telegram uruchomiony");
 
+        // DEBUG
+
+        this.bot.on("audio", (msg) => {
+
+            console.log("========== AUDIO EVENT ==========");
+            console.log(JSON.stringify(msg, null, 2));
+
+        });
+
+        this.bot.on("document", (msg) => {
+
+            console.log("========== DOCUMENT EVENT ==========");
+            console.log(JSON.stringify(msg, null, 2));
+
+        });
+
+        this.bot.on("voice", (msg) => {
+
+            console.log("========== VOICE EVENT ==========");
+            console.log(JSON.stringify(msg, null, 2));
+
+        });
+
         this.bot.on("message", async (msg) => {
+
+            console.log("========== MESSAGE EVENT ==========");
+            console.log(JSON.stringify(msg, null, 2));
 
             const chatId = msg.chat.id;
 
             try {
 
-                // ==========================
-                // VOICE
-                // ==========================
-
                 if (msg.voice) {
+
+                    console.log("VOICE");
 
                     await this.mediaHandler.handle(
                         chatId,
@@ -66,11 +90,9 @@ class PrzemAIBot {
 
                 }
 
-                // ==========================
-                // AUDIO
-                // ==========================
-
                 if (msg.audio) {
+
+                    console.log("AUDIO");
 
                     await this.mediaHandler.handle(
                         chatId,
@@ -81,11 +103,9 @@ class PrzemAIBot {
 
                 }
 
-                // ==========================
-                // DOCUMENT
-                // ==========================
-
                 if (msg.document) {
+
+                    console.log("DOCUMENT");
 
                     await this.documentHandler.handle(
                         chatId,
@@ -96,11 +116,9 @@ class PrzemAIBot {
 
                 }
 
-                // ==========================
-                // TEXT
-                // ==========================
-
                 if (msg.text) {
+
+                    console.log("TEXT");
 
                     await this.textHandler.handle(
                         chatId,
