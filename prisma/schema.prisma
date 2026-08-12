@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  password String
+  role     String @default("user")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  histories     History[]
+  tasks         Task[]
+  conversations ChatConversation[]
+  memories      Memory[]
+  settings      UserSettings?
+}
+
+model History {
+  id       String @id @default(cuid())
+  title    String
+  filename String
+  type     String
+  report   Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Task {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+
+  status   String @default("TODO")
+  priority String @default("MEDIUM")
+
+  source String  @default("MANUAL")
+  owner  String?
+
+  dueDate     DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  tags     String[]
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([source])
+  @@index([dueDate])
+}
+
+model ChatConversation {
+  id    String @id @default(cuid())
+  title String @default("Nowa rozmowa")
+
+  archivedAt    DateTime?
+  lastMessageAt DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([userId, lastMessageAt])
+  @@index([archivedAt])
+}
+
+model ChatMessage {
+  id      String @id @default(cuid())
+  role    String
+  content String
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+}
+
+model Memory {
+  id String @id @default(cuid())
+
+  type    String
+  title   String
+  content String
+
+  source String @default("MANUAL")
+
+  importance Int @default(3)
+
+  tags     String[]
+  metadata Json?
+
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([source])
+  @@index([importance])
+  @@index([archivedAt])
+  @@index([createdAt])
+}
+
+model UserSettings {
+  id String @id @default(cuid())
+
+  memoryEnabled  Boolean @default(true)
+  historyEnabled Boolean @default(true)
+  executiveMode  Boolean @default(true)
+  aiModel        String  @default("gpt-5.5")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
