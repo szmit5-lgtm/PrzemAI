@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { login } from "@/lib/api";
+import { register } from "@/lib/api";
 
-export default function LoginPage() {
+export default function RegisterPage() {
 
     const router = useRouter();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [passwordRepeat, setPasswordRepeat] = useState("");
 
     const [loading, setLoading] = useState(false);
 
@@ -18,21 +19,32 @@ export default function LoginPage() {
 
         e.preventDefault();
 
+        if (password.length < 8) {
+
+            alert("Hasło musi mieć co najmniej 8 znaków.");
+            return;
+
+        }
+
+        if (password !== passwordRepeat) {
+
+            alert("Podane hasła nie są identyczne.");
+            return;
+
+        }
+
         setLoading(true);
 
         try {
 
-            const data = await login(
+            await register(
                 email,
                 password
             );
 
-            localStorage.setItem(
-                "token",
-                data.token
-            );
+            alert("Konto zostało utworzone. Możesz się teraz zalogować.");
 
-            router.push("/");
+            router.push("/login");
 
         }
         catch (err) {
@@ -64,11 +76,11 @@ export default function LoginPage() {
                     </div>
 
                     <h1 className="mt-6 text-4xl font-bold">
-                        PrzemAI
+                        Załóż konto
                     </h1>
 
                     <p className="mt-2 text-slate-500">
-                        Executive AI Assistant
+                        PrzemAI
                     </p>
 
                 </div>
@@ -98,8 +110,30 @@ export default function LoginPage() {
                     <input
                         type="password"
                         required
+                        minLength={8}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-xl border px-4 py-4 outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+
+                    <p className="mt-2 text-xs text-slate-400">
+                        Minimum 8 znaków.
+                    </p>
+
+                </div>
+
+                <div className="mt-6">
+
+                    <label className="block text-sm font-medium mb-2">
+                        Powtórz hasło
+                    </label>
+
+                    <input
+                        type="password"
+                        required
+                        minLength={8}
+                        value={passwordRepeat}
+                        onChange={(e) => setPasswordRepeat(e.target.value)}
                         className="w-full rounded-xl border px-4 py-4 outline-none focus:ring-2 focus:ring-blue-500"
                     />
 
@@ -112,20 +146,20 @@ export default function LoginPage() {
                 >
 
                     {loading
-                        ? "Logowanie..."
-                        : "Zaloguj się"}
+                        ? "Tworzenie konta..."
+                        : "Utwórz konto"}
 
                 </button>
 
                 <p className="mt-6 text-center text-sm text-slate-500">
 
-                    Nie masz jeszcze konta?{" "}
+                    Masz już konto?{" "}
 
                     <Link
-                        href="/register"
+                        href="/login"
                         className="font-semibold text-blue-600 hover:text-blue-700"
                     >
-                        Zarejestruj się
+                        Zaloguj się
                     </Link>
 
                 </p>

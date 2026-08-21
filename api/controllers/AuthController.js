@@ -8,16 +8,126 @@ const {
 
 class AuthController {
 
+    async register(req, res) {
+
+        try {
+
+            const {
+                email,
+                password
+            } = req.body;
+
+            const normalizedEmail =
+                String(email || "")
+                    .trim()
+                    .toLowerCase();
+
+            if (!normalizedEmail || !password) {
+
+                return res.status(400).json({
+
+                    success: false,
+                    error: "Podaj e-mail i hasło."
+
+                });
+
+            }
+
+            if (password.length < 8) {
+
+                return res.status(400).json({
+
+                    success: false,
+                    error: "Hasło musi mieć co najmniej 8 znaków."
+
+                });
+
+            }
+
+            const existingUser =
+                await prisma.user.findUnique({
+
+                    where: {
+                        email: normalizedEmail
+                    }
+
+                });
+
+            if (existingUser) {
+
+                return res.status(409).json({
+
+                    success: false,
+                    error: "Konto z tym adresem e-mail już istnieje."
+
+                });
+
+            }
+
+            const hashedPassword =
+                await hashPassword(password);
+
+            const user =
+                await prisma.user.create({
+
+                    data: {
+
+                        email: normalizedEmail,
+                        password: hashedPassword,
+                        role: "user"
+
+                    },
+
+                    select: {
+
+                        id: true,
+                        email: true,
+                        role: true,
+                        createdAt: true
+
+                    }
+
+                });
+
+            return res.status(201).json({
+
+                success: true,
+                message: "Konto zostało utworzone.",
+                user
+
+            });
+
+        }
+        catch (err) {
+
+            return res.status(500).json({
+
+                success: false,
+                error:
+                    err.message ||
+                    "Nie udało się utworzyć konta."
+
+            });
+
+        }
+
+    }
+
     async login(req, res) {
 
         try {
 
             const { email, password } = req.body;
 
+            const normalizedEmail =
+                String(email || "")
+                    .trim()
+                    .toLowerCase();
+
             const user = await prisma.user.findUnique({
 
                 where: {
-                    email
+                    email: normalizedEmail
                 }
 
             });

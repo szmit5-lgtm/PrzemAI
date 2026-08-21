@@ -36,7 +36,14 @@ async function request(endpoint, options = {}) {
 
         localStorage.removeItem("token");
 
-        window.location.href = "/login";
+        if (
+            typeof window !== "undefined" &&
+            !window.location.pathname.startsWith("/login")
+        ) {
+
+            window.location.href = "/login";
+
+        }
 
         throw new Error("Sesja wygasła.");
 
@@ -60,6 +67,25 @@ async function request(endpoint, options = {}) {
     }
 
     return data;
+
+}
+
+export async function register(email, password) {
+
+    return request("/api/auth/register", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+            email,
+            password
+        })
+
+    });
 
 }
 
