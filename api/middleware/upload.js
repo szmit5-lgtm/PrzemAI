@@ -12,7 +12,8 @@ const storage = multer.diskStorage({
 
     filename(req, file, cb) {
 
-        const ext = path.extname(file.originalname);
+        const ext =
+            path.extname(file.originalname).toLowerCase();
 
         cb(
             null,
@@ -23,11 +24,25 @@ const storage = multer.diskStorage({
 
 });
 
-const allowed = [
+const allowedExtensions = [
 
+    // Dokumenty
     ".pdf",
     ".docx",
-    ".txt"
+    ".txt",
+
+    // Audio
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".ogg",
+    ".mpeg",
+    ".mpga",
+    ".flac",
+
+    // Audio / video
+    ".webm",
+    ".mp4"
 
 ];
 
@@ -37,11 +52,16 @@ const upload = multer({
 
     fileFilter(req, file, cb) {
 
-        const ext = path.extname(file.originalname).toLowerCase();
+        const ext =
+            path.extname(file.originalname).toLowerCase();
 
-        if (!allowed.includes(ext)) {
+        if (!allowedExtensions.includes(ext)) {
 
-            return cb(new Error("Nieobsługiwany typ pliku."));
+            return cb(
+                new Error(
+                    `Nieobsługiwany typ pliku: ${ext}`
+                )
+            );
 
         }
 
@@ -51,7 +71,12 @@ const upload = multer({
 
     limits: {
 
-        fileSize: 20 * 1024 * 1024
+        /*
+         * Pozwalamy wgrać duże nagranie.
+         * SpeechToText automatycznie podzieli je
+         * przed wysłaniem do OpenAI.
+         */
+        fileSize: 500 * 1024 * 1024
 
     }
 

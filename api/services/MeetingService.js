@@ -1,25 +1,33 @@
-const DocumentEngine = require("../../core/document/DocumentEngine");
+const SpeechToText = require("../../core/speech/SpeechToText");
 const AIEngine = require("../../core/ai/AIEngine");
 
 class MeetingService {
 
     constructor() {
 
-        this.documentEngine = new DocumentEngine();
-        this.ai = new AIEngine();
+        this.speechToText =
+            new SpeechToText();
+
+        this.ai =
+            new AIEngine();
 
     }
 
     async analyze(filePath) {
 
-        const text = await this.documentEngine.extractText(filePath);
+        const text =
+            await this.speechToText.transcribe(filePath);
 
         if (!text || !text.trim()) {
-            throw new Error("Nie udało się odczytać treści spotkania.");
+
+            throw new Error(
+                "Nie udało się utworzyć transkrypcji spotkania."
+            );
+
         }
 
         const prompt = `
-Przeanalizuj poniższą transkrypcję lub notatkę ze spotkania.
+Przeanalizuj poniższą transkrypcję spotkania biznesowego.
 
 Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON.
 
@@ -56,19 +64,33 @@ Struktura odpowiedzi:
 Zasady:
 
 - nie dodawaj żadnego tekstu poza JSON,
-- actionItems mają zawierać wszystkie zadania wynikające ze spotkania,
-- participants mają zawierać listę uczestników,
-- jeżeli nie ma danych, zwróć pustą tablicę.
+- przygotuj krótkie executive summary,
+- wyciągnij wszystkie najważniejsze ustalenia,
+- participants mają zawierać uczestników tylko wtedy,
+  gdy można ich ustalić z transkrypcji,
+- actionItems mają zawierać wszystkie zadania
+  wynikające ze spotkania,
+- owner podawaj tylko wtedy, gdy można go ustalić,
+- nie wymyślaj osób, terminów ani ustaleń,
+- jeśli nie ma danych dla danej sekcji,
+  zwróć pustą tablicę.
 
-Treść spotkania:
+Transkrypcja spotkania:
 
 ${text}
 `;
 
         return await this.ai.ask({
-            system: "Jesteś ekspertem analizującym spotkania biznesowe. Odpowiadasz wyłącznie poprawnym JSON.",
+
+            system:
+                "Jesteś ekspertem analizującym spotkania biznesowe. " +
+                "Tworzysz executive summary, ustalenia i zadania. " +
+                "Odpowiadasz wyłącznie poprawnym JSON.",
+
             user: prompt,
+
             json: true
+
         });
 
     }
