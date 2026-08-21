@@ -1,12 +1,27 @@
+const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
+
+const uploadDirectory = path.join(
+    process.cwd(),
+    "uploads"
+);
+
+/*
+ * Railway / Docker może uruchomić aplikację
+ * bez istniejącego katalogu uploads.
+ * Tworzymy go automatycznie.
+ */
+fs.mkdirSync(uploadDirectory, {
+    recursive: true
+});
 
 const storage = multer.diskStorage({
 
     destination(req, file, cb) {
 
-        cb(null, "uploads");
+        cb(null, uploadDirectory);
 
     },
 
@@ -71,11 +86,6 @@ const upload = multer({
 
     limits: {
 
-        /*
-         * Pozwalamy wgrać duże nagranie.
-         * SpeechToText automatycznie podzieli je
-         * przed wysłaniem do OpenAI.
-         */
         fileSize: 500 * 1024 * 1024
 
     }
