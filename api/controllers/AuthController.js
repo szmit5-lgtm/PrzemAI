@@ -10,6 +10,14 @@ class AuthController {
 
     async register(req, res) {
 
+        // Staging and private deployments can disable self-registration.
+        if (process.env.ALLOW_PUBLIC_REGISTRATION === "false") {
+            return res.status(403).json({
+                success: false,
+                error: "Rejestracja jest wyłączona. Skontaktuj się z administratorem."
+            });
+        }
+
         try {
 
             const {
@@ -103,9 +111,7 @@ class AuthController {
             return res.status(500).json({
 
                 success: false,
-                error:
-                    err.message ||
-                    "Nie udało się utworzyć konta."
+                error: "Nie udało się utworzyć konta."
 
             });
 
@@ -189,7 +195,7 @@ class AuthController {
             return res.status(500).json({
 
                 success: false,
-                error: err.message
+                error: "Wewnętrzny błąd uwierzytelniania."
 
             });
 
@@ -365,9 +371,7 @@ class AuthController {
             return res.status(500).json({
 
                 success: false,
-                error:
-                    err.message ||
-                    "Nie udało się zmienić hasła."
+                error: "Nie udało się zmienić hasła."
 
             });
 
