@@ -60,19 +60,8 @@ class AgentService {
                 }
             });
         }
-        else if (
-            shouldEnableDekonicaMail &&
-            !mailIntegration.enabled
-        ) {
-            await prisma.integration.update({
-                where: {
-                    id: mailIntegration.id
-                },
-                data: {
-                    enabled: true
-                }
-            });
-        }
+        // Respect an existing integration's enabled flag. A user who
+        // disabled mailbox access must not be silently re-enabled.
     }
 
     async list(userId) {
@@ -103,8 +92,24 @@ class AgentService {
             );
         }
 
+        const lock = await prisma.agent.updateMany({
+            where: {
+                id,
+                userId,
+                enabled: true,
+                NOT: { status: "RUNNING" }
+            },
+            data: { status: "RUNNING" }
+        });
+
+        if (lock.count !== 1) {
+            throw new Error(
+                "Agent jest wyłączony albo już działa."
+            );
+        }
+
         return this.runner.run(
-            agent,
+            { ...agent, status: "RUNNING" },
             "MANUAL"
         );
     }
