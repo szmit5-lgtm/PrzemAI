@@ -7,6 +7,12 @@ class FinanceService {
             500
         );
 
+        // Keep the page bounded and never allow a negative or fractional offset.
+        const offsetValue = Number(options.offset);
+        const offset = Number.isFinite(offsetValue)
+            ? Math.min(Math.max(Math.trunc(offsetValue), 0), 100000)
+            : 0;
+
         const where = {
             userId
         };
@@ -22,9 +28,11 @@ class FinanceService {
         const items = await prisma.financialDocument.findMany({
             where,
             take: limit,
+            skip: offset,
             orderBy: [
                 { issueDate: "desc" },
-                { createdAt: "desc" }
+                { createdAt: "desc" },
+                { id: "desc" }
             ],
             include: {
                 project: {
