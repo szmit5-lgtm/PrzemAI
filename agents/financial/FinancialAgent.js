@@ -3,6 +3,7 @@
 const prisma = require("../../lib/prisma");
 const HomePlMailConnector = require("../../connectors/mail/HomePlMailConnector");
 const mailDocumentId = require("../../lib/mailDocumentId");
+const { canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
 
 class FinancialAgent {
   async run({ userId }) {
@@ -15,10 +16,24 @@ class FinancialAgent {
       }
     });
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true }
+    });
+    if (!user) throw new Error("Financial Agent user no longer exists.");
+
     let checkedMessages = 0;
     let newDocuments = 0;
+    let blockedIntegrations = 0;
 
     for (const integration of integrations) {
+      // Defense in depth: also reject pre-existing enabled integrations
+      // created before the provisioning policy was tightened.
+      if (!canSyncMailIntegration(user.email, integration)) {
+        blockedIntegrations += 1;
+        console.warn("[FinancialAgent] Blocked unauthorized shared mailbox integration");
+        continue;
+      }
       const connector = new HomePlMailConnector(integration.config || {});
       const messages = await connector.fetchRecentMessages(30);
       checkedMessages += messages.length;
@@ -76,7 +91,7 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}.`;
     console.log("[FinancialAgent]", summary);
 
     return {
@@ -84,7 +99,8 @@ class FinancialAgent {
       metadata: {
         integrations: integrations.length,
         checkedMessages,
-        newDocuments
+        newDocuments,
+        blockedIntegrations
       }
     };
   }
