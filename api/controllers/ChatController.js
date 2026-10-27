@@ -9,9 +9,9 @@ class ChatController {
             const {
                 message,
                 conversationId
-            } = req.body;
+            } = req.body || {};
 
-            if (!message || !message.trim()) {
+            if (typeof message !== "string" || !message.trim()) {
 
                 return res.status(400).json({
 
@@ -21,6 +21,21 @@ class ChatController {
 
                 });
 
+            }
+
+            if (message.length > 12000) {
+                return res.status(413).json({
+                    success: false,
+                    error: "Wiadomość jest zbyt długa (maksymalnie 12 000 znaków)."
+                });
+            }
+
+            if (conversationId != null &&
+                (typeof conversationId !== "string" || conversationId.length > 128)) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Nieprawidłowy identyfikator rozmowy."
+                });
             }
 
             const result = await ChatService.chat(
@@ -52,7 +67,7 @@ class ChatController {
 
                 success: false,
 
-                error: err.message
+                error: "Nie udało się wykonać operacji na rozmowie."
 
             });
 
@@ -88,7 +103,7 @@ class ChatController {
 
                 success: false,
 
-                error: err.message
+                error: "Nie udało się wykonać operacji na rozmowie."
 
             });
 
@@ -137,7 +152,7 @@ class ChatController {
 
                 success: false,
 
-                error: err.message
+                error: "Nie udało się wykonać operacji na rozmowie."
 
             });
 
@@ -173,7 +188,7 @@ class ChatController {
 
                 success: false,
 
-                error: err.message
+                error: "Nie udało się wykonać operacji na rozmowie."
 
             });
 
