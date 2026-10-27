@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Activity, ArrowUpRight, Bot, CheckCircle2, Clock3, FileText, Mic, ShieldCheck, Sparkles, Workflow } from "lucide-react";
+import { Activity, ArrowUpRight, Bot, CheckCircle2, Clock3, FileText, Mic, ShieldCheck, Sparkles, Workflow, MessageSquareText } from "lucide-react";
 import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
@@ -85,6 +85,7 @@ export default function HomePage() {
             </div>
           </div>
         </motion.section>
+        <section className="mt-7 rounded-3xl border border-cyan-400/20 bg-gradient-to-r from-[#112750] to-[#0d1932] p-6 sm:p-8"><div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-center"><div><div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-300"><MessageSquareText size={17}/> Osobisty asystent PrzemAI</div><h2 className="text-2xl font-bold">O co chcesz dzisiaj zapytać?</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Porozmawiaj z asystentem o dokumentach, zadaniach i dostępnych informacjach firmowych.</p></div><Link href="/chat" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 transition hover:bg-cyan-300">Otwórz rozmowę <ArrowUpRight size={17}/></Link></div><div className="mt-5 flex flex-wrap gap-2">{["Podsumuj moje zadania","Co nowego w projektach?","Przygotuj raport"].map(label=><Link key={label} href="/chat" className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 transition hover:border-cyan-400/40">{label}</Link>)}</div></section>
         <section className="mt-8">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-xl font-bold"><Activity className="text-cyan-300" /> Pulpit operacyjny</h2><span className="text-xs text-slate-400">{loadError ? "Dane chwilowo niedostępne" : dashboard ? "Dane z systemu" : "Ładowanie danych…"}</span></div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">{stats.map(([label,value]) => <div key={label} className="rounded-2xl border border-white/10 bg-white/[.045] p-4 backdrop-blur-md"><div className="text-2xl font-bold tabular-nums text-white">{value}</div><div className="mt-2 text-xs text-slate-400">{label}</div></div>)}</div>
