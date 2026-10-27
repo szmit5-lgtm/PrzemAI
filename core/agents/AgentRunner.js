@@ -47,7 +47,14 @@ class AgentRunner {
 
       await prisma.agent.update({
         where: { id: agent.id },
-        data: { status: "ERROR" }
+        data: {
+          status: "ERROR",
+          // Avoid retrying a failing integration every minute.
+          nextRunAt: new Date(
+            Date.now() +
+              Math.max(5, Number(agent.intervalMinutes) || 15) * 60000
+          )
+        }
       });
 
       throw error;
