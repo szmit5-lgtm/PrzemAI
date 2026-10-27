@@ -27,7 +27,8 @@ class FinancialAgent {
             checkedMessages += messages.length;
 
             for (const message of messages) {
-                for (const [attachmentIndex, attachment] of message.attachments.entries()) {
+                for (const [attachmentIndex, attachment] of
+                    message.attachments.entries()) {
                     const filename =
                         attachment.filename || "attachment";
 
@@ -54,30 +55,30 @@ class FinancialAgent {
                     // The unique (userId, source, externalId) index is
                     // the concurrency-safe deduplication mechanism.
                     try {
-                    await prisma.financialDocument.create({
-                        data: {
-                            userId,
-                            source: "MAIL",
-                            externalId,
-                            status: "NEW",
-                            issueDate: message.date
-                                ? new Date(message.date)
-                                : null,
-                            rawData: {
-                                mailbox: integration.name,
-                                subject: message.subject,
-                                from: message.from,
-                                messageId: message.messageId,
-                                uid: message.uid,
-                                uidValidity: message.uidValidity,
-                                filename,
-                                contentType:
-                                    attachment.contentType,
-                                size:
-                                    attachment.size
+                            await prisma.financialDocument.create({
+                            data: {
+                                userId,
+                                source: "MAIL",
+                                externalId,
+                                status: "NEW",
+                                issueDate: message.date
+                                    ? new Date(message.date)
+                                    : null,
+                                rawData: {
+                                    mailbox: integration.name,
+                                    subject: message.subject,
+                                    from: message.from,
+                                    messageId: message.messageId,
+                                    uid: message.uid,
+                                    uidValidity: message.uidValidity,
+                                    filename,
+                                    contentType:
+                                        attachment.contentType,
+                                    size:
+                                        attachment.size
+                                }
                             }
-                        }
-                    });
+                        });
 
                         newDocuments += 1;
                     } catch (error) {
