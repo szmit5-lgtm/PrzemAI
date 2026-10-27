@@ -40,6 +40,7 @@ class HomePlMailConnector {
 
             try {
                 const total = client.mailbox.exists || 0;
+                const uidValidity = client.mailbox.uidValidity?.toString() || null;
 
                 if (!total) {
                     return [];
@@ -63,6 +64,7 @@ class HomePlMailConnector {
 
                     messages.push({
                         uid: message.uid,
+                        uidValidity,
                         messageId: parsed.messageId || null,
                         subject: parsed.subject || "",
                         from:
