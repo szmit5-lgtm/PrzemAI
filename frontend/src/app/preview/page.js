@@ -7,7 +7,7 @@ import { ArrowRight, Bot, CheckCircle2, FileText, LockKeyhole, MessageSquare, Sh
 const groups = [
   { title: "Podstawowa implementacja", color: "emerald", names: ["Executive", "Document", "Meeting", "General"] },
   { title: "W rozwoju", color: "amber", names: ["Financial", "KSeF", "Mail"] },
-  { title: "W planie", color: "slate", names: ["Personal Assistant", "Task Manager", "Communication", "Offer", "Construction", "Investment", "Sales", "Research", "Secretary", "Legal", "Shopping", "Trading"] }
+  { title: "W planie", color: "slate", names: ["Personal Assistant", "Task Manager", "Communication", "Offer", "Construction", "Investment", "Sales", "Research", "Secretary", "Legal", "Shopping", "Trading", "Commerce AI (Allegro)"] }
 ];
 const colors = {
   emerald: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
@@ -44,7 +44,7 @@ export default function PreviewPage() {
           </div>
         </section>
         <section className="mt-10">
-          <h2 className="text-2xl font-bold">Ekosystem 19 modułów</h2>
+          <h2 className="text-2xl font-bold">Ekosystem {groups.reduce((total, group) => total + group.names.length, 0)} modułów</h2>
           <p className="mt-2 text-sm text-slate-400">Etapy prac — nie są deklaracją gotowości produkcyjnej.</p>
           <div className="mt-6 grid gap-4 lg:grid-cols-3">{groups.map(group=><div key={group.title} className="rounded-2xl border border-white/10 bg-white/[.04] p-5"><span className={`rounded-full border px-3 py-1 text-xs font-bold ${colors[group.color]}`}>{group.title}</span><div className="mt-5 flex flex-wrap gap-2">{group.names.map(name=><span key={name} className="rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-slate-200">{name}</span>)}</div></div>)}</div>
         </section>
