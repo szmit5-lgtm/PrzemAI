@@ -75,3 +75,83 @@ test("KSeF HTTP errors never expose access tokens or invoice data", async () => 
     }
   );
 });
+
+
+test("KSeF paginates metadata by page index without accumulating unbounded data", async () => {
+  const offsets = [];
+  const client = new KsefClient({
+    accessToken: "test-token",
+    fetchImpl: async (url) => {
+      const offset = Number(new URL(url).searchParams.get("pageOffset"));
+      offsets.push(offset);
+      return {
+        ok: true,
+        json: async () => ({
+          invoices: [{ ksefNumber: String(offset) }],
+          hasMore: offset < 2,
+          isTruncated: false
+        })
+      };
+    }
+  });
+
+  const pages = [];
+  for await (const page of client.iterateInvoiceMetadata({ from, to })) {
+    pages.push(page);
+  }
+  assert.deepEqual(offsets, [0, 1, 2]);
+  assert.deepEqual(pages.map(page => page[0].ksefNumber), ["0", "1", "2"]);
+});
+
+test("KSeF refuses truncated metadata rather than silently losing invoices", async () => {
+  const client = new KsefClient({
+    accessToken: "test-token",
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({
+        invoices: [{ ksefNumber: "example" }],
+        hasMore: true,
+        isTruncated: true
+      })
+    })
+  });
+  const iterator = client.iterateInvoiceMetadata({ from, to });
+  await assert.rejects(iterator.next(), /truncated/);
+});
+
+test("KSeF pagination fails on empty next page and enforces page cap", async () => {
+  const client = new KsefClient({
+    accessToken: "test-token",
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({
+        invoices: [],
+        hasMore: true,
+        isTruncated: false
+      })
+    })
+  });
+  await assert.rejects(
+    client.iterateInvoiceMetadata({ from, to }).next(),
+    /stalled/
+  );
+  await assert.rejects(
+    client.iterateInvoiceMetadata({ from, to, maxPages: 0 }).next(),
+    /maxPages/
+  );
+  const forever = new KsefClient({
+    accessToken: "test-token",
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({
+        invoices: [{ ksefNumber: "x" }],
+        hasMore: true,
+        isTruncated: false
+      })
+    })
+  });
+  const pages = forever.iterateInvoiceMetadata({ from, to, maxPages: 2 });
+  assert.equal((await pages.next()).done, false);
+  assert.equal((await pages.next()).done, false);
+  await assert.rejects(pages.next(), /page limit/);
+});
