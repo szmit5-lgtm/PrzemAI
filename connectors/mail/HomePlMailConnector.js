@@ -1,134 +1,104 @@
-const tls = require("tls");
+const { ImapFlow } = require("imapflow");
+const { simpleParser } = require("mailparser");
 
 class HomePlMailConnector {
-    constructor({
-        email,
-        password,
-        imapHost,
-        imapPort = 993
-    }) {
-        this.email = email;
-        this.password = password;
-        this.imapHost = imapHost;
-        this.imapPort = Number(imapPort);
+    constructor(config) {
+        this.config = config;
     }
 
-    escape(value) {
-        return String(value)
-            .replace(/\\/g, "\\\\")
-            .replace(/"/g, '\\"');
-    }
+    createClient() {
+        const secretName = this.config.passwordEnv;
+        const password = secretName
+            ? process.env[secretName]
+            : null;
 
-    async checkInbox() {
-        const socket = tls.connect({
-            host: this.imapHost,
-            port: this.imapPort,
-            servername: this.imapHost,
-            rejectUnauthorized: true
-        });
-
-        socket.setEncoding("utf8");
-
-        let buffer = "";
-        let sequence = 0;
-        const waiters = new Map();
-
-        const nextTag = () => {
-            sequence += 1;
-            return `A${String(sequence).padStart(4, "0")}`;
-        };
-
-        const command = (text) => new Promise((resolve, reject) => {
-            const tag = nextTag();
-            const timeout = setTimeout(() => {
-                waiters.delete(tag);
-                reject(new Error("Timeout połączenia IMAP."));
-            }, 15000);
-
-            waiters.set(tag, {
-                resolve,
-                reject,
-                timeout,
-                lines: []
-            });
-
-            socket.write(`${tag} ${text}\r\n`);
-        });
-
-        socket.on("data", (chunk) => {
-            buffer += chunk;
-
-            let index;
-
-            while ((index = buffer.indexOf("\r\n")) !== -1) {
-                const line = buffer.slice(0, index);
-                buffer = buffer.slice(index + 2);
-
-                for (const [tag, waiter] of waiters.entries()) {
-                    waiter.lines.push(line);
-
-                    if (line.startsWith(`${tag} `)) {
-                        clearTimeout(waiter.timeout);
-                        waiters.delete(tag);
-
-                        if (line.includes(" OK")) {
-                            waiter.resolve(waiter.lines);
-                        }
-                        else {
-                            waiter.reject(
-                                new Error(
-                                    `IMAP: ${waiter.lines.join(" | ")}`
-                                )
-                            );
-                        }
-
-                        break;
-                    }
-                }
-            }
-        });
-
-        const connected = new Promise((resolve, reject) => {
-            const timeout = setTimeout(
-                () => reject(new Error("Timeout połączenia TLS z IMAP.")),
-                15000
+        if (!password) {
+            throw new Error(
+                `Brak sekretu Railway: ${secretName || "MAIL_PASSWORD"}`
             );
+        }
 
-            socket.once("secureConnect", () => {
-                clearTimeout(timeout);
-                resolve();
-            });
-
-            socket.once("error", reject);
+        return new ImapFlow({
+            host: this.config.imapHost,
+            port: Number(this.config.imapPort || 993),
+            secure: true,
+            auth: {
+                user: this.config.email,
+                pass: password
+            },
+            logger: false
         });
+    }
+
+    async fetchRecentMessages(limit = 30) {
+        const client = this.createClient();
 
         try {
-            await connected;
+            await client.connect();
 
-            await command(
-                `LOGIN "${this.escape(this.email)}" "${this.escape(this.password)}"`
-            );
+            const lock = await client.getMailboxLock("INBOX");
 
-            const statusLines = await command(
-                'STATUS INBOX (UNSEEN MESSAGES)'
-            );
+            try {
+                const total = client.mailbox.exists || 0;
 
-            const statusLine = statusLines.find(
-                (line) => line.toUpperCase().startsWith("* STATUS ")
-            );
+                if (!total) {
+                    return [];
+                }
 
-            const unreadMatch = statusLine?.match(/UNSEEN\s+(\d+)/i);
-            const messagesMatch = statusLine?.match(/MESSAGES\s+(\d+)/i);
+                const start = Math.max(1, total - limit + 1);
+                const messages = [];
 
-            await command("LOGOUT").catch(() => {});
+                for await (
+                    const message of client.fetch(
+                        `${start}:*`,
+                        {
+                            uid: true,
+                            envelope: true,
+                            source: true,
+                            internalDate: true
+                        }
+                    )
+                ) {
+                    const parsed = await simpleParser(message.source);
 
-            return {
-                unread: unreadMatch ? Number(unreadMatch[1]) : 0,
-                messages: messagesMatch ? Number(messagesMatch[1]) : null
-            };
+                    messages.push({
+                        uid: message.uid,
+                        messageId: parsed.messageId || null,
+                        subject: parsed.subject || "",
+                        from:
+                            parsed.from?.value?.[0]?.address ||
+                            "",
+                        date:
+                            parsed.date ||
+                            message.internalDate ||
+                            null,
+                        text: parsed.text || "",
+                        attachments: (parsed.attachments || []).map(
+                            attachment => ({
+                                filename:
+                                    attachment.filename ||
+                                    "attachment",
+                                contentType:
+                                    attachment.contentType,
+                                size:
+                                    attachment.size ||
+                                    attachment.content?.length ||
+                                    0,
+                                content:
+                                    attachment.content
+                            })
+                        )
+                    });
+                }
+
+                return messages;
+            }
+            finally {
+                lock.release();
+            }
         }
         finally {
-            socket.destroy();
+            await client.logout().catch(() => {});
         }
     }
 }
