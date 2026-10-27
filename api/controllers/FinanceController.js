@@ -21,7 +21,7 @@ class FinanceController {
         catch (error) {
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: "Nie udało się pobrać danych finansowych."
             });
         }
     }
@@ -41,7 +41,7 @@ class FinanceController {
         catch (error) {
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: "Nie udało się pobrać danych finansowych."
             });
         }
     }
