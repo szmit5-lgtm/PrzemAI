@@ -285,3 +285,29 @@ export async function setIntegrationEnabled(id, enabled) {
         body: JSON.stringify({ enabled })
     });
 }
+
+export async function getFinancialDocuments(params = {}) {
+    const query = new URLSearchParams();
+
+    if (params.status) {
+        query.set("status", params.status);
+    }
+
+    if (params.source) {
+        query.set("source", params.source);
+    }
+
+    if (params.limit) {
+        query.set("limit", String(params.limit));
+    }
+
+    const suffix = query.toString()
+        ? `?${query.toString()}`
+        : "";
+
+    return request(`/api/finance/documents${suffix}`);
+}
+
+export async function getFinanceSummary() {
+    return request("/api/finance/summary");
+}
