@@ -301,6 +301,10 @@ export async function getFinancialDocuments(params = {}) {
         query.set("limit", String(params.limit));
     }
 
+    if (params.offset !== undefined && params.offset !== null) {
+        query.set("offset", String(params.offset));
+    }
+
     const suffix = query.toString()
         ? `?${query.toString()}`
         : "";
