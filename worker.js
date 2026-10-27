@@ -15,6 +15,7 @@ let busy = false;
 let stopping = false;
 let cycleNumber = 0;
 let interval;
+let warnedNoUsers = false;
 
 async function recoverStaleRuns() {
   const cutoff = new Date(Date.now() - STALE_RUN_MS);
@@ -62,6 +63,13 @@ async function cycle() {
     const users = await prisma.user.findMany({
       select: { id: true }
     });
+
+    if (users.length === 0 && !warnedNoUsers) {
+      console.warn("[Worker] No users in this database. Scheduled user agents cannot run until a staging user is provisioned.");
+      warnedNoUsers = true;
+    } else if (users.length > 0) {
+      warnedNoUsers = false;
+    }
 
     for (const user of users) {
       if (stopping) break;
@@ -151,9 +159,13 @@ async function shutdown() {
 
   // Railway sends SIGTERM during deployments. Give the active
   // cycle a short chance to finish before disconnecting.
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + 25000;
   while (busy && Date.now() < deadline) {
     await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  if (busy) {
+    console.warn("[Worker] Shutdown deadline reached while a cycle is active; unfinished runs will be recovered by the stale-run watchdog.");
   }
 
   await prisma.$disconnect();
