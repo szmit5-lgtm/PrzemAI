@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const AgentRunner = require("../../core/agents/AgentRunner");
+const { isAuthorizedDekonicaUser } = require("../../lib/mailAccessPolicy");
 
 class AgentService {
     constructor() {
@@ -26,6 +27,14 @@ class AgentService {
                 nextRunAt: new Date()
             }
         });
+
+        // The shared company mailbox must never be provisioned for
+        // every newly registered account. No owner configured = no access.
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true }
+        });
+        if (!isAuthorizedDekonicaUser(user?.email)) return;
 
         const mailIntegration =
             await prisma.integration.findFirst({
