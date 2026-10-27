@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Bot, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, LockKeyhole, ShieldCheck, Sparkles, MessageSquare, Workflow, FileText } from "lucide-react";
 import { login } from "@/lib/api";
 
 export default function LoginPage() {
@@ -34,7 +34,7 @@ export default function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070e22] px-4 py-10 text-slate-100">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 55% 50% at 50% 20%, rgba(37,99,235,.26), transparent), radial-gradient(ellipse 30% 30% at 90% 90%, rgba(6,182,212,.12), transparent)" }} />
-      <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#101b39]/90 p-7 shadow-[0_20px_90px_rgba(0,0,0,.30)] backdrop-blur-xl sm:p-10">
+      <div className="relative grid w-full max-w-5xl gap-8 rounded-3xl border border-white/10 bg-[#101b39]/90 p-7 shadow-[0_20px_90px_rgba(0,0,0,.30)] backdrop-blur-xl sm:p-10 lg:grid-cols-2 lg:items-center">\n      <div className="hidden lg:block"><span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-200"><Sparkles size={14}/> TWOJE CENTRUM DOWODZENIA</span><h2 className="mt-6 text-5xl font-black leading-tight">Twoja firma.<br/><span className="bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">Jeden inteligentny system.</span></h2><p className="mt-5 text-sm leading-7 text-slate-300">Zarządzaj dokumentami, spotkaniami i zadaniami z jednego miejsca. Rozwijamy osobistego asystenta AI dla każdego użytkownika.</p><div className="mt-8 grid gap-3">{[[MessageSquare,"Osobisty asystent"],[FileText,"Dokumenty i spotkania"],[Workflow,"Agenci i automatyzacje"]].map(([Icon,title])=><div key={title} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-sm"><Icon className="text-cyan-300" size={20}/>{title}</div>)}</div></div><div>
         <div className="text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300"><Bot size={34}/></div>
           <h1 className="mt-5 text-4xl font-black tracking-tight">Przem<span className="text-cyan-300">AI</span></h1>
