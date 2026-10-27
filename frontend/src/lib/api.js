@@ -271,3 +271,17 @@ export async function setAgentEnabled(id, enabled) {
         body: JSON.stringify({ enabled })
     });
 }
+
+export async function getIntegrations() {
+    return request("/api/agents/integrations/list");
+}
+
+export async function setIntegrationEnabled(id, enabled) {
+    return request(`/api/agents/integrations/${id}/enabled`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ enabled })
+    });
+}
