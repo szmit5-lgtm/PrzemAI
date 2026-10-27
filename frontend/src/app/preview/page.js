@@ -17,6 +17,7 @@ const colors = {
 
 export default function PreviewPage() {
   const reduced = useReducedMotion();
+  const registrationEnabled = process.env.NEXT_PUBLIC_REGISTRATION_ENABLED !== "false";
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#070e22] text-slate-100">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 65% 40% at 45% 0%, rgba(37,99,235,.30), transparent), radial-gradient(ellipse 35% 40% at 100% 70%, rgba(6,182,212,.10), transparent)" }} />
@@ -24,7 +25,7 @@ export default function PreviewPage() {
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-8">
         <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4 backdrop-blur-lg">
           <div className="flex items-center gap-2 text-xl font-black"><Bot className="text-cyan-300" /> Przem<span className="text-cyan-300">AI</span></div>
-          <div className="flex flex-wrap gap-2"><Link href="/login" className="rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold hover:bg-white/10">Logowanie</Link><Link href="/register" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-300">Utwórz konto</Link></div>
+          <div className="flex flex-wrap gap-2"><Link href="/login" className="rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold hover:bg-white/10">Logowanie</Link>{registrationEnabled && <Link href="/register" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-300">Utwórz konto</Link>}</div>
         </header>
         <motion.section initial={reduced ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .65 }} className="relative mt-7 overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-[#122d67] via-[#101b3e] to-[#0b142d] p-7 sm:p-12">
           <div aria-hidden="true" className="absolute -right-16 -top-24 h-80 w-80 rounded-full bg-cyan-500/15 blur-3xl" />
