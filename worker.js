@@ -175,6 +175,10 @@ async function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
+if (process.env.DEKONICA_MAIL_PASSWORD && !process.env.DEKONICA_MAIL_OWNER_USER_ID?.trim()) {
+  console.warn("[Worker] Shared mailbox secret is configured but DEKONICA_MAIL_OWNER_USER_ID is missing. Mail access remains disabled until an authorized staging user is configured.");
+}
+
 console.log("PrzemAI Worker active");
 cycle();
 interval = setInterval(cycle, CYCLE_MS);
