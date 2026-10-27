@@ -12,7 +12,8 @@ import {
     History,
     Settings,
     CheckSquare,
-    Bot
+    Bot,
+    WalletCards
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -22,6 +23,7 @@ export default function Sidebar() {
         { href: "/", icon: LayoutDashboard, label: "Dashboard" },
         { href: "/chat", icon: MessageSquare, label: "Chat" },
         { href: "/agents", icon: Bot, label: "Agenci" },
+        { href: "/finance", icon: WalletCards, label: "Finanse" },
         { href: "/document", icon: FileText, label: "Analiza" },
         { href: "/meeting", icon: Mic, label: "Spotkania" },
         { href: "/tasks", icon: CheckSquare, label: "Zadania" },
