@@ -13,6 +13,7 @@ const chatRoutes = require("./api/routes/chatRoutes");
 const memoryRoutes = require("./api/routes/memoryRoutes");
 const settingsRoutes = require("./api/routes/settingsRoutes");
 const agentRoutes = require("./api/routes/agentRoutes");
+const financeRoutes = require("./api/routes/financeRoutes");
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/memory", memoryRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/agents", agentRoutes);
+app.use("/api/finance", financeRoutes);
 
 app.get("/", (req, res) => {
   res.json({
