@@ -21,6 +21,8 @@ const SOURCE_LABELS = {
   MANUAL: "Ręcznie"
 };
 
+const PAGE_SIZE = 50;
+
 const FILTER_STATUSES = [
   { value: "", label: "Wszystkie statusy" },
   { value: "NEW", label: "Nowe" },
@@ -76,6 +78,8 @@ export default function FinancePage() {
   const [summary, setSummary] = useState(null);
   const [status, setStatus] = useState("");
   const [source, setSource] = useState("");
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshedAt, setRefreshedAt] = useState(null);
@@ -88,17 +92,20 @@ export default function FinancePage() {
       setError("");
       try {
         const [documentsResponse, summaryResponse] = await Promise.all([
-          getFinancialDocuments({ limit: 200, status, source }),
+          getFinancialDocuments({ limit: PAGE_SIZE + 1, offset: page * PAGE_SIZE, status, source }),
           getFinanceSummary()
         ]);
         if (!active) return;
-        setItems(Array.isArray(documentsResponse?.items) ? documentsResponse.items : []);
+        const documents = Array.isArray(documentsResponse?.items) ? documentsResponse.items : [];
+        setItems(documents.slice(0, PAGE_SIZE));
+        setHasMore(documents.length > PAGE_SIZE);
         setSummary(summaryResponse?.data || null);
         setRefreshedAt(new Date());
       } catch (err) {
         if (!active) return;
         setError(err?.message || "Nie udało się pobrać danych finansowych.");
         setItems([]);
+        setHasMore(false);
         setSummary(null);
       } finally {
         if (active) setLoading(false);
@@ -106,7 +113,7 @@ export default function FinancePage() {
     }
     load();
     return () => { active = false; };
-  }, [status, source, refreshKey]);
+  }, [status, source, page, refreshKey]);
 
   return (
     <main className="min-h-screen bg-[#070e22] px-4 py-6 text-slate-100 sm:px-8">
@@ -150,21 +157,21 @@ export default function FinancePage() {
             <div>
               <h2 className="flex items-center gap-2 text-xl font-bold"><Filter size={20} className="text-cyan-300" aria-hidden="true" /> Rejestr dokumentów</h2>
               <p className="mt-2 text-xs text-slate-400">
-                {loading ? "Ładowanie…" : error ? "Dane niedostępne" : "Widoczne: " + items.length + " (maksymalnie 200)"}
+                {loading ? "Ładowanie…" : error ? "Dane niedostępne" : "Strona " + (page + 1) + " · dokumenty: " + items.length}
                 {refreshedAt && !loading && !error ? " · Aktualizacja: " + refreshedAt.toLocaleTimeString("pl-PL") : ""}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <label className="text-xs text-slate-300">
                 <span className="mb-1 block">Status</span>
-                <select value={status} onChange={event => setStatus(event.target.value)}
+                <select value={status} onChange={event => { setPage(0); setStatus(event.target.value); }}
                   className="min-h-11 rounded-xl border border-white/15 bg-[#101d3c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400">
                   {FILTER_STATUSES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label className="text-xs text-slate-300">
                 <span className="mb-1 block">Źródło</span>
-                <select value={source} onChange={event => setSource(event.target.value)}
+                <select value={source} onChange={event => { setPage(0); setSource(event.target.value); }}
                   className="min-h-11 rounded-xl border border-white/15 bg-[#101d3c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400">
                   {FILTER_SOURCES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
@@ -212,7 +219,7 @@ export default function FinancePage() {
                   ))}
                 </tbody>
               </table>
-              {items.length === 200 && <p className="border-t border-white/10 p-4 text-xs text-amber-200">Wyświetlono pierwsze 200 dokumentów. Pełna paginacja jest w przygotowaniu.</p>}
+              {(page > 0 || hasMore) && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 p-4"><p className="text-xs text-slate-400">Strona {page + 1} · pozycje {page * PAGE_SIZE + 1}–{page * PAGE_SIZE + items.length}</p><div className="flex gap-3"><button type="button" disabled={loading || page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} className="min-h-11 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Poprzednia</button><button type="button" disabled={loading || !hasMore} onClick={() => setPage(p => p + 1)} className="min-h-11 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 disabled:opacity-40">Następna</button></div></div>}
             </div>
           ) : null}
         </section>
