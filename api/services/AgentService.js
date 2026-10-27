@@ -63,12 +63,8 @@ class AgentService {
         await this.ensureDefaults(userId);
 
         return prisma.agent.findMany({
-            where: {
-                userId
-            },
-            orderBy: {
-                createdAt: "asc"
-            },
+            where: { userId },
+            orderBy: { createdAt: "asc" },
             include: {
                 runs: {
                     take: 5,
@@ -81,13 +77,9 @@ class AgentService {
     }
 
     async runNow(userId, id) {
-        const agent =
-            await prisma.agent.findFirst({
-                where: {
-                    id,
-                    userId
-                }
-            });
+        const agent = await prisma.agent.findFirst({
+            where: { id, userId }
+        });
 
         if (!agent) {
             throw new Error(
@@ -106,13 +98,9 @@ class AgentService {
         id,
         enabled
     ) {
-        const agent =
-            await prisma.agent.findFirst({
-                where: {
-                    id,
-                    userId
-                }
-            });
+        const agent = await prisma.agent.findFirst({
+            where: { id, userId }
+        });
 
         if (!agent) {
             throw new Error(
@@ -121,9 +109,7 @@ class AgentService {
         }
 
         return prisma.agent.update({
-            where: {
-                id
-            },
+            where: { id },
             data: {
                 enabled:
                     Boolean(enabled),
@@ -135,6 +121,40 @@ class AgentService {
                     enabled
                         ? new Date()
                         : null
+            }
+        });
+    }
+
+    async listIntegrations(userId) {
+        await this.ensureDefaults(userId);
+
+        return prisma.integration.findMany({
+            where: { userId },
+            orderBy: { createdAt: "asc" }
+        });
+    }
+
+    async setIntegrationEnabled(
+        userId,
+        id,
+        enabled
+    ) {
+        const integration =
+            await prisma.integration.findFirst({
+                where: { id, userId }
+            });
+
+        if (!integration) {
+            throw new Error(
+                "Integracja nie istnieje."
+            );
+        }
+
+        return prisma.integration.update({
+            where: { id },
+            data: {
+                enabled:
+                    Boolean(enabled)
             }
         });
     }
