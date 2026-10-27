@@ -101,9 +101,13 @@ class FinancialAgent {
             });
         }
 
+        const summary =
+            `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}.`;
+
+        console.log("[FinancialAgent]", summary);
+
         return {
-            summary:
-                `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}.`,
+            summary,
             metadata: {
                 integrations: integrations.length,
                 checkedMessages,
