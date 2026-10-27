@@ -154,21 +154,25 @@ class AgentService {
             );
         }
 
-        return prisma.agent.update({
-            where: { id },
+        // Never override RUNNING: the worker uses status as its lock.
+        const changed = await prisma.agent.updateMany({
+            where: {
+                id,
+                userId,
+                NOT: { status: "RUNNING" }
+            },
             data: {
-                enabled:
-                    Boolean(enabled),
-                status:
-                    enabled
-                        ? "IDLE"
-                        : "DISABLED",
-                nextRunAt:
-                    enabled
-                        ? new Date()
-                        : null
+                enabled: Boolean(enabled),
+                status: enabled ? "IDLE" : "DISABLED",
+                nextRunAt: enabled ? new Date() : null
             }
         });
+
+        if (changed.count !== 1) {
+            throw new Error("Nie można zmienić ustawień agenta podczas jego pracy.");
+        }
+
+        return prisma.agent.findUnique({ where: { id } });
     }
 
     async listIntegrations(userId) {
