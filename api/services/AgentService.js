@@ -1,6 +1,6 @@
 const prisma = require("../../lib/prisma");
 const AgentRunner = require("../../core/agents/AgentRunner");
-const { isAuthorizedDekonicaUser } = require("../../lib/mailAccessPolicy");
+const { isAuthorizedDekonicaUser, canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
 
 class AgentService {
     constructor() {
@@ -198,6 +198,14 @@ class AgentService {
             throw new Error(
                 "Integracja nie istnieje."
             );
+        }
+
+        // A legacy or misconfigured shared mailbox must not be enabled
+        // by a user who is not its explicitly authorized owner.
+        if (enabled && integration.type === "MAIL" &&
+            integration.provider === "HOME_PL" &&
+            !canSyncMailIntegration(userId, integration)) {
+            throw new Error("Brak uprawnień do włączenia tej skrzynki pocztowej.");
         }
 
         return prisma.integration.update({
