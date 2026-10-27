@@ -37,6 +37,9 @@ class AgentService {
                 }
             });
 
+        const shouldEnableDekonicaMail =
+            Boolean(process.env.DEKONICA_MAIL_PASSWORD);
+
         if (!mailIntegration) {
             await prisma.integration.create({
                 data: {
@@ -44,7 +47,7 @@ class AgentService {
                     type: "MAIL",
                     provider: "HOME_PL",
                     name: "Dekonica office",
-                    enabled: false,
+                    enabled: shouldEnableDekonicaMail,
                     config: {
                         email: "office@dekonica.com",
                         imapHost: "dekonica.com",
@@ -54,6 +57,19 @@ class AgentService {
                         passwordEnv:
                             "DEKONICA_MAIL_PASSWORD"
                     }
+                }
+            });
+        }
+        else if (
+            shouldEnableDekonicaMail &&
+            !mailIntegration.enabled
+        ) {
+            await prisma.integration.update({
+                where: {
+                    id: mailIntegration.id
+                },
+                data: {
+                    enabled: true
                 }
             });
         }
