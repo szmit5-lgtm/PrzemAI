@@ -4,75 +4,40 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getProfile } from "@/lib/api";
 
+const PUBLIC_PATHS = new Set(["/login", "/register", "/preview"]);
+
 export default function AuthGuard({ children }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [verifiedPath, setVerifiedPath] = useState(null);
+  const isPublic = PUBLIC_PATHS.has(pathname);
 
-    const router = useRouter();
+  useEffect(() => {
+    if (isPublic) return;
+    let active = true;
 
-    const pathname = usePathname();
-
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-
-        if (pathname === "/login") {
-
-            setLoading(false);
-
-            return;
-
+    getProfile()
+      .then(() => { if (active) setVerifiedPath(pathname); })
+      .catch(() => {
+        if (active) {
+          setVerifiedPath(null);
+          router.replace("/login");
         }
+      });
 
-        async function verify() {
+    return () => { active = false; };
+  }, [pathname, isPublic, router]);
 
-            try {
+  if (!isPublic && verifiedPath !== pathname) {
+    return (
+      <div role="status" className="flex min-h-screen items-center justify-center bg-[#070e22] text-slate-100">
+        <div className="text-center">
+          <div className="mb-4 text-4xl" aria-hidden="true">🧠</div>
+          <div className="text-lg font-semibold">Sprawdzanie sesji…</div>
+        </div>
+      </div>
+    );
+  }
 
-                await getProfile();
-
-                setLoading(false);
-
-            }
-            catch {
-
-                localStorage.removeItem("token");
-
-                router.replace("/login");
-
-            }
-
-        }
-
-        verify();
-
-    }, [pathname, router]);
-
-    if (loading) {
-
-        return (
-
-            <div className="min-h-screen flex items-center justify-center">
-
-                <div className="text-center">
-
-                    <div className="text-5xl mb-4">
-
-                        🧠
-
-                    </div>
-
-                    <div className="text-xl font-semibold">
-
-                        Sprawdzanie sesji...
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        );
-
-    }
-
-    return children;
-
+  return children;
 }
