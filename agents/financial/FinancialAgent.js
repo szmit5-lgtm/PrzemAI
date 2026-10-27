@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const HomePlMailConnector = require("../../connectors/mail/HomePlMailConnector");
+const mailDocumentId = require("../../lib/mailDocumentId");
 
 class FinancialAgent {
     async run({ userId }) {
@@ -26,7 +27,7 @@ class FinancialAgent {
             checkedMessages += messages.length;
 
             for (const message of messages) {
-                for (const attachment of message.attachments) {
+                for (const [attachmentIndex, attachment] of message.attachments.entries()) {
                     const filename =
                         attachment.filename || "attachment";
 
@@ -41,28 +42,18 @@ class FinancialAgent {
                         continue;
                     }
 
-                    const externalId = [
-                        message.messageId ||
-                            `uid-${message.uid}`,
-                        filename
-                    ].join(":");
+                    const externalId = mailDocumentId({
+                        integrationId: integration.id,
+                        messageId: message.messageId,
+                        uid: message.uid,
+                        uidValidity: message.uidValidity,
+                        filename,
+                        attachmentIndex
+                    });
 
-                    const exists =
-                        await prisma.financialDocument.findFirst({
-                            where: {
-                                userId,
-                                source: "MAIL",
-                                externalId
-                            },
-                            select: {
-                                id: true
-                            }
-                        });
-
-                    if (exists) {
-                        continue;
-                    }
-
+                    // The unique (userId, source, externalId) index is
+                    // the concurrency-safe deduplication mechanism.
+                    try {
                     await prisma.financialDocument.create({
                         data: {
                             userId,
@@ -78,6 +69,7 @@ class FinancialAgent {
                                 from: message.from,
                                 messageId: message.messageId,
                                 uid: message.uid,
+                                uidValidity: message.uidValidity,
                                 filename,
                                 contentType:
                                     attachment.contentType,
@@ -87,7 +79,10 @@ class FinancialAgent {
                         }
                     });
 
-                    newDocuments += 1;
+                        newDocuments += 1;
+                    } catch (error) {
+                        if (error?.code !== "P2002") throw error;
+                    }
                 }
             }
 
