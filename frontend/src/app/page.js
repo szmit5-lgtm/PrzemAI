@@ -7,7 +7,7 @@ import { Activity, ArrowUpRight, Bot, CheckCircle2, Clock3, FileText, Mic, Shiel
 import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import FileUpload from "./components/FileUpload";
-import { getExecutiveDashboard } from "@/lib/api";
+import { getExecutiveDashboard, getProfile } from "@/lib/api";
 
 const agents = [
   { name: "Executive", status: "Podstawowa wersja", phase: "existing", icon: "🧠" },
@@ -46,6 +46,8 @@ const quickLinks = [
 export default function HomePage() {
   const [dashboard, setDashboard] = useState(null);
   const [loadError, setLoadError] = useState(false);
+  const [viewMode, setViewMode] = useState("advanced");
+  const [modeKey, setModeKey] = useState(null);
   const reducedMotion = useReducedMotion();
   useEffect(() => {
     let active = true;
@@ -54,6 +56,25 @@ export default function HomePage() {
       .catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    getProfile().then(data => {
+      if (!active) return;
+      const id = data?.user?.id;
+      if (!id) return;
+      const key = `przemai:view-mode:${id}`;
+      setModeKey(key);
+      setViewMode(localStorage.getItem(key) === "simple" ? "simple" : "advanced");
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  function changeViewMode() {
+    const next = viewMode === "simple" ? "advanced" : "simple";
+    setViewMode(next);
+    if (modeKey) localStorage.setItem(modeKey, next);
+  }
 
   const summary = dashboard?.summary || {};
   const stats = [
@@ -72,9 +93,9 @@ export default function HomePage() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[.07]" style={{ backgroundImage: "linear-gradient(#60a5fa 1px, transparent 1px),linear-gradient(90deg,#60a5fa 1px,transparent 1px)", backgroundSize: "52px 52px" }} />
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
         <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 backdrop-blur-xl sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-3"><span className="flex items-center gap-2 text-lg font-black tracking-tight"><Bot className="text-cyan-300" /> Przem<span className="text-cyan-300">AI</span></span><UserMenu /></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><span className="flex items-center gap-2 text-lg font-black tracking-tight"><Bot className="text-cyan-300" /> Przem<span className="text-cyan-300">AI</span></span><div className="flex flex-wrap items-center gap-3"><button type="button" onClick={changeViewMode} aria-label={`Przełącz na tryb ${viewMode === "simple" ? "zaawansowany" : "prosty"}`} className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2.5 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/20">{viewMode === "simple" ? "Tryb prosty · Zmień" : "Tryb zaawansowany · Zmień"}</button><UserMenu /></div></div>
         </div>
-        <div className="mt-7 grid gap-6 lg:grid-cols-[190px_minmax(0,1fr)]"><aside className="hidden self-start rounded-2xl border border-white/10 bg-slate-950/50 p-3 backdrop-blur-xl lg:sticky lg:top-6 lg:block"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Nawigacja</p><Navbar vertical /></aside><div className="min-w-0"><div className="lg:hidden"><Navbar /></div><motion.section {...animate} className="relative mt-7 overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-[#102b65] via-[#101b3e] to-[#0b142d] p-7 shadow-[0_18px_90px_rgba(13,90,220,.16)] sm:p-11">
+        <div className={`mt-7 grid gap-6 ${viewMode === "simple" ? "" : "lg:grid-cols-[190px_minmax(0,1fr)]"}`}>{viewMode === "advanced" && <aside className="hidden self-start rounded-2xl border border-white/10 bg-slate-950/50 p-3 backdrop-blur-xl lg:sticky lg:top-6 lg:block"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Nawigacja</p><Navbar vertical /></aside>}<div className="min-w-0">{viewMode === "advanced" && <div className="lg:hidden"><Navbar /></div>}{viewMode === "simple" ? <section className="mx-auto max-w-4xl py-6 sm:py-10"><span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-200">Tryb prosty</span><h1 className="mt-8 text-4xl font-black leading-tight sm:text-5xl">W czym mogę Ci dzisiaj pomóc?</h1><p className="mt-4 text-lg leading-8 text-slate-300">Wybierz jedną z czterech opcji. Zawsze możesz wrócić do pełnego widoku.</p><Link href="/chat" className="mt-8 flex min-h-28 items-center gap-5 rounded-3xl border border-cyan-300/40 bg-gradient-to-r from-blue-700/70 to-cyan-700/40 p-6 text-xl font-bold shadow-[0_12px_55px_rgba(6,182,212,.13)] transition hover:border-cyan-200 sm:text-2xl"><Bot className="shrink-0 text-cyan-200" size={42}/> Porozmawiaj z asystentem <ArrowUpRight className="ml-auto shrink-0" size={28}/></Link><div className="mt-5 grid gap-4 sm:grid-cols-2">{[{href:"/tasks",title:"Moje zadania",icon:CheckCircle2},{href:"/document",title:"Prześlij dokument",icon:FileText},{href:"/meeting",title:"Podsumuj spotkanie",icon:Mic},{href:"/finance",title:"Sprawdź finanse",icon:Activity}].map(({href,title,icon:Icon})=><Link key={href} href={href} className="flex min-h-32 items-center gap-4 rounded-3xl border border-white/20 bg-white/[.07] p-6 text-lg font-bold transition hover:border-cyan-300/50 hover:bg-white/10 sm:text-xl"><Icon className="shrink-0 text-cyan-300" size={32}/>{title}<ArrowUpRight className="ml-auto shrink-0 text-slate-400" size={20}/></Link>)}</div><p className="mt-8 text-base leading-7 text-slate-400">Twoje dane i uprawnienia pozostają takie same w obu trybach.</p></section> : <><motion.section {...animate} className="relative mt-7 overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-[#102b65] via-[#101b3e] to-[#0b142d] p-7 shadow-[0_18px_90px_rgba(13,90,220,.16)] sm:p-11">
           <div aria-hidden="true" className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
           <div className="relative max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-200"><Sparkles size={14}/> CENTRUM DOWODZENIA</div>
@@ -100,7 +121,7 @@ export default function HomePage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{agents.map((agent,index) => <motion.div key={agent.name} initial={reducedMotion ? false : {opacity:0,y:12}} whileInView={{opacity:1,y:0}} viewport={{once:true,amount:.1}} transition={{duration:.35,delay:reducedMotion ? 0 : Math.min(index,7)*.04}} className="group rounded-2xl border border-white/10 bg-gradient-to-br from-white/[.075] to-white/[.025] p-5 transition hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_10px_40px_rgba(6,182,212,.08)]"><div className="flex items-center justify-between"><span className="text-2xl" aria-hidden="true">{agent.icon}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusStyle[agent.phase]}`}>{agent.status}</span></div><h3 className="mt-5 text-base font-bold">{agent.name}</h3><p className="mt-1 text-xs text-slate-400">{agent.phase === "existing" ? "Podstawowa implementacja" : agent.phase === "building" ? "Trwają prace" : "Do wdrożenia"}</p></motion.div>)}</div>
         </section>
         <section className="mt-9 rounded-3xl border border-white/10 bg-white/[.04] p-6"><h2 className="mb-3 text-lg font-bold">Prześlij plik do analizy</h2><div className="rounded-xl bg-white p-3 text-slate-900"><FileUpload /></div></section>
-        <footer className="py-8 text-center text-xs text-slate-500">PrzemAI · Panel rozwojowy · Statusy agentów oznaczają etap wdrożenia</footer></div></div>
+        <footer className="py-8 text-center text-xs text-slate-500">PrzemAI · Panel rozwojowy · Statusy agentów oznaczają etap wdrożenia</footer></>}</div></div>
       </div>
     </main>
   );
