@@ -2,111 +2,39 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-import {
-    LayoutDashboard,
-    MessageSquare,
-    FileText,
-    Mic,
-    History,
-    CheckSquare,
-    Brain,
-    Settings
-} from "lucide-react";
+import { LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare, Brain, Settings, Bot, Wallet } from "lucide-react";
 
 const links = [
-
-    {
-        href: "/",
-        label: "Executive",
-        icon: LayoutDashboard
-    },
-
-    {
-        href: "/chat",
-        label: "AI Chat",
-        icon: MessageSquare
-    },
-
-    {
-        href: "/document",
-        label: "Dokumenty",
-        icon: FileText
-    },
-
-    {
-        href: "/meeting",
-        label: "Spotkania",
-        icon: Mic
-    },
-
-    {
-        href: "/history",
-        label: "Historia",
-        icon: History
-    },
-
-    {
-        href: "/tasks",
-        label: "Zadania",
-        icon: CheckSquare
-    },
-
-    {
-        href: "/memory",
-        label: "Pamięć",
-        icon: Brain
-    },
-
-    {
-        href: "/settings",
-        label: "Ustawienia",
-        icon: Settings
-    }
-
+  { href: "/", label: "Pulpit", icon: LayoutDashboard },
+  { href: "/chat", label: "Asystent AI", icon: MessageSquare },
+  { href: "/agents", label: "Agenci", icon: Bot },
+  { href: "/finance", label: "Finanse", icon: Wallet },
+  { href: "/document", label: "Dokumenty", icon: FileText },
+  { href: "/meeting", label: "Spotkania", icon: Mic },
+  { href: "/tasks", label: "Zadania", icon: CheckSquare },
+  { href: "/history", label: "Historia", icon: History },
+  { href: "/memory", label: "Pamięć", icon: Brain },
+  { href: "/settings", label: "Ustawienia", icon: Settings }
 ];
 
 export default function Navbar() {
-
-    const pathname = usePathname();
-
-    return (
-
-        <nav className="mb-8 flex flex-wrap gap-3">
-
-            {links.map(link => {
-
-                const Icon = link.icon;
-
-                const active =
-                    link.href === "/"
-                        ? pathname === "/"
-                        : pathname.startsWith(link.href);
-
-                return (
-
-                    <Link
-                        key={link.href}
-                        href={link.href}
-                        className={`flex items-center gap-3 rounded-xl px-5 py-3 font-medium transition ${
-                            active
-                                ? "bg-blue-600 text-white shadow-lg"
-                                : "border bg-white hover:bg-slate-100"
-                        }`}
-                    >
-
-                        <Icon size={18} />
-
-                        {link.label}
-
-                    </Link>
-
-                );
-
-            })}
-
-        </nav>
-
-    );
-
+  const pathname = usePathname();
+  const dark = pathname === "/";
+  return (
+    <nav aria-label="Nawigacja główna" className={`mt-4 flex gap-2 overflow-x-auto pb-2 ${dark ? "" : "mb-6"}`}>
+      {links.map(({ href, label, icon: Icon }) => {
+        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        return (
+          <Link key={href} href={href} aria-current={active ? "page" : undefined}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${active
+              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+              : dark
+                ? "border border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40 hover:bg-white/10"
+                : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"}`}>
+            <Icon size={16} aria-hidden="true" />{label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 }
