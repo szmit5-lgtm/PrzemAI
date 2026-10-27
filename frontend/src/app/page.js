@@ -28,7 +28,8 @@ const agents = [
   { name: "Secretary", status: "Zaplanowany", phase: "planned", icon: "📞" },
   { name: "Legal", status: "Zaplanowany", phase: "planned", icon: "⚖️" },
   { name: "Shopping", status: "Zaplanowany", phase: "planned", icon: "🛒" },
-  { name: "Trading", status: "Zaplanowany", phase: "planned", icon: "📉" }
+  { name: "Trading", status: "Zaplanowany", phase: "planned", icon: "📉" },
+  { name: "Commerce AI (Allegro)", status: "Zaplanowany", phase: "planned", icon: "🛍️" }
 ];
 const statusStyle = {
   existing: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
@@ -95,7 +96,7 @@ export default function HomePage() {
           <div className="rounded-3xl border border-white/10 bg-white/[.045] p-6"><h2 className="mb-4 flex items-center gap-2 text-xl font-bold"><Workflow className="text-cyan-300"/> Szybki dostęp</h2><div className="grid grid-cols-2 gap-3">{quickLinks.map(({href,title,icon:Icon}) => <Link key={href} href={href} className="group rounded-xl border border-white/10 bg-slate-900/60 p-4 transition hover:-translate-y-1 hover:border-cyan-400/40 hover:bg-blue-500/10"><Icon className="mb-3 text-cyan-300" size={23}/><span className="flex items-center justify-between text-sm font-semibold">{title}<ArrowUpRight size={15} className="opacity-50 transition group-hover:opacity-100"/></span></Link>)}</div></div>
         </section>
         <section className="mt-10">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">Ekosystem agentów</h2><p className="mt-1 text-sm text-slate-400">Stan implementacji — nie jest to wskaźnik gotowości produkcyjnej.</p></div><div className="flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={16} className="text-cyan-300"/> 19 modułów w planie</div></div>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">Ekosystem agentów</h2><p className="mt-1 text-sm text-slate-400">Stan implementacji — nie jest to wskaźnik gotowości produkcyjnej.</p></div><div className="flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={16} className="text-cyan-300"/> {agents.length} modułów w planie</div></div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{agents.map((agent,index) => <motion.div key={agent.name} initial={reducedMotion ? false : {opacity:0,y:12}} whileInView={{opacity:1,y:0}} viewport={{once:true,amount:.1}} transition={{duration:.35,delay:reducedMotion ? 0 : Math.min(index,7)*.04}} className="group rounded-2xl border border-white/10 bg-gradient-to-br from-white/[.075] to-white/[.025] p-5 transition hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_10px_40px_rgba(6,182,212,.08)]"><div className="flex items-center justify-between"><span className="text-2xl" aria-hidden="true">{agent.icon}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusStyle[agent.phase]}`}>{agent.status}</span></div><h3 className="mt-5 text-base font-bold">{agent.name}</h3><p className="mt-1 text-xs text-slate-400">{agent.phase === "existing" ? "Podstawowa implementacja" : agent.phase === "building" ? "Trwają prace" : "Do wdrożenia"}</p></motion.div>)}</div>
         </section>
         <section className="mt-9 rounded-3xl border border-white/10 bg-white/[.04] p-6"><h2 className="mb-3 text-lg font-bold">Prześlij plik do analizy</h2><div className="rounded-xl bg-white p-3 text-slate-900"><FileUpload /></div></section>
