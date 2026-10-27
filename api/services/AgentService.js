@@ -28,13 +28,10 @@ class AgentService {
             }
         });
 
-        // The shared company mailbox must never be provisioned for
-        // every newly registered account. No owner configured = no access.
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { email: true }
-        });
-        if (!isAuthorizedDekonicaUser(user?.email)) return;
+        // Email addresses are unverified at registration, so only the
+        // explicitly configured internal user ID may get this mailbox.
+        // No owner configured = no access.
+        if (!isAuthorizedDekonicaUser(userId)) return;
 
         const mailIntegration =
             await prisma.integration.findFirst({
