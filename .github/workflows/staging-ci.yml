@@ -1,0 +1,51 @@
+name: PrzemAI staging CI
+
+on:
+  push:
+    branches:
+      - feature/agent-runtime-finance-mail
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: przemai-staging-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install backend dependencies
+        run: npm install --no-audit --no-fund
+      - name: Generate Prisma client (no database connection)
+        run: npx prisma generate
+      - name: Run backend tests
+        run: npm test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build Next.js
+        env:
+          API_PROXY_TARGET: http://localhost:3000
+        run: npm run build
