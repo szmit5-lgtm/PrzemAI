@@ -16,12 +16,6 @@ class FinancialAgent {
       }
     });
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true }
-    });
-    if (!user) throw new Error("Financial Agent user no longer exists.");
-
     let checkedMessages = 0;
     let newDocuments = 0;
     let blockedIntegrations = 0;
@@ -29,7 +23,7 @@ class FinancialAgent {
     for (const integration of integrations) {
       // Defense in depth: also reject pre-existing enabled integrations
       // created before the provisioning policy was tightened.
-      if (!canSyncMailIntegration(user.email, integration)) {
+      if (!canSyncMailIntegration(userId, integration)) {
         blockedIntegrations += 1;
         console.warn("[FinancialAgent] Blocked unauthorized shared mailbox integration");
         continue;
