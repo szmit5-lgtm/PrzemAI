@@ -8,6 +8,7 @@ Updated: 2026-10-27. Scope: `feature/agent-runtime-finance-mail` / Railway stagi
 | --- | --- | --- |
 | Executive | Existing basic implementation | End-to-end routing, permissions, audit trail |
 | Personal Assistant | Planned — approved priority | Per-user web chat, scoped knowledge, clarification workflow, Telegram/WhatsApp linking |
+| Commerce | Planned — approved | Allegro order/offer management, product sourcing, pricing, margin analysis, storefronts and marketing; approval-gated spending |
 | Document | Existing implementation; quality unverified | PDF/DOCX fixture parsing and faithful cited summary |
 | Meeting | Existing implementation; quality unverified | Short and 2h+ recording, transcript accuracy, task extraction |
 | General | Existing basic implementation | Regression suite and graceful fallback |
