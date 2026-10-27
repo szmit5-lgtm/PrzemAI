@@ -64,3 +64,25 @@ has been read until a real run appears in logs and AgentRun records.
 - When rolling this into a database that contains documents imported with the
   previous externalId format, plan a one-time identity migration or deduplication
   review before enabling automatic imports to avoid a one-time reimport.
+
+## Shared mailbox authorization hardening (2026-10-27)
+
+The `office@dekonica.com` mailbox uses one shared Railway secret.
+**Do not auto-provision it for every self-registered user.**
+Registration currently does not verify email ownership, so email-based
+allowlisting alone is unsafe.
+
+- Set `DEKONICA_MAIL_OWNER_USER_ID` on the **worker staging service**
+  to the exact, already-created internal PrzemAI user ID authorized to
+  receive this company's mail metadata.
+- `AgentService.ensureDefaults` only creates the Dekonica integration
+  for that ID; `FinancialAgent` checks authorization again before
+  opening IMAP, including for older integrations.
+- If the variable is missing, access fails closed. Do not set an arbitrary
+  or guessed ID. Do not copy mailbox passwords or private keys to GitHub.
+- The staging worker still reports zero users, so no mailbox has been
+  accessed. An authorized account must be created and the owner ID
+  configured before an end-to-end test.
+- This is authorization for a **shared company mailbox**, not a complete
+  multi-tenant permissions model. Add verified identity, audit logs and
+  tenant-scoped secrets before enabling more companies.
