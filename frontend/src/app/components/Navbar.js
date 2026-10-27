@@ -17,11 +17,11 @@ const links = [
   { href: "/settings", label: "Ustawienia", icon: Settings }
 ];
 
-export default function Navbar() {
+export default function Navbar({ vertical = false }) {
   const pathname = usePathname();
   const dark = pathname === "/";
   return (
-    <nav aria-label="Nawigacja główna" className={`mt-4 flex gap-2 overflow-x-auto pb-2 ${dark ? "" : "mb-6"}`}>
+    <nav aria-label="Nawigacja główna" className={vertical ? "flex flex-col gap-2" : `mt-4 flex gap-2 overflow-x-auto pb-2 ${dark ? "" : "mb-6"}`}>
       {links.map(({ href, label, icon: Icon }) => {
         const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (
