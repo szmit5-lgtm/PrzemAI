@@ -7,6 +7,7 @@ Updated: 2026-10-27. Scope: `feature/agent-runtime-finance-mail` / Railway stagi
 | Agent | Implementation status | Next acceptance test |
 | --- | --- | --- |
 | Executive | Existing basic implementation | End-to-end routing, permissions, audit trail |
+| Personal Assistant | Planned — approved priority | Per-user web chat, scoped knowledge, clarification workflow, Telegram/WhatsApp linking |
 | Document | Existing implementation; quality unverified | PDF/DOCX fixture parsing and faithful cited summary |
 | Meeting | Existing implementation; quality unverified | Short and 2h+ recording, transcript accuracy, task extraction |
 | General | Existing basic implementation | Regression suite and graceful fallback |
@@ -31,7 +32,8 @@ Updated: 2026-10-27. Scope: `feature/agent-runtime-finance-mail` / Railway stagi
 2. **Quality:** add reproducible Document and Meeting agent tests before marking them ready.
 3. **Integrations:** set up least-privilege mailbox and KSeF credentials through Railway secrets, never repository files or chat transcripts. Verify staging test user provisioning; no real inbox reads until configured.
 4. **UI:** implement responsive dark navy/neon-blue dashboard, motion with reduced-motion support, and honest per-agent statuses.
-5. **Next capabilities:** Task Manager, Communication, Offer; remaining agents incrementally.
+5. **Personal Assistant:** implement a per-user web assistant first, then secure Telegram linking, clarification workflow and official WhatsApp integration. See [multi-channel design](PERSONAL_ASSISTANT_MULTICHANNEL.md).
+6. **Next capabilities:** Task Manager, Communication, Offer; remaining agents incrementally.
 
 ## Security and release gates
 
