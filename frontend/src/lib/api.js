@@ -1,6 +1,6 @@
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:3000";
+// Requests stay on the frontend origin; Next.js proxies /api to the configured backend.
+// NEXT_PUBLIC_API_URL remains an optional override for legacy deployments.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 function getToken() {
     if (typeof window === "undefined") {
