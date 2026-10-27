@@ -2,15 +2,17 @@
 
 ## Implemented on feature/agent-runtime-finance-mail
 
-- `connectors/ksef/KsefClient.js` — read-only invoice metadata query via `POST /v2/invoices/query/metadata`.
+- `connectors/ksef/KsefClient.js` — read-only invoice metadata query via `POST /v2/invoices/query/metadata` and bounded async pagination (`iterateInvoiceMetadata`).
 - Only allowlisted KSeF TEST/production hosts; default TEST.
 - Input validation: subject role, pagination (10–250), explicit UTC offsets and maximum 100-day date range.
 - Request timeout (20 seconds); no logging of bearer tokens or response bodies.
-- `tests/ksef-client.test.js` — mocked query, validation and HTTP 429 secret-leak tests.
+- `tests/ksef-client.test.js` — mocked query, pagination, truncation guard, validation and HTTP 429 secret-leak tests.
+- `npm test` — runs KSeF and mail-identity regression tests locally.
 
 This is a **client building block, not a completed KSeF integration**.
 No KSeF authentication, certificate signing, token renewal, polling,
-incremental pagination, persistence or live invoice retrieval is wired yet.
+incremental checkpoint persistence or live invoice retrieval is wired yet. Pagination
+is implemented as a bounded iterator but is not connected to the Financial Agent.
 Do not claim that KSeF invoices have been fetched.
 
 ## Official documentation
@@ -45,3 +47,20 @@ At 2026-10-27 18:00:31 UTC, the deployed worker logged:
 The worker and DB connection are healthy, but with zero users no
 `Financial Agent` or mail integration can run. Do not claim the mailbox
 has been read until a real run appears in logs and AgentRun records.
+
+## Mail metadata ingestion hardening (2026-10-27)
+
+- Mail attachments now receive stable, opaque SHA-256 identities scoped to the
+  integration, message and attachment index. Two attachments with the same
+  filename in one email no longer collide; identical Message-IDs in different
+  mailboxes are isolated.
+- IMAP UIDVALIDITY is captured for the UID fallback when Message-ID is missing.
+- Database uniqueness is the source of truth; concurrent imports handle Prisma
+  P2002 conflicts without creating duplicates.
+- The current mail importer stores **metadata only**, not the PDF/XML contents.
+  It cannot yet extract invoice numbers, amounts or due dates from attachments.
+- These changes are staged-code improvements, not evidence of a successful
+  mailbox connection. The worker still reports zero users in the staging DB.
+- When rolling this into a database that contains documents imported with the
+  previous externalId format, plan a one-time identity migration or deduplication
+  review before enabling automatic imports to avoid a one-time reimport.
