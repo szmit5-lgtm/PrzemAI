@@ -72,9 +72,8 @@ export default function HomePage() {
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
         <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 backdrop-blur-xl sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3"><span className="flex items-center gap-2 text-lg font-black tracking-tight"><Bot className="text-cyan-300" /> Przem<span className="text-cyan-300">AI</span></span><UserMenu /></div>
-          <Navbar />
         </div>
-        <motion.section {...animate} className="relative mt-7 overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-[#102b65] via-[#101b3e] to-[#0b142d] p-7 shadow-[0_18px_90px_rgba(13,90,220,.16)] sm:p-11">
+        <div className="mt-7 grid gap-6 lg:grid-cols-[190px_minmax(0,1fr)]"><aside className="hidden self-start rounded-2xl border border-white/10 bg-slate-950/50 p-3 backdrop-blur-xl lg:sticky lg:top-6 lg:block"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Nawigacja</p><Navbar vertical /></aside><div className="min-w-0"><div className="lg:hidden"><Navbar /></div><motion.section {...animate} className="relative mt-7 overflow-hidden rounded-3xl border border-blue-400/20 bg-gradient-to-br from-[#102b65] via-[#101b3e] to-[#0b142d] p-7 shadow-[0_18px_90px_rgba(13,90,220,.16)] sm:p-11">
           <div aria-hidden="true" className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
           <div className="relative max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-200"><Sparkles size={14}/> CENTRUM DOWODZENIA</div>
@@ -99,7 +98,7 @@ export default function HomePage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{agents.map((agent,index) => <motion.div key={agent.name} initial={reducedMotion ? false : {opacity:0,y:12}} whileInView={{opacity:1,y:0}} viewport={{once:true,amount:.1}} transition={{duration:.35,delay:reducedMotion ? 0 : Math.min(index,7)*.04}} className="group rounded-2xl border border-white/10 bg-gradient-to-br from-white/[.075] to-white/[.025] p-5 transition hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_10px_40px_rgba(6,182,212,.08)]"><div className="flex items-center justify-between"><span className="text-2xl" aria-hidden="true">{agent.icon}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusStyle[agent.phase]}`}>{agent.status}</span></div><h3 className="mt-5 text-base font-bold">{agent.name}</h3><p className="mt-1 text-xs text-slate-400">{agent.phase === "existing" ? "Podstawowa implementacja" : agent.phase === "building" ? "Trwają prace" : "Do wdrożenia"}</p></motion.div>)}</div>
         </section>
         <section className="mt-9 rounded-3xl border border-white/10 bg-white/[.04] p-6"><h2 className="mb-3 text-lg font-bold">Prześlij plik do analizy</h2><div className="rounded-xl bg-white p-3 text-slate-900"><FileUpload /></div></section>
-        <footer className="py-8 text-center text-xs text-slate-500">PrzemAI · Panel rozwojowy · Statusy agentów oznaczają etap wdrożenia</footer>
+        <footer className="py-8 text-center text-xs text-slate-500">PrzemAI · Panel rozwojowy · Statusy agentów oznaczają etap wdrożenia</footer></div></div>
       </div>
     </main>
   );
