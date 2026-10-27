@@ -64,13 +64,11 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error("[API] Unhandled request error", err?.name || "Error");
 
   res.status(500).json({
     success: false,
-    error:
-      err.message ||
-      "Wewnętrzny błąd serwera."
+    error: "Wewnętrzny błąd serwera."
   });
 });
 
