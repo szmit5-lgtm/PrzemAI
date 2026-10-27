@@ -83,6 +83,44 @@ class KsefClient {
     }
     return data;
   }
+  // Bounded, streaming pagination. Never silently accept a truncated
+  // response: the caller must split the date window to avoid missing invoices.
+  async *iterateInvoiceMetadata({ maxPages = 40, ...filters } = {}) {
+    if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 40) {
+      throw new Error("KSeF maxPages must be an integer between 1 and 40.");
+    }
+
+    const firstOffset = filters.pageOffset ?? 0;
+    if (!Number.isInteger(firstOffset) || firstOffset < 0) {
+      throw new Error("Invalid KSeF starting page offset.");
+    }
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const response = await this.queryInvoiceMetadata({
+        ...filters,
+        pageOffset: firstOffset + page
+      });
+
+      if (response.isTruncated === true) {
+        throw new Error(
+          "KSeF metadata results truncated. Narrow the date range and retry."
+        );
+      }
+      if (response.hasMore && response.invoices.length === 0) {
+        throw new Error(
+          "KSeF metadata pagination stalled on an empty page."
+        );
+      }
+
+      yield response.invoices;
+      if (!response.hasMore) return;
+    }
+
+    throw new Error(
+      "KSeF metadata page limit reached. Resume with a narrower date range."
+    );
+  }
+
 }
 
 module.exports = KsefClient;
