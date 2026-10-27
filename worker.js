@@ -7,25 +7,68 @@ const AgentService = require("./api/services/AgentService");
 const runner = new AgentRunner();
 const service = new AgentService();
 
-let busy = false;
+const CYCLE_MS = 60000;
+const HEARTBEAT_MS = 60000;
+const STALE_RUN_MS = 90 * 60000;
 
-async function cycle() {
-  if (busy) {
-    return;
+let busy = false;
+let stopping = false;
+let cycleNumber = 0;
+let interval;
+
+async function recoverStaleRuns() {
+  const cutoff = new Date(Date.now() - STALE_RUN_MS);
+  const stale = await prisma.agent.findMany({
+    where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+    select: { id: true }
+  });
+
+  let recovered = 0;
+  for (const agent of stale) {
+    const now = new Date();
+    const lock = await prisma.agent.updateMany({
+      where: {
+        id: agent.id,
+        status: "RUNNING",
+        updatedAt: { lt: cutoff }
+      },
+      data: { status: "ERROR", nextRunAt: now }
+    });
+
+    if (lock.count !== 1) continue;
+
+    await prisma.agentRun.updateMany({
+      where: { agentId: agent.id, status: "RUNNING" },
+      data: {
+        status: "FAILED",
+        finishedAt: now,
+        error: "Przerwane uruchomienie; odzyskano po utracie workera."
+      }
+    });
+
+    recovered += 1;
+    console.warn("[Worker] Recovered stale run", agent.id);
   }
 
+  return recovered;
+}
+
+async function cycle() {
+  if (busy || stopping) return;
   busy = true;
 
   try {
+    const recovered = await recoverStaleRuns();
     const users = await prisma.user.findMany({
       select: { id: true }
     });
 
     for (const user of users) {
+      if (stopping) break;
       await service.ensureDefaults(user.id);
     }
 
-    const due = await prisma.agent.findMany({
+    const due = stopping ? [] : await prisma.agent.findMany({
       where: {
         enabled: true,
         OR: [
@@ -37,36 +80,82 @@ async function cycle() {
       orderBy: { nextRunAt: "asc" }
     });
 
+    let completed = 0;
+    let failed = 0;
+
     for (const agent of due) {
+      if (stopping) break;
+
+      // Recheck the due condition when claiming the agent. Another
+      // worker may have finished and rescheduled it after findMany.
       const lock = await prisma.agent.updateMany({
         where: {
           id: agent.id,
-          NOT: { status: "RUNNING" }
+          enabled: true,
+          NOT: { status: "RUNNING" },
+          OR: [
+            { nextRunAt: null },
+            { nextRunAt: { lte: new Date() } }
+          ]
         },
         data: { status: "RUNNING" }
       });
 
-      if (lock.count !== 1) {
-        continue;
-      }
+      if (lock.count !== 1) continue;
+
+      // Prevent the stale-run watchdog from reclaiming a long job
+      // while this worker is still alive.
+      const heartbeat = setInterval(() => {
+        prisma.agent.updateMany({
+          where: { id: agent.id, status: "RUNNING" },
+          data: { updatedAt: new Date() }
+        }).catch(error => {
+          console.error("[Worker] Heartbeat failed", error.message);
+        });
+      }, HEARTBEAT_MS);
+      heartbeat.unref?.();
 
       try {
-        await runner.run(
-          { ...agent, status: "RUNNING" },
-          "SCHEDULE"
-        );
+        await runner.run({ ...agent, status: "RUNNING" }, "SCHEDULE");
+        completed += 1;
       } catch (error) {
-        console.error("[Worker]", agent.name, error.message);
+        failed += 1;
+        console.error("[Worker] Agent failed", agent.key, error.message);
+      } finally {
+        clearInterval(heartbeat);
       }
     }
+
+    cycleNumber += 1;
+    if (cycleNumber === 1 || cycleNumber % 15 === 0 ||
+        completed || failed || recovered) {
+      console.log("[Worker] Cycle", JSON.stringify({
+        users: users.length,
+        due: due.length,
+        completed,
+        failed,
+        recovered
+      }));
+    }
   } catch (error) {
-    console.error("[Worker]", error);
+    console.error("[Worker] Cycle failed", error.message);
   } finally {
     busy = false;
   }
 }
 
 async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  clearInterval(interval);
+
+  // Railway sends SIGTERM during deployments. Give the active
+  // cycle a short chance to finish before disconnecting.
+  const deadline = Date.now() + 8000;
+  while (busy && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
   await prisma.$disconnect();
   process.exit(0);
 }
@@ -76,4 +165,4 @@ process.on("SIGTERM", shutdown);
 
 console.log("PrzemAI Worker active");
 cycle();
-setInterval(cycle, 60000);
+interval = setInterval(cycle, CYCLE_MS);
