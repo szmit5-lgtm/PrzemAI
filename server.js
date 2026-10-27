@@ -12,16 +12,17 @@ const executiveRoutes = require("./api/routes/executiveRoutes");
 const chatRoutes = require("./api/routes/chatRoutes");
 const memoryRoutes = require("./api/routes/memoryRoutes");
 const settingsRoutes = require("./api/routes/settingsRoutes");
+const agentRoutes = require("./api/routes/agentRoutes");
 
 const app = express();
 
 app.use(
-    cors({
-        origin:
-            process.env.FRONTEND_URL ||
-            "http://localhost:3001",
-        credentials: true
-    })
+  cors({
+    origin:
+      process.env.FRONTEND_URL ||
+      "http://localhost:3001",
+    credentials: true
+  })
 );
 
 app.use(express.json());
@@ -36,58 +37,49 @@ app.use("/api/executive", executiveRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/memory", memoryRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/agents", agentRoutes);
 
 app.get("/", (req, res) => {
-
-    res.json({
-        success: true,
-        application: "PrzemAI API",
-        version: "1.0.0"
-    });
-
+  res.json({
+    success: true,
+    application: "PrzemAI API",
+    version: "1.1.0"
+  });
 });
 
 app.get("/health", (req, res) => {
-
-    res.status(200).json({
-        success: true,
-        status: "ok"
-    });
-
+  res.status(200).json({
+    success: true,
+    status: "ok"
+  });
 });
 
 app.use((req, res) => {
-
-    res.status(404).json({
-        success: false,
-        error: "Endpoint nie istnieje."
-    });
-
+  res.status(404).json({
+    success: false,
+    error: "Endpoint nie istnieje."
+  });
 });
 
 app.use((err, req, res, next) => {
+  console.error(err);
 
-    console.error(err);
-
-    res.status(500).json({
-        success: false,
-        error:
-            err.message ||
-            "Wewnętrzny błąd serwera."
-    });
-
+  res.status(500).json({
+    success: false,
+    error:
+      err.message ||
+      "Wewnętrzny błąd serwera."
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
-
-    console.log("");
-    console.log("=======================================");
-    console.log("PrzemAI API");
-    console.log(`PORT: ${PORT}`);
-    console.log("HOST: 0.0.0.0");
-    console.log("=======================================");
-    console.log("");
-
+  console.log("");
+  console.log("=======================================");
+  console.log("PrzemAI API");
+  console.log(`PORT: ${PORT}`);
+  console.log("HOST: 0.0.0.0");
+  console.log("=======================================");
+  console.log("");
 });

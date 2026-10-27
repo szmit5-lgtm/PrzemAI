@@ -7,96 +7,73 @@ const AgentService = require("./api/services/AgentService");
 const runner = new AgentRunner();
 const service = new AgentService();
 
-let shuttingDown = false;
-let cycleRunning = false;
+let busy = false;
 
-async function ensureUsers() {
+async function cycle() {
+  if (busy) {
+    return;
+  }
+
+  busy = true;
+
+  try {
     const users = await prisma.user.findMany({
-        select: { id: true }
+      select: { id: true }
     });
 
     for (const user of users) {
-        await service.ensureDefaults(user.id);
-    }
-}
-
-async function runCycle() {
-    if (cycleRunning || shuttingDown) {
-        return;
+      await service.ensureDefaults(user.id);
     }
 
-    cycleRunning = true;
+    const due = await prisma.agent.findMany({
+      where: {
+        enabled: true,
+        OR: [
+          { nextRunAt: null },
+          { nextRunAt: { lte: new Date() } }
+        ],
+        NOT: { status: "RUNNING" }
+      },
+      orderBy: { nextRunAt: "asc" }
+    });
 
-    try {
-        await ensureUsers();
+    for (const agent of due) {
+      const lock = await prisma.agent.updateMany({
+        where: {
+          id: agent.id,
+          NOT: { status: "RUNNING" }
+        },
+        data: { status: "RUNNING" }
+      });
 
-        const dueAgents = await prisma.agent.findMany({
-            where: {
-                enabled: true,
-                OR: [
-                    { nextRunAt: null },
-                    { nextRunAt: { lte: new Date() } }
-                ],
-                NOT: {
-                    status: "RUNNING"
-                }
-            },
-            orderBy: {
-                nextRunAt: "asc"
-            }
-        });
+      if (lock.count !== 1) {
+        continue;
+      }
 
-        for (const agent of dueAgents) {
-            const locked = await prisma.agent.updateMany({
-                where: {
-                    id: agent.id,
-                    NOT: {
-                        status: "RUNNING"
-                    }
-                },
-                data: {
-                    status: "RUNNING"
-                }
-            });
-
-            if (locked.count !== 1) {
-                continue;
-            }
-
-            try {
-                await runner.run(
-                    {
-                        ...agent,
-                        status: "RUNNING"
-                    },
-                    "SCHEDULE"
-                );
-            }
-            catch (error) {
-                console.error(
-                    `[Worker] ${agent.name}: ${error.message}`
-                );
-            }
-        }
+      try {
+        await runner.run(
+          { ...agent, status: "RUNNING" },
+          "SCHEDULE"
+        );
+      } catch (error) {
+        console.error("[Worker]", agent.name, error.message);
+      }
     }
-    catch (error) {
-        console.error("[Worker]", error);
-    }
-    finally {
-        cycleRunning = false;
-    }
+  } catch (error) {
+    console.error("[Worker]", error);
+  } finally {
+    busy = false;
+  }
 }
 
 async function shutdown() {
-    shuttingDown = true;
-    await prisma.$disconnect();
-    process.exit(0);
+  await prisma.$disconnect();
+  process.exit(0);
 }
 
-process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
-console.log("PrzemAI Worker uruchomiony.");
-
-runCycle();
-setInterval(runCycle, 60 * 1000);
+console.log("PrzemAI Worker active");
+cycle();
+setInterval(cycle, 60000);
