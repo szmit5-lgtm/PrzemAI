@@ -40,3 +40,16 @@ AuditEvent: id, reportId, actorUserId, action, timestamp, metadata (bez sekretó
 
 ## Kolejne etapy
 Automatyczne rozpoznawanie pomieszczenia na rysunku; porównanie rewizji; integracje CAD/BIM (DWG/IFC), obieg zmian z projektantem i kierownikiem budowy; raporty dzienne i kosztowe.
+
+
+## Obieg finansowy po zatwierdzeniu technicznym
+1. APPROVED_TECHNICALLY uruchamia kalkulację kosztu z zatwierdzonych stawek umownych, pozycji kosztorysu lub ręcznie zweryfikowanej wyceny. System zapisuje źródło każdej stawki, ilość, jednostkę, VAT, sumę netto i brutto, walutę oraz ważność oferty. Brak wiarygodnych danych = COST_REVIEW_REQUIRED, bez zgadywania kwoty.
+2. Po przygotowaniu wyceny i wskazaniu adresata system generuje e-mail: identyfikator zmiany, inwestycja, opis i uzasadnienie, rysunek przed/po, zdjęcia, ilości, pozycje kosztowe, kwota netto/VAT/brutto, wpływ na termin, termin odpowiedzi, link do bezpiecznego zatwierdzenia.
+3. Automatyczna wysyłka jest dozwolona tylko do wcześniej skonfigurowanych uprawnionych odbiorców i po potwierdzeniu wyceny przez uprawnioną osobę po stronie wykonawcy. W przeciwnym razie powstaje szkic do zatwierdzenia. Wszystkie wysyłki są audytowane i idempotentne.
+4. Odbiorca wybiera ACCEPT_PRICE / NEGOTIATE / REJECT_PRICE. Odpowiedź e-mail nie jest traktowana jako autoryzowana akceptacja bez potwierdzenia tożsamości; preferowany bezpieczny link z uwierzytelnieniem. System rejestruje osobę, czas, wersję i zatwierdzoną kwotę.
+5. Dopiero ACCEPT_PRICE powoduje aktualizację rejestru robót dodatkowych i prognozy budżetu. Nie oznacza automatycznie prawa do wystawienia faktury ani zgody na wykonanie robót, jeśli umowa wymaga odrębnego zlecenia lub aneksu.
+6. Zmiana kwoty po wysyłce tworzy nową wersję i ponowną akceptację; poprzednie zatwierdzenie nie przenosi się automatycznie.
+
+Stany finansowe: NOT_PRICED -> COST_REVIEW_REQUIRED -> PRICE_READY -> PRICE_SENT -> PRICE_ACCEPTED | PRICE_REJECTED | PRICE_NEGOTIATION.
+Dodatkowe pola: costEstimateVersion, costLines, netAmount, vatAmount, grossAmount, currency, pricingSource, costApprovedBy, costApprovedAt, recipientUserId, recipientEmail, emailSentAt, priceDecisionAt, priceDecisionBy, priceDecisionComment, contractualBasis, scheduleImpactDays.
+Testy: brak stawek, błędny VAT, nieuprawniony adresat, powtórne wysłanie, ponowna akceptacja zmienionej kwoty, błędny token akceptacji, odmowa, brak podstawy umownej.
