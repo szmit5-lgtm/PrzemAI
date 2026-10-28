@@ -20,9 +20,11 @@ const integration = {
   config: { email: "test@example.invalid" }
 };
 
+let availableIntegrations = [integration];
+
 const prisma = {
   integration: {
-    async findMany() { return [integration]; },
+    async findMany() { return availableIntegrations; },
     async update({ where, data }) {
       syncUpdates.push({ where, data });
       return { ...integration, ...data };
@@ -42,9 +44,14 @@ const prisma = {
 };
 
 class FakeConnector {
+  constructor(config) { this.config = config; }
+
   async fetchRecentMessages(limit) {
     assert.equal(limit, 30);
     fetchCount += 1;
+    if (this.config.email === "broken@example.invalid") {
+      throw new Error("IMAP password=NEVER-EXPOSE-THIS");
+    }
     return messages;
   }
 }
@@ -70,6 +77,7 @@ try {
 }
 
 function reset() {
+  availableIntegrations = [integration];
   messages = [];
   authorized = true;
   duplicate = false;
@@ -136,4 +144,39 @@ test("unauthorized shared mailbox is not fetched or marked synchronized", async 
   assert.equal(fetchCount, 0);
   assert.equal(inserted.length, 0);
   assert.equal(syncUpdates.length, 0);
+});
+
+
+test("a broken mailbox does not block healthy imports or leak IMAP errors", async () => {
+  reset();
+  availableIntegrations = [
+    { ...integration, id: "broken", config: { email: "broken@example.invalid" } },
+    { ...integration, id: "healthy", config: { email: "healthy@example.invalid" } }
+  ];
+  messages = [message("2026-10-27T10:30:00Z", [
+    { filename: "invoice.pdf", contentType: "application/pdf", size: 10 }
+  ])];
+
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => { warnings.push(args.join(" ")); };
+  try {
+    await assert.rejects(
+      new FinancialAgent().run({ userId: "owner-test" }),
+      error => {
+        assert.match(error.message, /1 mailbox synchronization/);
+        assert.doesNotMatch(error.message, /NEVER-EXPOSE-THIS/);
+        return true;
+      }
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(fetchCount, 2);
+  assert.equal(inserted.length, 1);
+  assert.equal(syncUpdates.length, 1);
+  assert.equal(syncUpdates[0].where.id, "healthy");
+  assert.equal(warnings.length, 1);
+  assert.doesNotMatch(warnings.join(" "), /NEVER-EXPOSE-THIS/);
 });
