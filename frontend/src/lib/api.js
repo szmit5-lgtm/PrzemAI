@@ -1,6 +1,6 @@
 // Requests stay on the frontend origin; Next.js proxies /api to the configured backend.
 // NEXT_PUBLIC_API_URL remains an optional override for legacy deployments.
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Always use same-origin requests. Next.js rewrites /api to API_PROXY_TARGET.\n// Do not use NEXT_PUBLIC_API_URL: legacy Vercel values may cause CORS failures.\nconst API_URL = "";
 
 function getToken() {
     if (typeof window === "undefined") {
