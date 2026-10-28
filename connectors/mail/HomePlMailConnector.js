@@ -7,21 +7,34 @@ class HomePlMailConnector {
     }
 
     createClient() {
-        const secretName = this.config.passwordEnv;
-        const password = secretName
-            ? process.env[secretName]
-            : null;
+        // Never resolve arbitrary environment variables supplied by a
+        // database-backed integration. That would let a forged mailbox
+        // configuration send e.g. JWT_SECRET to an attacker-controlled IMAP.
+        const mailbox = typeof this.config?.email === "string"
+            ? this.config.email.trim().toLowerCase()
+            : "";
+        if (mailbox !== "office@dekonica.com" ||
+            this.config.passwordEnv !== "DEKONICA_MAIL_PASSWORD") {
+            throw new Error("Mailbox credentials are not provisioned.");
+        }
 
+        const password = process.env.DEKONICA_MAIL_PASSWORD;
         if (!password) {
-            throw new Error(
-                `Brak sekretu Railway: ${secretName || "MAIL_PASSWORD"}`
-            );
+            throw new Error("Mailbox credentials are not provisioned.");
+        }
+
+        // IMAP destination is set by trusted Railway configuration, never
+        // by Integration.config. home.pl hosts vary by hosting account.
+        const host = (process.env.DEKONICA_MAIL_IMAP_HOST || "dekonica.com").trim();
+        if (!/^[a-z0-9-]+(?:\\.[a-z0-9-]+)+$/i.test(host)) {
+            throw new Error("Mailbox server configuration is invalid.");
         }
 
         return new ImapFlow({
-            host: this.config.imapHost,
-            port: Number(this.config.imapPort || 993),
+            host,
+            port: 993,
             secure: true,
+            tls: { servername: host, rejectUnauthorized: true },
             // Bound stalled IMAP handshakes and idle sockets on the worker.
             connectionTimeout: 20000,
             greetingTimeout: 15000,
