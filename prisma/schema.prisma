@@ -26,6 +26,7 @@ model User {
   integrations  Integration[]
   projects      Project[]
   financialDocuments FinancialDocument[]
+  organizationMemberships OrganizationMembership[]
 }
 
 model History {
@@ -312,4 +313,59 @@ model FinancialDocument {
   @@index([issueDate])
   @@index([dueDate])
   @@index([projectId])
+}
+
+
+/// Organization foundation for future White Label / multi-tenant rollout.
+/// These models are additive; existing user-owned records are not migrated here.
+model Organization {
+  id          String @id @default(cuid())
+  name        String
+  slug        String @unique
+  displayName String?
+  logoUrl     String?
+  accentColor String?
+  status      String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships OrganizationMembership[]
+  domains     OrganizationDomain[]
+
+  @@index([status])
+}
+
+model OrganizationMembership {
+  id             String @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String @default("MEMBER")
+  status         String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, status])
+}
+
+model OrganizationDomain {
+  id             String @id @default(cuid())
+  organizationId String
+  hostname       String @unique
+  verifiedAt     DateTime?
+  isPrimary      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([verifiedAt])
 }
