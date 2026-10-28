@@ -11,6 +11,6 @@ test("frontend auth requests use the same-origin API proxy", () => {
     .join("\n");
 
   assert.match(activeCode, /^const API_URL = ["']{2};$/m);
-  assert.match(activeCode, /fetch\(\x60\$\{API_URL\}\$\{endpoint\}\x60/);
+  assert.match(activeCode, /fetch\(\s*\x60\$\{API_URL\}\$\{endpoint\}\x60/);
   assert.doesNotMatch(activeCode, /process\.env\.NEXT_PUBLIC_API_URL/);
 });
