@@ -8,8 +8,8 @@ const runner = new AgentRunner();
 const service = new AgentService();
 
 const CYCLE_MS = 60000;
-const HEARTBEAT_MS = 60000;
 const STALE_RUN_MS = 90 * 60000;
+const MAX_AGENTS_PER_CYCLE = 50;
 
 let busy = false;
 let stopping = false;
@@ -85,7 +85,9 @@ async function cycle() {
         ],
         NOT: { status: "RUNNING" }
       },
-      orderBy: { nextRunAt: "asc" }
+      orderBy: { nextRunAt: "asc" },
+      // Avoid unbounded reads when many agents become due simultaneously.
+      take: MAX_AGENTS_PER_CYCLE
     });
 
     let completed = 0;
@@ -111,26 +113,13 @@ async function cycle() {
 
       if (lock.count !== 1) continue;
 
-      // Prevent the stale-run watchdog from reclaiming a long job
-      // while this worker is still alive.
-      const heartbeat = setInterval(() => {
-        prisma.agent.updateMany({
-          where: { id: agent.id, status: "RUNNING" },
-          data: { updatedAt: new Date() }
-        }).catch(error => {
-          console.error("[Worker] Heartbeat failed", error.message);
-        });
-      }, HEARTBEAT_MS);
-      heartbeat.unref?.();
-
+      // AgentRunner heartbeats both scheduled and manual executions.
       try {
         await runner.run({ ...agent, status: "RUNNING" }, "SCHEDULE");
         completed += 1;
       } catch (error) {
         failed += 1;
         console.error("[Worker] Agent failed", agent.key, error.message);
-      } finally {
-        clearInterval(heartbeat);
       }
     }
 
