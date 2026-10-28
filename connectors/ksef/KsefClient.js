@@ -10,14 +10,26 @@ const SUBJECT_TYPES = new Set(["Subject1", "Subject2", "Subject3", "SubjectAutho
 const DATE_TYPES = new Set(["Issue", "Invoicing", "PermanentStorage"]);
 const OFFSET_DATE = /(?:Z|[+-]\d{2}:\d{2})$/i;
 const MAX_RANGE_MS = 100 * 24 * 60 * 60 * 1000;
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+const MAX_RETRY_DELAY_MS = 2000;
+const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 class KsefClient {
-  constructor({ environment = "test", accessToken, fetchImpl = globalThis.fetch } = {}) {
+  constructor({
+    environment = "test", accessToken, fetchImpl = globalThis.fetch,
+    maxRetries = 2, sleepImpl = defaultSleep
+  } = {}) {
     if (!BASE_URLS[environment]) throw new Error("Unknown KSeF environment.");
     if (typeof accessToken !== "string" || !accessToken.trim()) {
       throw new Error("KSeF access token is required.");
     }
     if (typeof fetchImpl !== "function") throw new Error("A fetch implementation is required.");
+    if (!Number.isInteger(maxRetries) || maxRetries < 0 || maxRetries > 3) {
+      throw new Error("KSeF maxRetries must be an integer between 0 and 3.");
+    }
+    if (typeof sleepImpl !== "function") throw new Error("KSeF sleep implementation is required.");
+    this.maxRetries = maxRetries;
+    this.sleepImpl = sleepImpl;
     this.baseUrl = BASE_URLS[environment];
     this.accessToken = accessToken;
     this.fetchImpl = fetchImpl;
@@ -56,32 +68,54 @@ class KsefClient {
     url.searchParams.set("pageOffset", String(pageOffset));
     url.searchParams.set("pageSize", String(pageSize));
 
-    const response = await this.fetchImpl(url.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + this.accessToken,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "X-Error-Format": "problem-details"
-      },
-      body: JSON.stringify({ subjectType, dateRange: { dateType, from, to } }),
-      signal: AbortSignal.timeout(20000)
-    });
+    // Metadata query is read-only. Retry only transient failures with a
+    // small, bounded backoff; never log tokens, invoice bodies or raw errors.
+    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      let response;
+      try {
+        response = await this.fetchImpl(url.toString(), {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + this.accessToken,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-Error-Format": "problem-details"
+          },
+          body: JSON.stringify({ subjectType, dateRange: { dateType, from, to } }),
+          signal: AbortSignal.timeout(20000)
+        });
+      } catch {
+        if (attempt === this.maxRetries) {
+          throw new Error("KSeF metadata network request failed.");
+        }
+        await this.sleepImpl(Math.min(MAX_RETRY_DELAY_MS, 250 * 2 ** attempt));
+        continue;
+      }
 
-    if (!response.ok) {
-      // Never log response bodies, invoice data or bearer tokens.
-      const retryAfter = response.headers?.get?.("retry-after");
-      const suffix = response.status === 429 && retryAfter
-        ? " Retry after " + retryAfter + " seconds."
-        : "";
-      throw new Error("KSeF metadata HTTP " + response.status + "." + suffix);
+      if (!response.ok) {
+        const retryAfter = response.headers?.get?.("retry-after");
+        if (RETRYABLE_STATUSES.has(response.status) && attempt < this.maxRetries) {
+          const seconds = Number(retryAfter);
+          const delay = retryAfter !== null && retryAfter !== undefined &&
+            retryAfter !== "" && Number.isFinite(seconds) && seconds >= 0
+            ? seconds * 1000
+            : 250 * 2 ** attempt;
+          await this.sleepImpl(Math.min(MAX_RETRY_DELAY_MS, delay));
+          continue;
+        }
+        const suffix = response.status === 429 && retryAfter
+          ? " Retry after " + retryAfter + " seconds."
+          : "";
+        throw new Error("KSeF metadata HTTP " + response.status + "." + suffix);
+      }
+
+      const data = await response.json();
+      if (!data || !Array.isArray(data.invoices) ||
+          typeof data.hasMore !== "boolean") {
+        throw new Error("Unexpected KSeF metadata response.");
+      }
+      return data;
     }
-    const data = await response.json();
-    if (!data || !Array.isArray(data.invoices) ||
-        typeof data.hasMore !== "boolean") {
-      throw new Error("Unexpected KSeF metadata response.");
-    }
-    return data;
   }
   // Bounded, streaming pagination. Never silently accept a truncated
   // response: the caller must split the date window to avoid missing invoices.
