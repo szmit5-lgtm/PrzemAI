@@ -59,6 +59,7 @@ test("KSeF HTTP errors never expose access tokens or invoice data", async () => 
   const token = "secret-must-not-appear";
   const client = new KsefClient({
     accessToken: token,
+    maxRetries: 0,
     fetchImpl: async () => ({
       ok: false,
       status: 429,
@@ -154,4 +155,98 @@ test("KSeF pagination fails on empty next page and enforces page cap", async () 
   assert.equal((await pages.next()).done, false);
   assert.equal((await pages.next()).done, false);
   await assert.rejects(pages.next(), /page limit/);
+});
+
+test("KSeF retries 429 with capped Retry-After then returns metadata", async () => {
+  let calls = 0;
+  const delays = [];
+  const client = new KsefClient({
+    accessToken: "test-token",
+    sleepImpl: async ms => { delays.push(ms); },
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return { ok: false, status: 429, headers: { get: () => "30" } };
+      }
+      return {
+        ok: true,
+        json: async () => ({ invoices: [{ ksefNumber: "test" }], hasMore: false })
+      };
+    }
+  });
+  const result = await client.queryInvoiceMetadata({ from, to });
+  assert.equal(calls, 2);
+  assert.deepEqual(delays, [2000]);
+  assert.equal(result.invoices[0].ksefNumber, "test");
+});
+
+test("KSeF retries temporary 503 errors with exponential bounded delays", async () => {
+  let calls = 0;
+  const delays = [];
+  const client = new KsefClient({
+    accessToken: "test-token",
+    sleepImpl: async ms => { delays.push(ms); },
+    fetchImpl: async () => {
+      calls += 1;
+      return calls < 3
+        ? { ok: false, status: 503, headers: { get: () => null } }
+        : { ok: true, json: async () => ({ invoices: [], hasMore: false }) };
+    }
+  });
+  await client.queryInvoiceMetadata({ from, to });
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [250, 500]);
+});
+
+test("KSeF never retries authorization failures or logs response content", async () => {
+  let calls = 0;
+  const client = new KsefClient({
+    accessToken: "secret-token",
+    sleepImpl: async () => { throw new Error("Must not retry"); },
+    fetchImpl: async () => {
+      calls += 1;
+      return { ok: false, status: 401, headers: { get: () => null } };
+    }
+  });
+  await assert.rejects(
+    client.queryInvoiceMetadata({ from, to }),
+    error => {
+      assert.equal(error.message, "KSeF metadata HTTP 401.");
+      assert.doesNotMatch(error.message, /secret-token/);
+      return true;
+    }
+  );
+  assert.equal(calls, 1);
+});
+
+test("KSeF network errors are retried and redacted after exhaustion", async () => {
+  let calls = 0;
+  const delays = [];
+  const client = new KsefClient({
+    accessToken: "secret-token",
+    sleepImpl: async ms => { delays.push(ms); },
+    fetchImpl: async () => {
+      calls += 1;
+      throw new Error("transport leaked secret-token");
+    }
+  });
+  await assert.rejects(
+    client.queryInvoiceMetadata({ from, to }),
+    error => {
+      assert.equal(error.message, "KSeF metadata network request failed.");
+      assert.doesNotMatch(error.message, /secret-token/);
+      return true;
+    }
+  );
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [250, 500]);
+});
+
+test("KSeF retry configuration must be bounded", () => {
+  for (const maxRetries of [-1, 4, 1.5, "2"]) {
+    assert.throws(
+      () => new KsefClient({ accessToken: "test-token", maxRetries }),
+      /maxRetries/
+    );
+  }
 });
