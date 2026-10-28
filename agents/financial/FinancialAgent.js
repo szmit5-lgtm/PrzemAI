@@ -6,7 +6,13 @@ const mailDocumentId = require("../../lib/mailDocumentId");
 const { canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
 
 class FinancialAgent {
-  async run({ userId }) {
+  async run({ userId } = {}) {
+    // Prisma omits undefined filters. Never allow a missing userId to
+    // turn a tenant-scoped mailbox lookup into a cross-user query.
+    if (typeof userId !== "string" || !userId.trim() || userId !== userId.trim()) {
+      throw new Error("Financial Agent requires an authenticated user ID.");
+    }
+
     const integrations = await prisma.integration.findMany({
       where: {
         userId,
