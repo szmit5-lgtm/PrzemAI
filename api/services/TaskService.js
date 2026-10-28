@@ -74,24 +74,32 @@ class TaskService {
 
     async update(id, userId, data) {
 
-        const task = await this.get(id, userId);
-
-        if (!task) {
-
-            throw new Error("Zadanie nie istnieje.");
-
+        // Never pass arbitrary request bodies into Prisma. In particular,
+        // userId, id, source and relation writes must not be client-editable.
+        const allowed = new Set([
+            "title", "description", "priority", "status", "dueDate",
+            "startedAt", "completedAt", "tags", "owner", "metadata"
+        ]);
+        if (!data || typeof data !== "object" || Array.isArray(data)) {
+            throw new Error("Nieprawidłowe dane zadania.");
         }
+        const changes = {};
+        for (const [key, value] of Object.entries(data)) {
+            if (!allowed.has(key)) {
+                throw new Error("Niedozwolone pole aktualizacji zadania.");
+            }
+            changes[key] = value;
+        }
+        if (Object.keys(changes).length === 0) {
+            throw new Error("Brak danych do aktualizacji zadania.");
+        }
+        if (changes.dueDate === "") changes.dueDate = null;
 
+        // Scope the write itself to the owner, not only a preceding read.
+        // This also removes the read/write authorization race.
         return prisma.task.update({
-
-            where: {
-
-                id
-
-            },
-
-            data
-
+            where: { id, userId },
+            data: changes
         });
 
     }
@@ -109,22 +117,9 @@ class TaskService {
 
     async remove(id, userId) {
 
-        const task = await this.get(id, userId);
-
-        if (!task) {
-
-            throw new Error("Zadanie nie istnieje.");
-
-        }
-
+        // Authorization belongs in the DELETE predicate as well.
         return prisma.task.delete({
-
-            where: {
-
-                id
-
-            }
-
+            where: { id, userId }
         });
 
     }
