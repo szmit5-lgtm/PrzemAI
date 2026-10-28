@@ -37,3 +37,13 @@ Dla inwestycji (np. Zgorzelec) użytkownik wgrywa pełną dokumentację projekto
 
 ## Ustalenie formatu wejściowego (2026-10-28)
 Użytkownik potwierdził, że zamówienia przychodzą w różnych formatach, najczęściej Excel (XLS/XLSX) i PDF. MVP powinno przyjmować oba formaty równorzędnie, zachowywać oryginały, normalizować pozycje do wspólnej struktury i oznaczać niepewne odczyty do ręcznej kontroli. Nie zakładać, że PDF zawiera tekst możliwy do skopiowania; skany wymagają osobnej ścieżki odczytu.
+
+## Potwierdzone formaty zamówień (2026-10-28)
+Zamówienia wpływają najczęściej jako pliki Excel (XLS/XLSX), PDF oraz treść wiadomości e-mail; e-mail może również zawierać załączniki. MVP powinno obsługiwać wszystkie trzy kanały, bez narzucania pracownikom jednego formularza.
+
+### Reguły importu
+- Normalizuj pozycje do wspólnego schematu: inwestycja, materiał, jednostka, ilość, parametry, źródło (wiadomość/plik/arkusz/wiersz), wersja.
+- Wykrywaj duplikaty między treścią e-maila a załącznikami oraz między kolejnymi przesyłkami.
+- Zachowuj odnośniki do oryginalnego źródła i dokumentacji projektowej.
+- Jeżeli nie da się wiarygodnie rozpoznać inwestycji, jednostki lub pozycji, oznacz jako BRAK DANYCH i poproś o weryfikację.
+- Nie wysyłaj zamówień do dostawcy bez odpowiedniego zatwierdzenia.
