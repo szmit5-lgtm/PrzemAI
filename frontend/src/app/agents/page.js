@@ -136,7 +136,7 @@ export default function AgentsPage() {
                   {agent.runs?.length > 0 && <div className="mt-4 text-xs text-slate-400">Ostatni wynik: <span className="text-slate-200">{statusLabel(agent.runs[0].status)}</span> · {formatDate(agent.runs[0].startedAt)}</div>}
                   <div className="mt-5 flex flex-wrap gap-3">
                     <button type="button" disabled={busy || !agent.enabled || agent.status === "RUNNING"}
-                      onClick={() => act("run:" + agent.id, () => runAgent(agent.id), "Zakończono ręczne uruchomienie agenta.")}
+                      onClick={() => act("run:" + agent.id, () => runAgent(agent.id), "Przyjęto polecenie uruchomienia agenta. Sprawdź status poniżej.")}
                       className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
                       <Play size={16} /> {pending === "run:" + agent.id ? "Uruchamianie…" : "Uruchom teraz"}
                     </button>
