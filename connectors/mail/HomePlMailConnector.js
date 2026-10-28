@@ -22,6 +22,10 @@ class HomePlMailConnector {
             host: this.config.imapHost,
             port: Number(this.config.imapPort || 993),
             secure: true,
+            // Bound stalled IMAP handshakes and idle sockets on the worker.
+            connectionTimeout: 20000,
+            greetingTimeout: 15000,
+            socketTimeout: 60000,
             auth: {
                 user: this.config.email,
                 pass: password
@@ -31,6 +35,9 @@ class HomePlMailConnector {
     }
 
     async fetchRecentMessages(limit = 30) {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+            throw new Error("Mail fetch limit must be an integer from 1 to 50.");
+        }
         const client = this.createClient();
 
         try {
@@ -74,7 +81,9 @@ class HomePlMailConnector {
                             parsed.date ||
                             message.internalDate ||
                             null,
-                        text: parsed.text || "",
+                        // Only attachment metadata is used by FinancialAgent.
+                        // Do not retain potentially huge message bodies/buffers
+                        // across the entire mailbox batch.
                         attachments: (parsed.attachments || []).map(
                             attachment => ({
                                 filename:
@@ -85,9 +94,7 @@ class HomePlMailConnector {
                                 size:
                                     attachment.size ||
                                     attachment.content?.length ||
-                                    0,
-                                content:
-                                    attachment.content
+                                    0
                             })
                         )
                     });
