@@ -76,3 +76,12 @@ test("finance summary scopes every aggregate query to current user", async () =>
   assert.equal(counts.length, 4);
   for (const call of counts) assert.equal(call.options.where.userId, "user-3");
 });
+
+test("finance list normalizes fractional limits before querying Prisma", async () => {
+  calls.length = 0;
+  await new FinanceService().list("user-4", { limit: "10.75", offset: "3.8" });
+  const query = calls.find(call => call.method === "findMany").options;
+  assert.equal(query.take, 10);
+  assert.equal(query.skip, 3);
+  assert.equal(Number.isInteger(query.take), true);
+});
