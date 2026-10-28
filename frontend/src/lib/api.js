@@ -11,7 +11,9 @@ function getToken() {
 }
 
 async function request(endpoint, options = {}) {
-    const token = getToken();
+    // A failed login is not an expired authenticated session.
+    const isCredentialRequest = endpoint === "/api/auth/login" || endpoint === "/api/auth/register";
+    const token = isCredentialRequest ? null : getToken();
 
     const headers = {
         ...(options.headers || {})
@@ -29,19 +31,6 @@ async function request(endpoint, options = {}) {
         }
     );
 
-    if (response.status === 401) {
-        localStorage.removeItem("token");
-
-        if (
-            typeof window !== "undefined" &&
-            !window.location.pathname.startsWith("/login")
-        ) {
-            window.location.href = "/login";
-        }
-
-        throw new Error("Sesja wygasła.");
-    }
-
     const contentType =
         response.headers.get("content-type") || "";
 
@@ -49,6 +38,16 @@ async function request(endpoint, options = {}) {
         contentType.includes("application/json")
             ? await response.json()
             : null;
+
+    if (response.status === 401 && !isCredentialRequest) {
+        if (typeof window !== "undefined") {
+            localStorage.removeItem("token");
+            if (!window.location.pathname.startsWith("/login")) {
+                window.location.href = "/login";
+            }
+        }
+        throw new Error("Sesja wygasła.");
+    }
 
     if (!response.ok) {
         throw new Error(
