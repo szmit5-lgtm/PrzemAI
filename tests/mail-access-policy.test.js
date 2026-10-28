@@ -48,12 +48,19 @@ test("changing mailbox or secret name does not bypass shared-mail policy", () =>
   }, ownerEnv), false);
 });
 
-test("separate non-shared mailbox integrations remain available", () => {
+test("unprovisioned mailboxes cannot select arbitrary Railway secrets", () => {
+  for (const passwordEnv of ["JWT_SECRET", "DATABASE_URL", "OTHER_SECRET"]) {
+    assert.equal(canSyncMailIntegration("user-123", {
+      type: "MAIL",
+      provider: "HOME_PL",
+      config: { email: "attacker@example.test", passwordEnv }
+    }, ownerEnv), false);
+  }
   assert.equal(canSyncMailIntegration("someone", {
     type: "MAIL",
     provider: "HOME_PL",
     config: { email: "someone@example.test", passwordEnv: "OTHER_SECRET" }
-  }, {}), true);
+  }, {}), false);
   assert.equal(canSyncMailIntegration("someone", {
     type: "KSEF",
     provider: "HOME_PL",
