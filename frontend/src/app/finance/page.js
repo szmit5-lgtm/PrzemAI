@@ -207,7 +207,7 @@ export default function FinancePage() {
                 <tbody>
                   {items.map(item => (
                     <tr key={item.id} className="border-b border-white/[.07] transition hover:bg-white/[.035]">
-                      <td className="whitespace-nowrap p-4 text-slate-300" title={item.source === "MAIL" ? "Data wiadomości e-mail, niekoniecznie wystawienia faktury" : "Data dokumentu"}>{formatDate(item.issueDate)}</td>
+                      <td className="whitespace-nowrap p-4 text-slate-300" title={item.source === "MAIL" ? (item.issueDate ? "Data z historycznego importu poczty — wymaga weryfikacji z fakturą" : "Data otrzymania e-mail, nie data wystawienia faktury") : "Data dokumentu"}>{formatDate(item.issueDate || (item.source === "MAIL" ? item.rawData?.receivedAt : null))}</td>
                       <td className="p-4"><span className="rounded-lg border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-xs font-semibold text-blue-200">{SOURCE_LABELS[item.source] || item.source || "—"}</span></td>
                       <td className="max-w-64 break-words p-4 font-medium text-white">{item.invoiceNumber || item.ksefNumber || item.rawData?.filename || "—"}</td>
                       <td className="max-w-48 break-words p-4 text-slate-300">{item.sellerName || item.rawData?.from || "—"}</td>
