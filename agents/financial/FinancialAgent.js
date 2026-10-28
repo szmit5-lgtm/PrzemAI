@@ -19,6 +19,7 @@ class FinancialAgent {
     let checkedMessages = 0;
     let newDocuments = 0;
     let blockedIntegrations = 0;
+    let failedIntegrations = 0;
 
     for (const integration of integrations) {
       // Defense in depth: also reject pre-existing enabled integrations
@@ -28,6 +29,7 @@ class FinancialAgent {
         console.warn("[FinancialAgent] Blocked unauthorized shared mailbox integration");
         continue;
       }
+      try {
       const connector = new HomePlMailConnector(integration.config || {});
       const messages = await connector.fetchRecentMessages(30);
       checkedMessages += messages.length;
@@ -89,11 +91,24 @@ class FinancialAgent {
         where: { id: integration.id },
         data: { lastSyncAt: new Date() }
       });
+      } catch {
+        // A failing mailbox must not prevent other authorized mailboxes
+        // from importing. Never log upstream IMAP errors: they can contain
+        // credentials or message details. Do not advance lastSyncAt.
+        failedIntegrations += 1;
+        console.warn("[FinancialAgent] Mailbox synchronization failed");
+      }
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}.`;
     console.log("[FinancialAgent]", summary);
+
+    // Preserve a failed run status and the retry schedule in AgentRunner,
+    // while allowing healthy integrations to finish first.
+    if (failedIntegrations > 0) {
+      throw new Error(`Financial Agent: ${failedIntegrations} mailbox synchronization(s) failed.`);
+    }
 
     return {
       summary,
@@ -101,7 +116,8 @@ class FinancialAgent {
         integrations: integrations.length,
         checkedMessages,
         newDocuments,
-        blockedIntegrations
+        blockedIntegrations,
+        failedIntegrations
       }
     };
   }
