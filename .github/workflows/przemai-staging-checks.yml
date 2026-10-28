@@ -20,7 +20,12 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      # The existing package-lock.json predates the mail dependencies.
+      # npm ci currently fails before tests run; keep staging checks active
+      # until the lockfile can be regenerated and committed separately.
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
+      - name: Generate Prisma client
+        run: npx prisma generate
       - name: Run backend tests
         run: npm test
