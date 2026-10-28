@@ -97,3 +97,47 @@ test("registration does not send a stale bearer token", async () => {
     browser.restore();
   }
 });
+
+test("successful login returns a token without clearing the existing session", async () => {
+  const browser = mockBrowser();
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/login");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, undefined);
+      assert.deepEqual(JSON.parse(options.body), {
+        email: "test@example.com",
+        password: "correct-password"
+      });
+      return jsonResponse(200, { token: "new-token" });
+    };
+    const api = await loadClient();
+    assert.deepEqual(await api.login("test@example.com", "correct-password"), {
+      token: "new-token"
+    });
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/login");
+  } finally {
+    browser.restore();
+  }
+});
+
+test("login server errors preserve the session and show the server message", async () => {
+  const browser = mockBrowser("/history");
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/login");
+      assert.equal(options.headers.Authorization, undefined);
+      return jsonResponse(500, { error: "Serwer chwilowo niedostępny." });
+    };
+    const api = await loadClient();
+    await assert.rejects(
+      api.login("test@example.com", "password"),
+      { message: "Serwer chwilowo niedostępny." }
+    );
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/history");
+  } finally {
+    browser.restore();
+  }
+});
