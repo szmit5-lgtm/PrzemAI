@@ -34,3 +34,6 @@ Dla inwestycji (np. Zgorzelec) użytkownik wgrywa pełną dokumentację projekto
 2. Porównanie pozycji, parametrów i ilości z cytowaniem źródła.
 3. Historia zamówień i wykrywanie duplikatów.
 4. Dopiero potem integracja ERP/hurtownie oraz DWG/IFC.
+
+## Ustalenie formatu wejściowego (2026-10-28)
+Użytkownik potwierdził, że zamówienia przychodzą w różnych formatach, najczęściej Excel (XLS/XLSX) i PDF. MVP powinno przyjmować oba formaty równorzędnie, zachowywać oryginały, normalizować pozycje do wspólnej struktury i oznaczać niepewne odczyty do ręcznej kontroli. Nie zakładać, że PDF zawiera tekst możliwy do skopiowania; skany wymagają osobnej ścieżki odczytu.
