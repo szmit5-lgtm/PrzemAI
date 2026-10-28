@@ -14,7 +14,7 @@ class HomePlMailConnector {
             ? this.config.email.trim().toLowerCase()
             : "";
         if (mailbox !== "office@dekonica.com" ||
-            this.config.passwordEnv !== "DEKONICA_MAIL_PASSWORD") {
+            this.config?.passwordEnv !== "DEKONICA_MAIL_PASSWORD") {
             throw new Error("Mailbox credentials are not provisioned.");
         }
 
