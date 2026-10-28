@@ -157,7 +157,7 @@ test("KSeF pagination fails on empty next page and enforces page cap", async () 
   await assert.rejects(pages.next(), /page limit/);
 });
 
-test("KSeF retries 429 with capped Retry-After then returns metadata", async () => {
+test("KSeF honors short Retry-After then returns metadata", async () => {
   let calls = 0;
   const delays = [];
   const client = new KsefClient({
@@ -166,7 +166,7 @@ test("KSeF retries 429 with capped Retry-After then returns metadata", async () 
     fetchImpl: async () => {
       calls += 1;
       if (calls === 1) {
-        return { ok: false, status: 429, headers: { get: () => "30" } };
+        return { ok: false, status: 429, headers: { get: () => "1" } };
       }
       return {
         ok: true,
@@ -176,7 +176,7 @@ test("KSeF retries 429 with capped Retry-After then returns metadata", async () 
   });
   const result = await client.queryInvoiceMetadata({ from, to });
   assert.equal(calls, 2);
-  assert.deepEqual(delays, [2000]);
+  assert.deepEqual(delays, [1000]);
   assert.equal(result.invoices[0].ksefNumber, "test");
 });
 
@@ -249,4 +249,41 @@ test("KSeF retry configuration must be bounded", () => {
       /maxRetries/
     );
   }
+});
+
+test("KSeF does not retry early when server requests a long Retry-After", async () => {
+  let calls = 0;
+  const client = new KsefClient({
+    accessToken: "test-token",
+    sleepImpl: async () => { throw new Error("Must not sleep and retry"); },
+    fetchImpl: async () => {
+      calls += 1;
+      return { ok: false, status: 429, headers: { get: () => "30" } };
+    }
+  });
+  await assert.rejects(
+    client.queryInvoiceMetadata({ from, to }),
+    /HTTP 429.*Retry after 30 seconds/
+  );
+  assert.equal(calls, 1);
+});
+
+test("KSeF handles an HTTP-date Retry-After without waiting too long", async () => {
+  let calls = 0;
+  const client = new KsefClient({
+    accessToken: "test-token",
+    sleepImpl: async () => { throw new Error("Must not sleep and retry"); },
+    fetchImpl: async () => {
+      calls += 1;
+      return {
+        ok: false, status: 503,
+        headers: { get: () => new Date(Date.now() + 30000).toUTCString() }
+      };
+    }
+  });
+  await assert.rejects(
+    client.queryInvoiceMetadata({ from, to }),
+    /HTTP 503.*Retry after/
+  );
+  assert.equal(calls, 1);
 });
