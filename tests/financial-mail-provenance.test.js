@@ -10,6 +10,7 @@ let duplicate = false;
 let inserted = [];
 let syncUpdates = [];
 let fetchCount = 0;
+let queryCount = 0;
 
 const integration = {
   id: "integration-test",
@@ -24,7 +25,7 @@ let availableIntegrations = [integration];
 
 const prisma = {
   integration: {
-    async findMany() { return availableIntegrations; },
+    async findMany() { queryCount += 1; return availableIntegrations; },
     async update({ where, data }) {
       syncUpdates.push({ where, data });
       return { ...integration, ...data };
@@ -84,6 +85,7 @@ function reset() {
   inserted = [];
   syncUpdates = [];
   fetchCount = 0;
+  queryCount = 0;
 }
 
 function message(date, attachments) {
@@ -179,4 +181,19 @@ test("a broken mailbox does not block healthy imports or leak IMAP errors", asyn
   assert.equal(syncUpdates[0].where.id, "healthy");
   assert.equal(warnings.length, 1);
   assert.doesNotMatch(warnings.join(" "), /NEVER-EXPOSE-THIS/);
+});
+
+
+test("missing tenant ID fails closed before querying any mailbox", async () => {
+  reset();
+  for (const userId of [undefined, null, "", " ", " owner-test "]) {
+    await assert.rejects(
+      new FinancialAgent().run({ userId }),
+      /authenticated user ID/
+    );
+  }
+  await assert.rejects(new FinancialAgent().run(), /authenticated user ID/);
+  assert.equal(queryCount, 0);
+  assert.equal(fetchCount, 0);
+  assert.equal(inserted.length, 0);
 });
