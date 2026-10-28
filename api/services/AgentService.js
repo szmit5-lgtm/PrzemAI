@@ -144,6 +144,11 @@ class AgentService {
         id,
         enabled
     ) {
+        // Reject strings like "false": Boolean("false") is true.
+        if (typeof enabled !== "boolean") {
+            throw new Error("Pole enabled musi mieć wartość true lub false.");
+        }
+
         const agent = await prisma.agent.findFirst({
             where: { id, userId }
         });
@@ -189,6 +194,10 @@ class AgentService {
         id,
         enabled
     ) {
+        if (typeof enabled !== "boolean") {
+            throw new Error("Pole enabled musi mieć wartość true lub false.");
+        }
+
         const integration =
             await prisma.integration.findFirst({
                 where: { id, userId }
