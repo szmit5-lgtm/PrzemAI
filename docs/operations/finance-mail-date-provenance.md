@@ -19,3 +19,11 @@ Po uruchomieniu zweryfikowanego parsera faktur można w osobnym, audytowanym pro
 Test `tests/financial-mail-provenance.test.js` symuluje wiadomości bez połączenia z prawdziwą skrzynką. Sprawdza rozdzielenie dat, nieprawidłowe znaczniki czasu, duplikaty i brak dostępu do skrzynki nieautoryzowanego użytkownika.
 
 Integracja home.pl pozostaje wyłączona do czasu autoryzacji właściciela i świadomego włączenia. Żadna zmiana w tym zakresie nie wymaga ani nie zapisuje haseł w repozytorium.
+
+## Awaria pojedynczej skrzynki (2026-10-28)
+
+Financial Agent przetwarza autoryzowane integracje MAIL niezależnie. Błąd połączenia IMAP, parsowania lub zapisu dla jednej integracji **nie zatrzymuje** skanowania pozostałych skrzynek. Dla nieudanej integracji nie aktualizuje `lastSyncAt`; prawidłowo przetworzone załączniki z innych skrzynek pozostają zapisane z ochroną przed duplikatami (`userId`, `source`, `externalId`).
+
+Jeżeli co najmniej jedna integracja zakończy się błędem, całe uruchomienie agenta ma status `FAILED` i stosuje dotychczasowy harmonogram ponowienia, zamiast fałszywie zgłaszać pełen sukces. Komunikat błędu jest ogólny — nie przechowujemy ani nie logujemy treści błędu IMAP, która mogłaby zawierać dane wiadomości lub poświadczenia. W przypadku utrzymującego się błędu sprawdź konfigurację skrzynki i status połączenia na Railway bez kopiowania sekretów do logów lub zgłoszeń.
+
+Test regresyjny: `tests/financial-mail-provenance.test.js` symuluje jedną niedostępną skrzynkę i drugą działającą, sprawdza brak przesunięcia `lastSyncAt` dla pierwszej oraz brak wycieku sekretu w komunikacie i logu.
