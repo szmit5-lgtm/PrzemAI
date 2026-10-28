@@ -48,6 +48,12 @@ class FinancialAgent {
             attachmentIndex
           });
 
+          // An email timestamp is NOT the invoice issue date. Keep it as
+          // provenance metadata until an actual invoice parser verifies it.
+          const receivedDate = message.date ? new Date(message.date) : null;
+          const receivedAt = receivedDate && Number.isFinite(receivedDate.getTime())
+            ? receivedDate.toISOString() : null;
+
           // Unique (userId, source, externalId) guarantees idempotency
           // even when two workers try to import the same attachment.
           try {
@@ -57,9 +63,10 @@ class FinancialAgent {
                 source: "MAIL",
                 externalId,
                 status: "NEW",
-                issueDate: message.date ? new Date(message.date) : null,
+                issueDate: null,
                 rawData: {
                   mailbox: integration.name,
+                  receivedAt,
                   subject: message.subject,
                   from: message.from,
                   messageId: message.messageId,
