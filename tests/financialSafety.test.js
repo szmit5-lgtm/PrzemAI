@@ -73,12 +73,14 @@ test("shared mailbox policy cannot be bypassed by changing only one field", () =
   assert.equal(canSyncMailIntegration("other-user", changedSecret, env), false);
 });
 
-test("non-shared mail integration is not blocked by shared mailbox policy", () => {
+test("unprovisioned private mailboxes cannot select arbitrary environment secrets", () => {
   const privateMailbox = integration({
     email: "private@example.com",
     passwordEnv: "PRIVATE_MAIL_PASSWORD"
   });
-  assert.equal(canSyncMailIntegration("user-1", privateMailbox, {}), true);
-  assert.equal(canSyncMailIntegration("user-1", { ...privateMailbox, type: "KSEF" }, {}), false);
-  assert.equal(canSyncMailIntegration("user-1", null, {}), false);
+  const env = { DEKONICA_MAIL_OWNER_USER_ID: "user-1" };
+  assert.equal(canSyncMailIntegration("user-1", privateMailbox, env), false);
+  assert.equal(canSyncMailIntegration("user-1", privateMailbox, {}), false);
+  assert.equal(canSyncMailIntegration("user-1", { ...privateMailbox, type: "KSEF" }, env), false);
+  assert.equal(canSyncMailIntegration("user-1", null, env), false);
 });
