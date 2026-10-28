@@ -31,3 +31,14 @@ Test regresyjny: `tests/financial-mail-provenance.test.js` symuluje jedną niedo
 ## Izolacja danych użytkowników
 
 Każde uruchomienie Financial Agent wymaga niepustego, jednoznacznego `userId` przekazanego przez zaufany runtime. Brak identyfikatora powoduje błąd **przed** wykonaniem zapytania Prisma. Jest to konieczne, ponieważ Prisma może pominąć filtr o wartości `undefined`; bez walidacji agent mógłby odczytać integracje innych użytkowników. Test regresyjny sprawdza, że dla pustych lub niepoprawnych identyfikatorów nie wykonuje się żadnego zapytania do integracji ani połączenia IMAP.
+
+
+## Granica poświadczeń IMAP (2026-10-28)
+
+Weryfikacja bezpieczeństwa wykazała, że wcześniejszy konektor odczytywał dowolną zmienną `process.env[config.passwordEnv]` i łączył się z hostem `config.imapHost` z bazy danych. Taka kombinacja mogła umożliwić przesłanie sekretu aplikacji do nieautoryzowanego serwera IMAP, gdyby konfiguracja integracji została podmieniona.
+
+Obecnie obsługiwany jest **wyłącznie** jawnie przypisany do użytkownika `office@dekonica.com` z sekretem `DEKONICA_MAIL_PASSWORD`. Konektor nie odczytuje żadnych innych nazw zmiennych środowiskowych z konfiguracji integracji. Serwer IMAP jest pobierany wyłącznie z zaufanej zmiennej Railway `DEKONICA_MAIL_IMAP_HOST` (domyślnie `dekonica.com`), **nie** z rekordu bazy. Połączenie wymusza TLS z weryfikacją certyfikatu i port 993. Pozostałe skrzynki pozostają wyłączone do czasu wdrożenia odrębnego, kontrolowanego procesu przypisywania poświadczeń do użytkowników.
+
+Operator powinien ustawić `DEKONICA_MAIL_IMAP_HOST` na adres serwera IMAP podany dla skrzynki w panelu home.pl (zwykle host usługi z domeną `home.pl`), bez wpisywania hasła w repozytorium. Włączenie synchronizacji nadal wymaga `DEKONICA_MAIL_OWNER_USER_ID` oraz świadomego ustawienia `enabled=true`. Nie testować na prawdziwej skrzynce przed autoryzacją.
+
+Testy: `tests/mail-access-policy.test.js` i `tests/homepl-credential-boundary.test.js` weryfikują odmowę dostępu do niezatwierdzonych nazw sekretów, wymuszenie zaufanego hosta i TLS oraz odrzucanie niepoprawnego hosta. Testy nie otwierają połączeń sieciowych.
