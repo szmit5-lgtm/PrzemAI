@@ -45,7 +45,7 @@ Kontrakty OpenAPI i wersje różnią się między środowiskami; przed implement
 
 - `connectors/ksef/KsefClient.js` wykonuje wyłącznie zapytania do metadanych faktur w KSeF TEST albo PROD, ale **nie jest podłączony do workera ani automatycznego importu**.
 - Parametry dat, paginacji i środowiska są ograniczone. Stronicowanie kończy się błędem przy obciętych wynikach lub przekroczeniu limitu, aby nie zgubić dokumentów.
-- Zapytanie tylko do odczytu może ponowić się maksymalnie 2 razy (konfigurowalne 0–3) po 429, 502, 503, 504 lub błędzie transportu. Opóźnienia wynoszą 250/500 ms albo Retry-After, zawsze z limitem 2 s. Błąd 401/403 nie jest ponawiany.
+- Zapytanie tylko do odczytu może ponowić się maksymalnie 2 razy (konfigurowalne 0–3) po 429, 502, 503, 504 lub błędzie transportu. Opóźnienia wynoszą 250/500 ms albo zgodnie z Retry-After. Jeśli serwer wymaga oczekiwania ponad 2 s, klient przerywa i zwraca informację o czasie oczekiwania zamiast ponawiać zbyt wcześnie. Błąd 401/403 nie jest ponawiany.
 - Odpowiedzi i błędy sieciowe nie są logowane wraz z tokenem ani treścią faktur. Testy używają wyłącznie symulowanego HTTP.
 - **Nie uruchamiać produkcyjnego endpointu bez osobnej zgody.** Istnienie opcji `environment: "production"` w kliencie nie jest zgodą na jej użycie w staging.
 
