@@ -97,3 +97,28 @@ test("agent settings reject access to another user's agent", async () => {
   const service = new AgentService();
   await assert.rejects(() => service.setEnabled("user-2", "agent-1", true), /Agent nie istnieje/);
 });
+
+
+test("agent toggles reject non-boolean values before any database access", async () => {
+  prisma.agent.findFirst = async () => { throw new Error("unexpected database access"); };
+  const service = new AgentService();
+  for (const invalid of ["false", "true", 0, 1, null, undefined, {}, []]) {
+    await assert.rejects(
+      () => service.setEnabled("user-1", "agent-1", invalid),
+      /enabled musi mieć wartość true lub false/
+    );
+  }
+});
+
+test("mail integration toggles reject truthy strings and other invalid values", async () => {
+  prisma.integration = {
+    findFirst: async () => { throw new Error("unexpected database access"); }
+  };
+  const service = new AgentService();
+  for (const invalid of ["false", "true", 0, 1, null, undefined, {}, []]) {
+    await assert.rejects(
+      () => service.setIntegrationEnabled("user-1", "integration-1", invalid),
+      /enabled musi mieć wartość true lub false/
+    );
+  }
+});
