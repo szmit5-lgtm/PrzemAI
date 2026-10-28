@@ -43,9 +43,6 @@ class AgentService {
                 }
             });
 
-        const shouldEnableDekonicaMail =
-            Boolean(process.env.DEKONICA_MAIL_PASSWORD);
-
         if (!mailIntegration) {
             await prisma.integration.create({
                 data: {
@@ -53,7 +50,9 @@ class AgentService {
                     type: "MAIL",
                     provider: "HOME_PL",
                     name: "Dekonica office",
-                    enabled: shouldEnableDekonicaMail,
+                    // Credentials existing on Railway are not consent to sync.
+                    // A verified owner must explicitly enable the mailbox.
+                    enabled: false,
                     config: {
                         email: "office@dekonica.com",
                         imapHost: "dekonica.com",
@@ -61,23 +60,18 @@ class AgentService {
                         smtpHost: "dekonica.com",
                         smtpPort: 587,
                         passwordEnv:
-                            "DEKONICA_MAIL_PASSWORD",
-                        // The API may create the integration before the
-                        // worker (which holds the secret) starts.
-                        autoEnablePending:
-                            !shouldEnableDekonicaMail
+                            "DEKONICA_MAIL_PASSWORD"
                     }
                 }
             });
         }
-        else if (
-            shouldEnableDekonicaMail &&
-            mailIntegration.config?.autoEnablePending === true
-        ) {
+        else if (mailIntegration.config?.autoEnablePending === true) {
             await prisma.integration.update({
                 where: { id: mailIntegration.id },
                 data: {
-                    enabled: true,
+                    // Migrate legacy pending integrations without activating
+                    // access to real messages during provisioning.
+                    enabled: false,
                     config: {
                         ...mailIntegration.config,
                         autoEnablePending: false
@@ -85,8 +79,7 @@ class AgentService {
                 }
             });
         }
-        // Existing integrations without the pending flag are never
-        // auto-enabled: a user's disabled setting must be respected.
+        // Existing explicit enabled/disabled choices are left unchanged.
     }
 
     async list(userId) {
