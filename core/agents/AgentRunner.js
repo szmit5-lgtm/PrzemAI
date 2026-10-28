@@ -1,13 +1,30 @@
+"use strict";
+
 const prisma = require("../../lib/prisma");
 const FinancialAgent = require("../../agents/financial/FinancialAgent");
 
+const HEARTBEAT_MS = 60 * 1000;
+
 class AgentRunner {
   async run(agent, trigger = "SCHEDULE") {
-    const run = await prisma.agentRun.create({
-      data: { agentId: agent.id, status: "RUNNING", trigger }
-    });
+    // Both scheduled and manual runs need a heartbeat. Otherwise the worker
+    // can reclaim a long manual run after 90 minutes and start it twice.
+    const heartbeat = setInterval(() => {
+      prisma.agent.updateMany({
+        where: { id: agent.id, status: "RUNNING" },
+        data: { updatedAt: new Date() }
+      }).catch(error => {
+        console.error("[AgentRunner] Heartbeat failed", error.message);
+      });
+    }, HEARTBEAT_MS);
+    heartbeat.unref?.();
 
+    let run;
     try {
+      run = await prisma.agentRun.create({
+        data: { agentId: agent.id, status: "RUNNING", trigger }
+      });
+
       if (agent.type !== "FINANCIAL") {
         throw new Error("Nieobsługiwany typ agenta.");
       }
@@ -25,8 +42,9 @@ class AgentRunner {
         }
       });
 
-      await prisma.agent.update({
-        where: { id: agent.id },
+      // A recovered/stopped run must not overwrite a newer agent state.
+      await prisma.agent.updateMany({
+        where: { id: agent.id, status: "RUNNING" },
         data: {
           status: "IDLE",
           lastRunAt: finishedAt,
@@ -36,28 +54,41 @@ class AgentRunner {
 
       return result;
     } catch (error) {
-      await prisma.agentRun.update({
-        where: { id: run.id },
-        data: {
-          status: "FAILED",
-          finishedAt: new Date(),
-          error: error.message
+      // Even if creating AgentRun failed, release the RUNNING claim. A failed
+      // audit write must not strand the agent until the stale-run watchdog.
+      if (run) {
+        try {
+          await prisma.agentRun.update({
+            where: { id: run.id },
+            data: {
+              status: "FAILED",
+              finishedAt: new Date(),
+              error: error.message
+            }
+          });
+        } catch (auditError) {
+          console.error("[AgentRunner] Could not record failure", auditError.message);
         }
-      });
+      }
 
-      await prisma.agent.update({
-        where: { id: agent.id },
-        data: {
-          status: "ERROR",
-          // Avoid retrying a failing integration every minute.
-          nextRunAt: new Date(
-            Date.now() +
-              Math.max(5, Number(agent.intervalMinutes) || 15) * 60000
-          )
-        }
-      });
+      try {
+        await prisma.agent.updateMany({
+          where: { id: agent.id, status: "RUNNING" },
+          data: {
+            status: "ERROR",
+            // Avoid retrying a failing integration every minute.
+            nextRunAt: new Date(
+              Date.now() + Math.max(5, Number(agent.intervalMinutes) || 15) * 60000
+            )
+          }
+        });
+      } catch (unlockError) {
+        console.error("[AgentRunner] Could not release failed agent", unlockError.message);
+      }
 
       throw error;
+    } finally {
+      clearInterval(heartbeat);
     }
   }
 }
