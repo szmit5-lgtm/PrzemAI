@@ -27,3 +27,7 @@ Financial Agent przetwarza autoryzowane integracje MAIL niezależnie. Błąd po�
 Jeżeli co najmniej jedna integracja zakończy się błędem, całe uruchomienie agenta ma status `FAILED` i stosuje dotychczasowy harmonogram ponowienia, zamiast fałszywie zgłaszać pełen sukces. Komunikat błędu jest ogólny — nie przechowujemy ani nie logujemy treści błędu IMAP, która mogłaby zawierać dane wiadomości lub poświadczenia. W przypadku utrzymującego się błędu sprawdź konfigurację skrzynki i status połączenia na Railway bez kopiowania sekretów do logów lub zgłoszeń.
 
 Test regresyjny: `tests/financial-mail-provenance.test.js` symuluje jedną niedostępną skrzynkę i drugą działającą, sprawdza brak przesunięcia `lastSyncAt` dla pierwszej oraz brak wycieku sekretu w komunikacie i logu.
+
+## Izolacja danych użytkowników
+
+Każde uruchomienie Financial Agent wymaga niepustego, jednoznacznego `userId` przekazanego przez zaufany runtime. Brak identyfikatora powoduje błąd **przed** wykonaniem zapytania Prisma. Jest to konieczne, ponieważ Prisma może pominąć filtr o wartości `undefined`; bez walidacji agent mógłby odczytać integracje innych użytkowników. Test regresyjny sprawdza, że dla pustych lub niepoprawnych identyfikatorów nie wykonuje się żadnego zapytania do integracji ani połączenia IMAP.
