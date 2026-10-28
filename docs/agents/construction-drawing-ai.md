@@ -53,3 +53,15 @@ Automatyczne rozpoznawanie pomieszczenia na rysunku; porównanie rewizji; integr
 Stany finansowe: NOT_PRICED -> COST_REVIEW_REQUIRED -> PRICE_READY -> PRICE_SENT -> PRICE_ACCEPTED | PRICE_REJECTED | PRICE_NEGOTIATION.
 Dodatkowe pola: costEstimateVersion, costLines, netAmount, vatAmount, grossAmount, currency, pricingSource, costApprovedBy, costApprovedAt, recipientUserId, recipientEmail, emailSentAt, priceDecisionAt, priceDecisionBy, priceDecisionComment, contractualBasis, scheduleImpactDays.
 Testy: brak stawek, błędny VAT, nieuprawniony adresat, powtórne wysłanie, ponowna akceptacja zmienionej kwoty, błędny token akceptacji, odmowa, brak podstawy umownej.
+
+
+## Wymagany dwustopniowy obieg akceptacji (ustalenie biznesowe)
+1. Pracownik zgłasza zmianę; agent przygotowuje raport, rysunek z adnotacją, zakres robót oraz kosztorys.
+2. Uprawniona osoba po stronie Dekonica zatwierdza **zarówno zakres, jak i kwotę** (INTERNAL_SCOPE_AND_PRICE_APPROVED). Wcześniejsza akceptacja techniczna, jeśli wymagana, jest osobnym krokiem.
+3. **Bezpośrednio po tej wewnętrznej akceptacji** system automatycznie wysyła klientowi e-mail z prośbą o zatwierdzenie **zakresu prac oraz kwoty**. Nie wymaga dodatkowego ręcznego kliknięcia „Wyślij”, jeżeli adresat jest wcześniej zatwierdzony i konfiguracja wysyłki jest aktywna.
+4. E-mail zawiera: inwestycję, numer zgłoszenia, opis i dokładny zakres, zdjęcia, rysunek z oznaczeniem, wycenę netto/VAT/brutto, wpływ na termin, termin odpowiedzi i jednoznaczną prośbę o potwierdzenie zakresu oraz ceny. Załączniki i link akceptacyjny powinny być dostępne wyłącznie uprawnionym odbiorcom.
+5. Klient może: ACCEPT_SCOPE_AND_PRICE, REQUEST_CHANGES lub REJECT. Odpowiedź rejestrowana jest z identyfikacją osoby, datą i wersją dokumentów. Sama dostawa wiadomości nie oznacza zgody; brak odpowiedzi również nie jest zgodą.
+6. Dopiero akceptacja klienta obu elementów pozwala oznaczyć zmianę jako CLIENT_APPROVED i przekazać do realizacji zgodnie z warunkami umowy (np. po wymaganym aneksie lub zleceniu). Odrzucenie lub zmiana zakresu/kwoty wymaga ponownej wewnętrznej akceptacji i ponownego wysłania do klienta.
+7. E-mail wysyłany jest przez kolejkę z retry i kluczem idempotencji per wersja zmiany + klient, aby uniknąć duplikatów. Błąd wysyłki daje status DELIVERY_FAILED i alert do osoby prowadzącej; nie zmienia statusu na „zaakceptowane”.
+
+Przykładowe stany: INTERNAL_REVIEW -> INTERNAL_SCOPE_AND_PRICE_APPROVED -> CLIENT_APPROVAL_EMAIL_QUEUED -> CLIENT_APPROVAL_REQUESTED -> CLIENT_APPROVED | CLIENT_REJECTED | CLIENT_CHANGES_REQUESTED.
