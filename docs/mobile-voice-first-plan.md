@@ -25,3 +25,11 @@ Status: proposed architecture, not yet implemented. User direction: voice and ch
 - Recording never starts silently.
 - Users cannot access another tenant's conversations, recordings or documents.
 - Failed/queued work is clearly labeled, and sensitive external actions require approval.
+
+## Proactive voice and notification controls
+- Proactive spoken alerts are optional and disabled by default.
+- Per-user, per-device master switch for proactive alerts; separate controls for push, in-app banners and spoken interruptions.
+- Category settings (critical incidents, construction updates, finance, email, task reminders) and priority thresholds.
+- Quiet hours, meeting/focus mode, rate limits and immediate mute; no spoken confidential content on lock screen by default.
+- User can choose only on-request responses, text-only notifications or spoken alerts.
+- Organization administrators may set safe upper limits but cannot silently override user privacy preferences.
