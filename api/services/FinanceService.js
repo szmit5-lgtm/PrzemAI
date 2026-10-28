@@ -3,7 +3,7 @@ const prisma = require("../../lib/prisma");
 class FinanceService {
     async list(userId, options = {}) {
         const limit = Math.min(
-            Math.max(Number(options.limit) || 100, 1),
+            Math.max(Math.trunc(Number(options.limit)) || 100, 1),
             500
         );
 
