@@ -94,18 +94,24 @@ class KsefClient {
 
       if (!response.ok) {
         const retryAfter = response.headers?.get?.("retry-after");
-        if (RETRYABLE_STATUSES.has(response.status) && attempt < this.maxRetries) {
-          const seconds = Number(retryAfter);
-          const delay = retryAfter !== null && retryAfter !== undefined &&
-            retryAfter !== "" && Number.isFinite(seconds) && seconds >= 0
-            ? seconds * 1000
-            : 250 * 2 ** attempt;
-          await this.sleepImpl(Math.min(MAX_RETRY_DELAY_MS, delay));
+        // Retry-After can be seconds or an HTTP date. Do not retry earlier
+        // than the server allows, and do not block a worker for long periods.
+        const numericSeconds = typeof retryAfter === "string" &&
+          /^\\d+(?:\\.\\d+)?$/.test(retryAfter.trim())
+          ? Number(retryAfter.trim()) : NaN;
+        const retryAfterMs = Number.isFinite(numericSeconds)
+          ? numericSeconds * 1000
+          : typeof retryAfter === "string" && Number.isFinite(Date.parse(retryAfter))
+            ? Math.max(0, Date.parse(retryAfter) - Date.now()) : null;
+        const delay = retryAfterMs ?? 250 * 2 ** attempt;
+        const suffix = retryAfterMs !== null
+          ? " Retry after " + Math.ceil(retryAfterMs / 1000) + " seconds."
+          : "";
+        if (RETRYABLE_STATUSES.has(response.status) &&
+            attempt < this.maxRetries && delay <= MAX_RETRY_DELAY_MS) {
+          await this.sleepImpl(delay);
           continue;
         }
-        const suffix = response.status === 429 && retryAfter
-          ? " Retry after " + retryAfter + " seconds."
-          : "";
         throw new Error("KSeF metadata HTTP " + response.status + "." + suffix);
       }
 
