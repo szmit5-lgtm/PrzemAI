@@ -107,3 +107,14 @@ test("connector rejects malformed trusted server configuration", () => {
     else process.env.DEKONICA_MAIL_IMAP_HOST = oldHost;
   }
 });
+
+test("missing or partial mailbox config fails closed without reading secrets", () => {
+  clients.length = 0;
+  for (const config of [undefined, null, {}, { email: "office@dekonica.com" }]) {
+    assert.throws(
+      () => new HomePlMailConnector(config).createClient(),
+      /not provisioned/
+    );
+  }
+  assert.equal(clients.length, 0);
+});
