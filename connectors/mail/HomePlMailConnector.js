@@ -26,7 +26,7 @@ class HomePlMailConnector {
         // IMAP destination is set by trusted Railway configuration, never
         // by Integration.config. home.pl hosts vary by hosting account.
         const host = (process.env.DEKONICA_MAIL_IMAP_HOST || "dekonica.com").trim();
-        if (!/^[a-z0-9-]+(?:\\.[a-z0-9-]+)+$/i.test(host)) {
+        if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(host)) {
             throw new Error("Mailbox server configuration is invalid.");
         }
 
