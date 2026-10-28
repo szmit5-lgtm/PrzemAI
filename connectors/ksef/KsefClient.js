@@ -97,7 +97,7 @@ class KsefClient {
         // Retry-After can be seconds or an HTTP date. Do not retry earlier
         // than the server allows, and do not block a worker for long periods.
         const numericSeconds = typeof retryAfter === "string" &&
-          /^\\d+(?:\\.\\d+)?$/.test(retryAfter.trim())
+          /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
           ? Number(retryAfter.trim()) : NaN;
         const retryAfterMs = Number.isFinite(numericSeconds)
           ? numericSeconds * 1000
