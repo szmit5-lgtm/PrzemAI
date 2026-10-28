@@ -53,14 +53,14 @@ try {
 }
 
 test("IMAP connector bounds connection time and returns metadata without retaining content", async () => {
-  const previous = process.env.UNIT_TEST_MAIL_SECRET;
-  process.env.UNIT_TEST_MAIL_SECRET = "dummy-not-a-real-password";
+  const previous = process.env.DEKONICA_MAIL_PASSWORD;
+  process.env.DEKONICA_MAIL_PASSWORD = "dummy-not-a-real-password";
   try {
     const connector = new HomePlMailConnector({
-      email: "test@example.com",
+      email: "office@dekonica.com",
       imapHost: "mail.example.com",
       imapPort: 993,
-      passwordEnv: "UNIT_TEST_MAIL_SECRET"
+      passwordEnv: "DEKONICA_MAIL_PASSWORD"
     });
     const messages = await connector.fetchRecentMessages(1);
     assert.equal(messages.length, 1);
@@ -74,8 +74,8 @@ test("IMAP connector bounds connection time and returns metadata without retaini
     assert.equal(released, true);
     assert.equal(loggedOut, true);
   } finally {
-    if (previous === undefined) delete process.env.UNIT_TEST_MAIL_SECRET;
-    else process.env.UNIT_TEST_MAIL_SECRET = previous;
+    if (previous === undefined) delete process.env.DEKONICA_MAIL_PASSWORD;
+    else process.env.DEKONICA_MAIL_PASSWORD = previous;
   }
 });
 
