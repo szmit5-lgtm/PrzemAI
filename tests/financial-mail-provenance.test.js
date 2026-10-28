@@ -51,7 +51,7 @@ class FakeConnector {
 
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-  const source = parent?.filename?.replaceAll("\\\\", "/") || "";
+  const source = parent?.filename?.replaceAll("\\", "/") || "";
   if (source.endsWith("/agents/financial/FinancialAgent.js")) {
     if (request === "../../lib/prisma") return prisma;
     if (request === "../../connectors/mail/HomePlMailConnector") return FakeConnector;
