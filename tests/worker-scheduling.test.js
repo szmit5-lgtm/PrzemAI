@@ -66,6 +66,23 @@ function startWorker(overrides = {}) {
 
 const settled = () => new Promise(resolve => setImmediate(resolve));
 
+test("worker warns once when no users are provisioned and schedules no runs", async () => {
+  const events = startWorker();
+
+  await settled();
+  assert.equal(events.ensured.length, 0);
+  assert.equal(events.runs.length, 0);
+  assert.equal(events.warnings.length, 1);
+  assert.match(events.warnings[0][0], /No users in this database/);
+
+  // A repeated cycle must not flood logs or manufacture successful work.
+  events.tick();
+  await settled();
+  assert.equal(events.ensured.length, 0);
+  assert.equal(events.runs.length, 0);
+  assert.equal(events.warnings.length, 1);
+});
+
 test("worker claims only due agents that remain available at update time", async () => {
   const claims = [];
   const due = [
