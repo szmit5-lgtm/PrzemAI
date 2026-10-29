@@ -171,3 +171,5 @@ if (process.env.DEKONICA_MAIL_PASSWORD && !process.env.DEKONICA_MAIL_OWNER_USER_
 console.log("PrzemAI Worker active");
 cycle();
 interval = setInterval(cycle, CYCLE_MS);
+
+// Staging deployment marker: Claude API smoke test is configured as a one-time pre-deploy check.
