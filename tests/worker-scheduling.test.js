@@ -207,3 +207,34 @@ test("worker continues other users and due agents when one user's provisioning f
   assert.equal(events.runs[0].agent.id, "healthy-agent");
   assert.equal(events.runs[0].trigger, "SCHEDULE");
 });
+
+test("worker continues running other due agents after one agent fails", async () => {
+  const due = [
+    { id: "broken-agent", key: "broken", userId: "user-1", enabled: true },
+    { id: "healthy-agent", key: "healthy", userId: "user-1", enabled: true }
+  ];
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING" ? [] : due,
+        updateMany: async () => ({ count: 1 })
+      }
+    },
+    run: async agent => {
+      if (agent.id === "broken-agent") throw new Error("simulated integration failure");
+    }
+  });
+
+  await settled();
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["broken-agent", "healthy-agent"]);
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Agent failed/);
+  assert.equal(events.errors[0][1], "broken");
+  const cycle = events.logs.find(entry => entry[0] === "[Worker] Cycle");
+  assert.ok(cycle, "worker must log its first cycle");
+  const summary = JSON.parse(cycle[1]);
+  assert.equal(summary.completed, 1);
+  assert.equal(summary.failed, 1);
+  assert.equal(summary.due, 2);
+});
