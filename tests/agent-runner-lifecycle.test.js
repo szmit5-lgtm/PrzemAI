@@ -7,12 +7,13 @@ const path = require("node:path");
 
 const runnerPath = path.resolve(__dirname, "../core/agents/AgentRunner.js");
 
-function setup(runFinancial) {
+function setup(runFinancial, options = {}) {
   const calls = { created: [], audited: [], states: [], financial: [] };
   const prisma = {
     agentRun: {
       async create(args) {
         calls.created.push(args);
+        if (options.createError) throw options.createError;
         return { id: "run-test-1" };
       },
       async update(args) {
@@ -84,4 +85,19 @@ test("unsupported agent type fails closed without invoking financial integration
   assert.equal(calls.financial.length, 0);
   assert.equal(calls.audited[0].data.status, "FAILED");
   assert.equal(calls.states[0].data.status, "ERROR");
+});
+
+test("audit creation failure releases RUNNING claim without invoking integration", async () => {
+  const { runner, calls } = setup(async () => { throw new Error("must not run"); }, {
+    createError: new Error("audit storage unavailable")
+  });
+  const before = Date.now();
+  await assert.rejects(runner.run(agent), /audit storage unavailable/);
+  assert.equal(calls.created.length, 1);
+  assert.equal(calls.audited.length, 0);
+  assert.equal(calls.financial.length, 0);
+  assert.equal(calls.states.length, 1);
+  assert.deepEqual(calls.states[0].where, { id: agent.id, status: "RUNNING" });
+  assert.equal(calls.states[0].data.status, "ERROR");
+  assert.ok(calls.states[0].data.nextRunAt.getTime() >= before + agent.intervalMinutes * 60000);
 });
