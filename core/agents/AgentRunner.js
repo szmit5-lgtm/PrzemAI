@@ -4,11 +4,14 @@ const prisma = require("../../lib/prisma");
 const FinancialAgent = require("../../agents/financial/FinancialAgent");
 
 const HEARTBEAT_MS = 60 * 1000;
+// Keep nextRunAt within a practical range even if stored configuration is corrupted.
+const MAX_INTERVAL_MINUTES = 365 * 24 * 60;
 
 class AgentRunner {
   async run(agent, trigger = "SCHEDULE") {
     // An invalid interval must never produce an Invalid Date or a tight retry loop.
-    const intervalMinutes = Number.isSafeInteger(agent.intervalMinutes) && agent.intervalMinutes > 0
+    const intervalMinutes = Number.isSafeInteger(agent.intervalMinutes) && agent.intervalMinutes > 0 &&
+      agent.intervalMinutes <= MAX_INTERVAL_MINUTES
       ? agent.intervalMinutes : 15;
     // Both scheduled and manual runs need a heartbeat. Otherwise the worker
     // can reclaim a long manual run after 90 minutes and start it twice.
