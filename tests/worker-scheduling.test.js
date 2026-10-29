@@ -329,3 +329,32 @@ test("worker resumes scheduling when a user is provisioned after an empty databa
   await settled();
   assert.equal(events.warnings.filter(entry => /No users in this database/.test(entry[0])).length, 2);
 });
+
+test("worker continues with the next due agent when claiming one agent throws", async () => {
+  const due = [
+    { id: "claim-fails", key: "claim-fails", userId: "user-1", enabled: true },
+    { id: "claim-succeeds", key: "claim-succeeds", userId: "user-1", enabled: true }
+  ];
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING" ? [] : due,
+        updateMany: async ({ where }) => {
+          if (where.id === "claim-fails") throw new Error("simulated database claim failure");
+          return { count: 1 };
+        }
+      }
+    }
+  });
+
+  await settled();
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["claim-succeeds"]);
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Failed to claim agent/);
+  assert.equal(events.errors[0][1], "claim-fails");
+  const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
+  assert.equal(summary.due, 2);
+  assert.equal(summary.completed, 1);
+  assert.equal(summary.failed, 1);
+});
