@@ -295,3 +295,37 @@ test("stale audit failure is reported without blocking a healthy due agent", asy
   assert.equal(summary.recovered, 1);
   assert.equal(summary.completed, 1);
 });
+
+test("worker resumes scheduling when a user is provisioned after an empty database", async () => {
+  let users = [];
+  const dueAgent = { id: "new-agent", key: "new", userId: "new-user", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => users },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING"
+          ? [] : (users.length ? [dueAgent] : []),
+        updateMany: async () => ({ count: 1 })
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(events.warnings.filter(entry => /No users in this database/.test(entry[0])).length, 1);
+  assert.equal(events.runs.length, 0);
+
+  users = [{ id: "new-user" }];
+  events.tick();
+  await settled();
+  assert.deepEqual(events.ensured, ["new-user"]);
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["new-agent"]);
+  assert.equal(events.errors.length, 0);
+
+  // A later empty database is a new incident and should be reported once.
+  users = [];
+  events.tick();
+  await settled();
+  events.tick();
+  await settled();
+  assert.equal(events.warnings.filter(entry => /No users in this database/.test(entry[0])).length, 2);
+});
