@@ -382,3 +382,36 @@ test("stale recovery scan failure does not block healthy due agents", async () =
   assert.equal(summary.recovered, 0);
   assert.equal(summary.completed, 1);
 });
+
+test("worker retries a transient user lookup failure on the next cycle", async () => {
+  let reads = 0;
+  const dueAgent = { id: "recovered-agent", key: "recovered", userId: "user-1", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: {
+        async findMany() {
+          reads += 1;
+          if (reads === 1) throw new Error("simulated temporary database failure");
+          return [{ id: "user-1" }];
+        }
+      },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING" ? [] : [dueAgent],
+        updateMany: async () => ({ count: 1 })
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(reads, 1);
+  assert.equal(events.runs.length, 0, "do not run agents without a successful user lookup");
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Cycle failed/);
+
+  events.tick();
+  await settled();
+  assert.equal(reads, 2);
+  assert.deepEqual(events.ensured, ["user-1"]);
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["recovered-agent"]);
+  assert.equal(events.errors.length, 1, "successful retry must not add another error");
+});
