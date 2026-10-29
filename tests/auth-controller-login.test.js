@@ -151,3 +151,16 @@ test("database failure returns a generic 500 without exposing internal details",
   assert.doesNotMatch(res.body.error, /database|connection details/i);
   assert.equal(signed.length, 0);
 });
+
+
+test("me returns a generic error without leaking database details", async () => {
+  reset();
+  lookupError = new Error("internal database hostname and credentials");
+  const res = response();
+  await new AuthController().me({ user: { id: "user-1" } }, res);
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.success, false);
+  assert.equal(res.body.error, "Nie udało się pobrać danych użytkownika.");
+  assert.doesNotMatch(JSON.stringify(res.body), /hostname|credentials/i);
+});
