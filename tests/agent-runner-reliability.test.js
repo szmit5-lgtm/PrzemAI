@@ -6,6 +6,7 @@ const Module = require("node:module");
 
 let createError = null;
 let executeError = null;
+let auditUpdateError = null;
 let updates = [];
 let runUpdates = [];
 let created = [];
@@ -19,6 +20,7 @@ const prisma = {
     },
     async update({ where, data }) {
       runUpdates.push({ where, data });
+      if (auditUpdateError) throw auditUpdateError;
       return data;
     }
   },
@@ -63,6 +65,7 @@ const agent = {
 function reset() {
   createError = null;
   executeError = null;
+  auditUpdateError = null;
   updates = [];
   runUpdates = [];
   created = [];
@@ -104,4 +107,21 @@ test("failed audit creation releases agent instead of leaving it RUNNING", async
   assert.equal(updates.length, 1);
   assert.equal(updates[0].where.status, "RUNNING");
   assert.equal(updates[0].data.status, "ERROR");
+});
+
+
+test("failed failure-audit update still releases RUNNING agent claim", async () => {
+  reset();
+  executeError = new Error("simulated agent execution failure");
+  auditUpdateError = new Error("simulated audit update failure");
+  await assert.rejects(
+    new AgentRunner().run(agent, "SCHEDULE"),
+    /simulated agent execution failure/
+  );
+  assert.equal(runUpdates.length, 1);
+  assert.equal(runUpdates[0].data.status, "FAILED");
+  assert.equal(updates.length, 1);
+  assert.deepEqual(updates[0].where, { id: agent.id, status: "RUNNING" });
+  assert.equal(updates[0].data.status, "ERROR");
+  assert.ok(updates[0].data.nextRunAt > new Date());
 });
