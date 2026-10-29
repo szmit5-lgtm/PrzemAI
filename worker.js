@@ -114,18 +114,27 @@ async function cycle() {
 
       // Recheck the due condition when claiming the agent. Another
       // worker may have finished and rescheduled it after findMany.
-      const lock = await prisma.agent.updateMany({
-        where: {
-          id: agent.id,
-          enabled: true,
-          NOT: { status: "RUNNING" },
-          OR: [
-            { nextRunAt: null },
-            { nextRunAt: { lte: new Date() } }
-          ]
-        },
-        data: { status: "RUNNING" }
-      });
+      let lock;
+      try {
+        lock = await prisma.agent.updateMany({
+          where: {
+            id: agent.id,
+            enabled: true,
+            NOT: { status: "RUNNING" },
+            OR: [
+              { nextRunAt: null },
+              { nextRunAt: { lte: new Date() } }
+            ]
+          },
+          data: { status: "RUNNING" }
+        });
+      } catch (error) {
+        // A transient database error claiming one agent must not prevent
+        // other due agents from running in the same scheduler cycle.
+        failed += 1;
+        console.error("[Worker] Failed to claim agent", agent.key, error.message);
+        continue;
+      }
 
       if (lock.count !== 1) continue;
 
