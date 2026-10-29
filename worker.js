@@ -26,29 +26,39 @@ async function recoverStaleRuns() {
 
   let recovered = 0;
   for (const agent of stale) {
-    const now = new Date();
-    const lock = await prisma.agent.updateMany({
-      where: {
-        id: agent.id,
-        status: "RUNNING",
-        updatedAt: { lt: cutoff }
-      },
-      data: { status: "ERROR", nextRunAt: now }
-    });
+    try {
+      const now = new Date();
+      const lock = await prisma.agent.updateMany({
+        where: {
+          id: agent.id,
+          status: "RUNNING",
+          updatedAt: { lt: cutoff }
+        },
+        data: { status: "ERROR", nextRunAt: now }
+      });
 
-    if (lock.count !== 1) continue;
+      if (lock.count !== 1) continue;
 
-    await prisma.agentRun.updateMany({
-      where: { agentId: agent.id, status: "RUNNING" },
-      data: {
-        status: "FAILED",
-        finishedAt: now,
-        error: "Przerwane uruchomienie; odzyskano po utracie workera."
+      // A failed audit write must not stop recovery of other agents or
+      // prevent the scheduler from processing healthy users.
+      try {
+        await prisma.agentRun.updateMany({
+          where: { agentId: agent.id, status: "RUNNING" },
+          data: {
+            status: "FAILED",
+            finishedAt: now,
+            error: "Przerwane uruchomienie; odzyskano po utracie workera."
+          }
+        });
+      } catch (error) {
+        console.error("[Worker] Failed to update stale run audit", agent.id, error.message);
       }
-    });
 
-    recovered += 1;
-    console.warn("[Worker] Recovered stale run", agent.id);
+      recovered += 1;
+      console.warn("[Worker] Recovered stale run", agent.id);
+    } catch (error) {
+      console.error("[Worker] Failed to recover stale agent", agent.id, error.message);
+    }
   }
 
   return recovered;
