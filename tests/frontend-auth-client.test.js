@@ -141,3 +141,54 @@ test("login server errors preserve the session and show the server message", asy
     browser.restore();
   }
 });
+
+test("protected profile request includes the existing bearer token", async () => {
+  const browser = mockBrowser("/agents");
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/me");
+      assert.equal(options.headers.Authorization, "Bearer old-token");
+      return jsonResponse(200, { id: 123, email: "test@example.com" });
+    };
+    const api = await loadClient();
+    assert.deepEqual(await api.getProfile(), { id: 123, email: "test@example.com" });
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/agents");
+  } finally {
+    browser.restore();
+  }
+});
+
+test("expired token on profile check clears the session and redirects to login", async () => {
+  const browser = mockBrowser("/agents");
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/me");
+      assert.equal(options.headers.Authorization, "Bearer old-token");
+      return jsonResponse(401, { error: "Unauthorized" });
+    };
+    const api = await loadClient();
+    await assert.rejects(api.getProfile(), { message: "Sesja wygasła." });
+    assert.deepEqual(browser.removed, ["token"]);
+    assert.equal(global.window.location.href, "/login");
+  } finally {
+    browser.restore();
+  }
+});
+
+test("profile access denied with 403 does not invalidate a valid session", async () => {
+  const browser = mockBrowser("/agents");
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/me");
+      assert.equal(options.headers.Authorization, "Bearer old-token");
+      return jsonResponse(403, { error: "Brak uprawnień." });
+    };
+    const api = await loadClient();
+    await assert.rejects(api.getProfile(), { message: "Brak uprawnień." });
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/agents");
+  } finally {
+    browser.restore();
+  }
+});
