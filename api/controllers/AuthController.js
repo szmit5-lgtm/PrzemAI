@@ -248,7 +248,7 @@ class AuthController {
             return res.status(500).json({
 
                 success: false,
-                error: err.message
+                error: "Nie udało się pobrać danych użytkownika."
 
             });
 
