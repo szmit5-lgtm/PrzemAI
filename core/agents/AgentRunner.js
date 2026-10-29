@@ -7,6 +7,9 @@ const HEARTBEAT_MS = 60 * 1000;
 
 class AgentRunner {
   async run(agent, trigger = "SCHEDULE") {
+    // An invalid interval must never produce an Invalid Date or a tight retry loop.
+    const intervalMinutes = Number.isSafeInteger(agent.intervalMinutes) && agent.intervalMinutes > 0
+      ? agent.intervalMinutes : 15;
     // Both scheduled and manual runs need a heartbeat. Otherwise the worker
     // can reclaim a long manual run after 90 minutes and start it twice.
     const heartbeat = setInterval(() => {
@@ -48,7 +51,7 @@ class AgentRunner {
         data: {
           status: "IDLE",
           lastRunAt: finishedAt,
-          nextRunAt: new Date(finishedAt.getTime() + agent.intervalMinutes * 60000)
+          nextRunAt: new Date(finishedAt.getTime() + intervalMinutes * 60000)
         }
       });
 
@@ -78,7 +81,7 @@ class AgentRunner {
             status: "ERROR",
             // Avoid retrying a failing integration every minute.
             nextRunAt: new Date(
-              Date.now() + Math.max(5, Number(agent.intervalMinutes) || 15) * 60000
+              Date.now() + Math.max(5, intervalMinutes) * 60000
             )
           }
         });
