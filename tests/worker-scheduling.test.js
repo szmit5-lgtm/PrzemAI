@@ -238,3 +238,60 @@ test("worker continues running other due agents after one agent fails", async ()
   assert.equal(summary.failed, 1);
   assert.equal(summary.due, 2);
 });
+
+test("one stale agent recovery failure does not block other recoveries or due agents", async () => {
+  const recovered = [];
+  const dueAgent = { id: "due-agent", key: "due", userId: "user-1", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING"
+          ? [{ id: "stale-broken" }, { id: "stale-healthy" }]
+          : [dueAgent],
+        updateMany: async ({ where }) => {
+          if (where.id === "stale-broken") throw new Error("simulated recovery failure");
+          if (where.id === "stale-healthy") recovered.push(where.id);
+          return { count: 1 };
+        }
+      }
+    }
+  });
+
+  await settled();
+  assert.deepEqual(recovered, ["stale-healthy"]);
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Failed to recover stale agent/);
+  assert.equal(events.errors[0][1], "stale-broken");
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["due-agent"]);
+  const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
+  assert.equal(summary.recovered, 1);
+  assert.equal(summary.completed, 1);
+});
+
+test("stale audit failure is reported without blocking a healthy due agent", async () => {
+  const dueAgent = { id: "due-agent", key: "due", userId: "user-1", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING"
+          ? [{ id: "stale-agent" }]
+          : [dueAgent],
+        updateMany: async () => ({ count: 1 })
+      },
+      agentRun: {
+        updateMany: async () => { throw new Error("simulated audit failure"); }
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Failed to update stale run audit/);
+  assert.equal(events.errors[0][1], "stale-agent");
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["due-agent"]);
+  const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
+  assert.equal(summary.recovered, 1);
+  assert.equal(summary.completed, 1);
+});
