@@ -358,3 +358,27 @@ test("worker continues with the next due agent when claiming one agent throws", 
   assert.equal(summary.completed, 1);
   assert.equal(summary.failed, 1);
 });
+
+test("stale recovery scan failure does not block healthy due agents", async () => {
+  const dueAgent = { id: "healthy-agent", key: "healthy", userId: "user-1", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where }) => {
+          if (where.status === "RUNNING") throw new Error("simulated stale scan failure");
+          return [dueAgent];
+        },
+        updateMany: async () => ({ count: 1 })
+      }
+    }
+  });
+
+  await settled();
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["healthy-agent"]);
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Stale run scan failed/);
+  const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
+  assert.equal(summary.recovered, 0);
+  assert.equal(summary.completed, 1);
+});

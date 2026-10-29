@@ -69,7 +69,13 @@ async function cycle() {
   busy = true;
 
   try {
-    const recovered = await recoverStaleRuns();
+    let recovered = 0;
+    try {
+      recovered = await recoverStaleRuns();
+    } catch (error) {
+      // A failed stale-run scan must not prevent healthy agents from running.
+      console.error("[Worker] Stale run scan failed", error.message);
+    }
     const users = await prisma.user.findMany({
       select: { id: true }
     });
