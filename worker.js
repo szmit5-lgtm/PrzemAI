@@ -73,7 +73,13 @@ async function cycle() {
 
     for (const user of users) {
       if (stopping) break;
-      await service.ensureDefaults(user.id);
+      try {
+        await service.ensureDefaults(user.id);
+      } catch (error) {
+        // A single broken account must not prevent other users' agents
+        // from running during this cycle.
+        console.error("[Worker] Failed to ensure default agents for a user", error.message);
+      }
     }
 
     const due = stopping ? [] : await prisma.agent.findMany({

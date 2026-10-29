@@ -183,3 +183,27 @@ test("worker skips overlapping timer ticks while an earlier cycle is active", as
   assert.equal(userReads, 2, "next tick can run after the previous cycle completes");
   assert.equal(events.errors.length, 0);
 });
+
+test("worker continues other users and due agents when one user's provisioning fails", async () => {
+  const dueAgent = { id: "healthy-agent", key: "healthy", userId: "user-2", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }, { id: "user-2" }] },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING" ? [] : [dueAgent],
+        updateMany: async () => ({ count: 1 })
+      }
+    },
+    ensureDefaults: async userId => {
+      if (userId === "user-1") throw new Error("simulated provisioning error");
+    }
+  });
+
+  await settled();
+  assert.deepEqual(events.ensured, ["user-1", "user-2"]);
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Failed to ensure default agents/);
+  assert.equal(events.runs.length, 1);
+  assert.equal(events.runs[0].agent.id, "healthy-agent");
+  assert.equal(events.runs[0].trigger, "SCHEDULE");
+});
