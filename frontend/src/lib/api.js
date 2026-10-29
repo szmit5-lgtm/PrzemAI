@@ -34,10 +34,15 @@ async function request(endpoint, options = {}) {
     const contentType =
         response.headers.get("content-type") || "";
 
-    const data =
-        contentType.includes("application/json")
-            ? await response.json()
-            : null;
+    // Preserve HTTP status handling when an upstream proxy returns invalid JSON.
+    let data = null;
+    if (contentType.includes("application/json")) {
+        try {
+            data = await response.json();
+        } catch {
+            // A malformed response must not prevent 401 session cleanup.
+        }
+    }
 
     if (response.status === 401 && !isCredentialRequest) {
         if (typeof window !== "undefined") {
