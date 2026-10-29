@@ -104,6 +104,29 @@ test("negative interval on failure cannot cause an immediate retry", async () =>
   assert.ok(calls.states[0].data.nextRunAt.getTime() <= Date.now() + 15 * 60 * 1000);
 });
 
+test("extremely large interval on success cannot create an invalid next-run date", async () => {
+  const { runner, calls } = setup(async () => ({ summary: "ok" }));
+  await runner.run({ ...agent, intervalMinutes: Number.MAX_SAFE_INTEGER });
+  assert.equal(calls.audited[0].data.status, "SUCCESS");
+  assert.equal(calls.states[0].data.status, "IDLE");
+  assert.equal(
+    calls.states[0].data.nextRunAt.getTime() - calls.states[0].data.lastRunAt.getTime(),
+    15 * 60 * 1000
+  );
+});
+
+test("fractional interval on failure falls back to a safe retry time", async () => {
+  const { runner, calls } = setup(async () => { throw new Error("simulated failure"); });
+  const before = Date.now();
+  await assert.rejects(
+    runner.run({ ...agent, intervalMinutes: 0.5 }),
+    /simulated failure/
+  );
+  assert.equal(calls.states[0].data.status, "ERROR");
+  assert.ok(calls.states[0].data.nextRunAt.getTime() >= before + 15 * 60 * 1000);
+  assert.ok(calls.states[0].data.nextRunAt.getTime() <= Date.now() + 15 * 60 * 1000);
+});
+
 test("unsupported agent type fails closed without invoking financial integration", async () => {
   const { runner, calls } = setup(async () => { throw new Error("must not run"); });
   await assert.rejects(runner.run({ ...agent, type: "UNKNOWN" }), /Nieobsługiwany typ agenta/);
