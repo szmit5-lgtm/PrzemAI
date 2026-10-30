@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { LogOut, UserCircle2, CheckSquare } from "lucide-react";
 import { getProfile, getTasks } from "@/lib/api";
 
+const frontendBuild = process.env.NEXT_PUBLIC_PRZEMAI_BUILD || "lokalna";
+
 export default function UserMenu() {
   const [user, setUser] = useState(null);
   const [taskCount, setTaskCount] = useState(null);
@@ -31,6 +33,7 @@ export default function UserMenu() {
         <span className="max-w-40 truncate sm:max-w-56">{user.email}</span>
       </span>}
       {taskCount !== null && <Link href="/tasks" aria-label={`Zadania: ${taskCount}`} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 ${dark ? "bg-white/10" : "bg-slate-100"}`}><CheckSquare size={15}/>{taskCount}</Link>}
+      <span title="Wersja interfejsu, nie backendu" className="text-xs opacity-70">UI {frontendBuild}</span>
       <button type="button" onClick={logout} className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 transition ${dark ? "border-white/15 hover:bg-white/10" : "border-slate-200 hover:bg-slate-100"}`}><LogOut size={15}/>Wyloguj</button>
     </div>
   );

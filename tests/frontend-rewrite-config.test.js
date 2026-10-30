@@ -43,3 +43,19 @@ test("Next.js rejects non-HTTP API proxy targets", async () => {
 test("Next.js rejects credentials embedded in API proxy target", async () => {
   await assert.rejects(loadConfig("https://user:password@backend.example.test"), /API_PROXY_TARGET/);
 });
+
+test("Next.js exposes a short non-secret frontend build identifier", async () => {
+  const previous = process.env.VERCEL_GIT_COMMIT_SHA;
+  try {
+    process.env.VERCEL_GIT_COMMIT_SHA = "abcdef0123456789abcdef0123456789abcdef01";
+    const config = await loadConfig(null);
+    assert.equal(config.env.NEXT_PUBLIC_PRZEMAI_BUILD, "abcdef0");
+
+    process.env.VERCEL_GIT_COMMIT_SHA = "not-a-commit";
+    const fallback = await loadConfig(null);
+    assert.equal(fallback.env.NEXT_PUBLIC_PRZEMAI_BUILD, "lokalna");
+  } finally {
+    if (previous === undefined) delete process.env.VERCEL_GIT_COMMIT_SHA;
+    else process.env.VERCEL_GIT_COMMIT_SHA = previous;
+  }
+});
