@@ -65,6 +65,13 @@ async function request(endpoint, options = {}) {
         );
     }
 
+    // A successful API response must contain a JSON object or array, except for
+    // explicit no-content responses. JSON null and primitives are not API payloads.
+    if (response.status !== 204 && response.status !== 205 &&
+        (data === null || typeof data !== "object")) {
+        invalidResponse = true;
+    }
+
     if (invalidResponse) {
         throw new Error("Nieprawidłowa odpowiedź serwera.");
     }
