@@ -18,6 +18,7 @@ function setup(runFinancial, options = {}) {
       },
       async update(args) {
         calls.audited.push(args);
+        if (options.auditError) throw options.auditError;
         return args;
       }
     },
@@ -148,4 +149,33 @@ test("audit creation failure releases RUNNING claim without invoking integration
   assert.deepEqual(calls.states[0].where, { id: agent.id, status: "RUNNING" });
   assert.equal(calls.states[0].data.status, "ERROR");
   assert.ok(calls.states[0].data.nextRunAt.getTime() >= before + agent.intervalMinutes * 60000);
+});
+
+
+test("audit failure after a financial integration error still releases the RUNNING claim", async () => {
+  const integrationError = new Error("financial integration unavailable");
+  const { runner, calls } = setup(async () => { throw integrationError; }, {
+    auditError: new Error("audit database unavailable")
+  });
+  const before = Date.now();
+  await assert.rejects(runner.run(agent), error => error === integrationError);
+  assert.equal(calls.audited.length, 1, "attempt to record the failed run");
+  assert.equal(calls.audited[0].data.status, "FAILED");
+  assert.equal(calls.states.length, 1, "release the claim even when audit persistence fails");
+  assert.deepEqual(calls.states[0].where, { id: agent.id, status: "RUNNING" });
+  assert.equal(calls.states[0].data.status, "ERROR");
+  assert.ok(calls.states[0].data.nextRunAt.getTime() >= before + agent.intervalMinutes * 60000);
+});
+
+test("success audit write failure does not leave the agent RUNNING", async () => {
+  const { runner, calls } = setup(async () => ({ summary: "processed" }), {
+    auditError: new Error("audit database unavailable")
+  });
+  await assert.rejects(runner.run(agent), /audit database unavailable/);
+  assert.equal(calls.financial.length, 1, "integration was executed once");
+  assert.deepEqual(calls.audited.map(item => item.data.status), ["SUCCESS", "FAILED"]);
+  assert.equal(calls.states.length, 1);
+  assert.deepEqual(calls.states[0].where, { id: agent.id, status: "RUNNING" });
+  assert.equal(calls.states[0].data.status, "ERROR");
+  assert.ok(calls.states[0].data.nextRunAt instanceof Date);
 });
