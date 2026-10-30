@@ -103,3 +103,25 @@ test("integrations list uses the authenticated agents endpoint", async () => {
     assert.deepEqual(removed, []);
   });
 });
+
+test("agent run rejects a 200 response that explicitly reports failure", async () => {
+  await withAuthenticatedBrowser(async removed => {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/agents/agent-1/run");
+      assert.equal(options.method, "POST");
+      return jsonResponse({ success: false, error: "Agent jest wyłączony." });
+    };
+    const api = await loadClient();
+    await assert.rejects(api.runAgent("agent-1"), { message: "Agent jest wyłączony." });
+    assert.deepEqual(removed, []);
+  });
+});
+
+test("agent list rejects an unsuccessful 200 response without an error message", async () => {
+  await withAuthenticatedBrowser(async removed => {
+    global.fetch = async () => jsonResponse({ success: false });
+    const api = await loadClient();
+    await assert.rejects(api.getAgents(), { message: "Operacja nie powiodła się." });
+    assert.deepEqual(removed, []);
+  });
+});
