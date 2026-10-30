@@ -517,3 +517,39 @@ test("worker retries a failed due-agent scan without losing later scheduled work
   assert.equal(events.errors.length, 1);
   assert.deepEqual(events.ensured, ["user-1", "user-1"]);
 });
+
+test("worker drains agents beyond the per-cycle limit without replaying completed work", async () => {
+  let pending = Array.from({ length: 51 }, (_, index) => ({
+    id: `agent-${index}`,
+    key: `agent-${index}`,
+    userId: "user-1",
+    enabled: true
+  }));
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where, take }) =>
+          where.status === "RUNNING" ? [] : pending.slice(0, take),
+        updateMany: async ({ where }) => {
+          const before = pending.length;
+          pending = pending.filter(agent => agent.id !== where.id);
+          return { count: before - pending.length };
+        }
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(events.runs.length, 50);
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].id, "agent-50");
+
+  events.tick();
+  await settled();
+  assert.equal(events.runs.length, 51);
+  assert.equal(pending.length, 0);
+  assert.equal(new Set(events.runs.map(({ agent }) => agent.id)).size, 51);
+  assert.equal(events.runs.at(-1).agent.id, "agent-50");
+  assert.equal(events.errors.length, 0);
+});
