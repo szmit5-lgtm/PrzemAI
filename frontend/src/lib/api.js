@@ -38,7 +38,8 @@ async function request(endpoint, options = {}) {
     // A 2xx HTML page or broken JSON must never look like a successful empty result.
     let data = null;
     let invalidResponse = false;
-    if (contentType.includes("application/json") && response.status !== 204 && response.status !== 205) {
+    const isJsonContentType = /^application\/(?:[\w.-]+\+)?json(?:\s*;|$)/i.test(contentType.trim());
+    if (isJsonContentType && response.status !== 204 && response.status !== 205) {
         try {
             data = await response.json();
         } catch {
@@ -62,7 +63,7 @@ async function request(endpoint, options = {}) {
 
     if (!response.ok) {
         const error = new Error(
-            data?.error ||
+            data?.error || data?.detail || data?.message ||
             `Błąd serwera (${response.status}).`
         );
         error.status = response.status;
