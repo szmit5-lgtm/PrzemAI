@@ -485,3 +485,35 @@ test("worker bounds stale recovery to the oldest fifty runs and still schedules 
   assert.equal(summary.completed, 1);
   assert.equal(events.errors.length, 0);
 });
+
+test("worker retries a failed due-agent scan without losing later scheduled work", async () => {
+  let dueReads = 0;
+  const agent = { id: "retry-agent", key: "retry", userId: "user-1", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async ({ where }) => {
+          if (where.status === "RUNNING") return [];
+          dueReads += 1;
+          if (dueReads === 1) throw new Error("simulated due-agent scan failure");
+          return [agent];
+        },
+        updateMany: async () => ({ count: 1 })
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(dueReads, 1);
+  assert.equal(events.runs.length, 0);
+  assert.equal(events.errors.length, 1);
+  assert.match(events.errors[0][0], /Cycle failed/);
+
+  events.tick();
+  await settled();
+  assert.equal(dueReads, 2);
+  assert.deepEqual(events.runs.map(({ agent: item }) => item.id), ["retry-agent"]);
+  assert.equal(events.errors.length, 1);
+  assert.deepEqual(events.ensured, ["user-1", "user-1"]);
+});
