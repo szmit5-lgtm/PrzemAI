@@ -415,3 +415,36 @@ test("worker retries a transient user lookup failure on the next cycle", async (
   assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["recovered-agent"]);
   assert.equal(events.errors.length, 1, "successful retry must not add another error");
 });
+
+test("worker caps each scheduling cycle at fifty due agents", async () => {
+  const dueAgents = Array.from({ length: 51 }, (_, index) => ({
+    id: `agent-${index}`,
+    key: `agent-${index}`,
+    userId: "user-1",
+    enabled: true
+  }));
+  const queries = [];
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async args => {
+          if (args.where.status === "RUNNING") return [];
+          queries.push(args);
+          return dueAgents.slice(0, args.take);
+        },
+        updateMany: async () => ({ count: 1 })
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(queries.length, 1);
+  assert.equal(queries[0].take, 50, "limit database reads to fifty due agents");
+  assert.equal(events.runs.length, 50, "defer excess agents to a later cycle");
+  assert.equal(events.runs.at(-1).agent.id, "agent-49");
+  const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
+  assert.equal(summary.due, 50);
+  assert.equal(summary.completed, 50);
+  assert.equal(summary.failed, 0);
+});
