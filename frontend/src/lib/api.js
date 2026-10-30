@@ -35,13 +35,17 @@ async function request(endpoint, options = {}) {
         response.headers.get("content-type") || "";
 
     // Preserve HTTP status handling when an upstream proxy returns invalid JSON.
+    // A 2xx HTML page or broken JSON must never look like a successful empty result.
     let data = null;
+    let invalidResponse = false;
     if (contentType.includes("application/json")) {
         try {
             data = await response.json();
         } catch {
-            // A malformed response must not prevent 401 session cleanup.
+            invalidResponse = true;
         }
+    } else if (response.status !== 204 && response.status !== 205) {
+        invalidResponse = true;
     }
 
     if (response.status === 401 && !isCredentialRequest) {
@@ -59,6 +63,10 @@ async function request(endpoint, options = {}) {
             data?.error ||
             `Błąd serwera (${response.status}).`
         );
+    }
+
+    if (invalidResponse) {
+        throw new Error("Nieprawidłowa odpowiedź serwera.");
     }
 
     return data;

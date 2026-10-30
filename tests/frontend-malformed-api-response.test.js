@@ -86,3 +86,34 @@ test("network failure does not discard an authenticated session", async () => {
     browser.restore();
   }
 });
+
+test("HTTP 200 HTML from a gateway is not treated as an empty agent list", async () => {
+  const browser = mockSession();
+  try {
+    global.fetch = async () => ({
+      status: 200,
+      ok: true,
+      headers: { get: name => name === "content-type" ? "text/html" : null },
+      json: async () => { throw new Error("HTML must not be parsed as JSON"); }
+    });
+    const api = await loadClient();
+    await assert.rejects(api.getAgents(), { message: "Nieprawidłowa odpowiedź serwera." });
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/agents");
+  } finally {
+    browser.restore();
+  }
+});
+
+test("HTTP 200 malformed JSON is reported instead of silently succeeding", async () => {
+  const browser = mockSession();
+  try {
+    global.fetch = async () => malformedJsonResponse(200);
+    const api = await loadClient();
+    await assert.rejects(api.getAgents(), { message: "Nieprawidłowa odpowiedź serwera." });
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/agents");
+  } finally {
+    browser.restore();
+  }
+});
