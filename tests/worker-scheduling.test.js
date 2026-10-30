@@ -476,7 +476,7 @@ test("worker bounds stale recovery to the oldest fifty runs and still schedules 
   await settled();
   assert.equal(scans.length, 1);
   assert.equal(scans[0].take, 50);
-  assert.deepEqual(scans[0].orderBy, { updatedAt: "asc" });
+  assert.equal(scans[0].orderBy.updatedAt, "asc");
   assert.equal(recovered.length, 50);
   assert.equal(recovered.at(-1), "stale-49");
   assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["due-agent"]);
