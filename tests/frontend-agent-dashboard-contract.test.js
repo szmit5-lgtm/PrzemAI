@@ -125,3 +125,21 @@ test("agent list rejects an unsuccessful 200 response without an error message",
     assert.deepEqual(removed, []);
   });
 });
+
+test("agent list rejects HTTP 200 with a JSON null payload", async () => {
+  await withAuthenticatedBrowser(async removed => {
+    global.fetch = async () => jsonResponse(null);
+    const api = await loadClient();
+    await assert.rejects(api.getAgents(), { message: "Nieprawidłowa odpowiedź serwera." });
+    assert.deepEqual(removed, []);
+  });
+});
+
+test("agent list rejects HTTP 200 with a JSON primitive payload", async () => {
+  await withAuthenticatedBrowser(async removed => {
+    global.fetch = async () => jsonResponse("ok");
+    const api = await loadClient();
+    await assert.rejects(api.getAgents(), { message: "Nieprawidłowa odpowiedź serwera." });
+    assert.deepEqual(removed, []);
+  });
+});
