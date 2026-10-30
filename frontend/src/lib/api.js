@@ -38,7 +38,7 @@ async function request(endpoint, options = {}) {
     // A 2xx HTML page or broken JSON must never look like a successful empty result.
     let data = null;
     let invalidResponse = false;
-    if (contentType.includes("application/json")) {
+    if (contentType.includes("application/json") && response.status !== 204 && response.status !== 205) {
         try {
             data = await response.json();
         } catch {
