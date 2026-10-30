@@ -55,14 +55,18 @@ async function request(endpoint, options = {}) {
                 window.location.href = "/login";
             }
         }
-        throw new Error("Sesja wygasła.");
+        const error = new Error("Sesja wygasła.");
+        error.status = 401;
+        throw error;
     }
 
     if (!response.ok) {
-        throw new Error(
+        const error = new Error(
             data?.error ||
             `Błąd serwera (${response.status}).`
         );
+        error.status = response.status;
+        throw error;
     }
 
     // A successful API response must contain a JSON object or array, except for

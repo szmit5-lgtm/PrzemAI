@@ -168,7 +168,7 @@ test("expired token on profile check clears the session and redirects to login",
       return jsonResponse(401, { error: "Unauthorized" });
     };
     const api = await loadClient();
-    await assert.rejects(api.getProfile(), { message: "Sesja wygasła." });
+    await assert.rejects(api.getProfile(), { message: "Sesja wygasła.", status: 401 });
     assert.deepEqual(browser.removed, ["token"]);
     assert.equal(global.window.location.href, "/login");
   } finally {
@@ -185,7 +185,28 @@ test("profile access denied with 403 does not invalidate a valid session", async
       return jsonResponse(403, { error: "Brak uprawnień." });
     };
     const api = await loadClient();
-    await assert.rejects(api.getProfile(), { message: "Brak uprawnień." });
+    await assert.rejects(api.getProfile(), { message: "Brak uprawnień.", status: 403 });
+    assert.deepEqual(browser.removed, []);
+    assert.equal(global.window.location.href, "/agents");
+  } finally {
+    browser.restore();
+  }
+});
+
+
+test("temporary profile outage reports HTTP status without clearing the session", async () => {
+  const browser = mockBrowser("/agents");
+  try {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/me");
+      assert.equal(options.headers.Authorization, "Bearer old-token");
+      return jsonResponse(503, { error: "Serwis chwilowo niedostępny." });
+    };
+    const api = await loadClient();
+    await assert.rejects(api.getProfile(), {
+      message: "Serwis chwilowo niedostępny.",
+      status: 503
+    });
     assert.deepEqual(browser.removed, []);
     assert.equal(global.window.location.href, "/agents");
   } finally {
