@@ -448,3 +448,40 @@ test("worker caps each scheduling cycle at fifty due agents", async () => {
   assert.equal(summary.completed, 50);
   assert.equal(summary.failed, 0);
 });
+
+test("worker bounds stale recovery to the oldest fifty runs and still schedules healthy agents", async () => {
+  const staleAgents = Array.from({ length: 51 }, (_, index) => ({ id: `stale-${index}` }));
+  const recovered = [];
+  const scans = [];
+  const dueAgent = { id: "due-agent", key: "due", userId: "user-1", enabled: true };
+  const events = startWorker({
+    prisma: {
+      user: { findMany: async () => [{ id: "user-1" }] },
+      agent: {
+        findMany: async args => {
+          if (args.where.status === "RUNNING") {
+            scans.push(args);
+            return staleAgents.slice(0, args.take);
+          }
+          return [dueAgent];
+        },
+        updateMany: async ({ where }) => {
+          if (where.id.startsWith("stale-")) recovered.push(where.id);
+          return { count: 1 };
+        }
+      }
+    }
+  });
+
+  await settled();
+  assert.equal(scans.length, 1);
+  assert.equal(scans[0].take, 50);
+  assert.deepEqual(scans[0].orderBy, { updatedAt: "asc" });
+  assert.equal(recovered.length, 50);
+  assert.equal(recovered.at(-1), "stale-49");
+  assert.deepEqual(events.runs.map(({ agent }) => agent.id), ["due-agent"]);
+  const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
+  assert.equal(summary.recovered, 50);
+  assert.equal(summary.completed, 1);
+  assert.equal(events.errors.length, 0);
+});
