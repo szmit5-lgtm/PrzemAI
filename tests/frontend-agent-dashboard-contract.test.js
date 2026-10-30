@@ -143,3 +143,42 @@ test("agent list rejects HTTP 200 with a JSON primitive payload", async () => {
     assert.deepEqual(removed, []);
   });
 });
+
+test("agent dashboard expires the session on HTTP 401 even when the proxy returns HTML", async () => {
+  await withAuthenticatedBrowser(async removed => {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/agents");
+      assert.equal(options.headers.Authorization, "Bearer dashboard-token");
+      return {
+        status: 401,
+        ok: false,
+        headers: { get: () => "text/html; charset=utf-8" }
+      };
+    };
+    const api = await loadClient();
+    await assert.rejects(api.getAgents(), { message: "Sesja wygasła." });
+    assert.deepEqual(removed, ["token"]);
+    assert.equal(global.window.location.href, "/login");
+  });
+});
+
+test("an HTTP 401 during login does not expire an existing session or redirect", async () => {
+  await withAuthenticatedBrowser(async removed => {
+    global.fetch = async (url, options) => {
+      assert.equal(url, "/api/auth/login");
+      assert.equal(options.headers.Authorization, undefined);
+      return {
+        status: 401,
+        ok: false,
+        headers: { get: () => "application/json" },
+        json: async () => ({ error: "Nieprawidłowe dane logowania." })
+      };
+    };
+    const api = await loadClient();
+    await assert.rejects(api.login("user@example.com", "wrong"), {
+      message: "Nieprawidłowe dane logowania."
+    });
+    assert.deepEqual(removed, []);
+    assert.equal(global.window.location.href, "/agents");
+  });
+});
