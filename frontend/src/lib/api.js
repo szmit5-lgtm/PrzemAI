@@ -63,7 +63,7 @@ async function request(endpoint, options = {}) {
 
     if (!response.ok) {
         const error = new Error(
-            data?.error || data?.detail || data?.message ||
+            data?.error || data?.detail || data?.message || data?.title ||
             `Błąd serwera (${response.status}).`
         );
         error.status = response.status;
