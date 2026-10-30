@@ -46,6 +46,8 @@ test("Next.js rejects credentials embedded in API proxy target", async () => {
 
 test("Next.js exposes a short non-secret frontend build identifier", async () => {
   const previous = process.env.VERCEL_GIT_COMMIT_SHA;
+  const previousRailway = process.env.RAILWAY_GIT_COMMIT_SHA;
+  delete process.env.RAILWAY_GIT_COMMIT_SHA;
   try {
     process.env.VERCEL_GIT_COMMIT_SHA = "abcdef0123456789abcdef0123456789abcdef01";
     const config = await loadConfig(null);
@@ -57,5 +59,32 @@ test("Next.js exposes a short non-secret frontend build identifier", async () =>
   } finally {
     if (previous === undefined) delete process.env.VERCEL_GIT_COMMIT_SHA;
     else process.env.VERCEL_GIT_COMMIT_SHA = previous;
+    if (previousRailway === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    else process.env.RAILWAY_GIT_COMMIT_SHA = previousRailway;
+  }
+});
+
+
+test("Next.js shows the Railway Git revision on Railway staging", async () => {
+  const previousVercel = process.env.VERCEL_GIT_COMMIT_SHA;
+  const previousRailway = process.env.RAILWAY_GIT_COMMIT_SHA;
+  try {
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+    process.env.RAILWAY_GIT_COMMIT_SHA = "0123456789abcdef0123456789abcdef01234567";
+    const railway = await loadConfig(null);
+    assert.equal(railway.env.NEXT_PUBLIC_PRZEMAI_BUILD, "0123456");
+
+    process.env.VERCEL_GIT_COMMIT_SHA = "abcdef0123456789abcdef0123456789abcdef01";
+    const vercel = await loadConfig(null);
+    assert.equal(vercel.env.NEXT_PUBLIC_PRZEMAI_BUILD, "abcdef0");
+
+    process.env.VERCEL_GIT_COMMIT_SHA = "invalid";
+    const invalidVercel = await loadConfig(null);
+    assert.equal(invalidVercel.env.NEXT_PUBLIC_PRZEMAI_BUILD, "0123456");
+  } finally {
+    if (previousVercel === undefined) delete process.env.VERCEL_GIT_COMMIT_SHA;
+    else process.env.VERCEL_GIT_COMMIT_SHA = previousVercel;
+    if (previousRailway === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    else process.env.RAILWAY_GIT_COMMIT_SHA = previousRailway;
   }
 });
