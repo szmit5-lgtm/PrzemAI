@@ -6,6 +6,7 @@ import { Activity, ArrowLeft, Bot, Clock3, Mail, Play, Plug, RefreshCw, ShieldCh
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getAgents, runAgent, setAgentEnabled, getIntegrations, setIntegrationEnabled } from "@/lib/api";
+import { parseAgentDashboardResponses } from "@/lib/agentDashboardPayload";
 
 function formatDate(value) {
   if (!value) return "Brak danych";
@@ -49,8 +50,9 @@ export default function AgentsPage() {
       try {
         const [agentsResponse, integrationsResponse] = await Promise.all([getAgents(), getIntegrations()]);
         if (!active) return;
-        setAgents(Array.isArray(agentsResponse?.data) ? agentsResponse.data : []);
-        setIntegrations(Array.isArray(integrationsResponse?.data) ? integrationsResponse.data : []);
+        const { agents: agentList, integrations: integrationList } = parseAgentDashboardResponses(agentsResponse, integrationsResponse);
+        setAgents(agentList);
+        setIntegrations(integrationList);
       } catch (err) {
         if (active) {
           setError(err?.message || "Nie udało się pobrać danych agentów.");
