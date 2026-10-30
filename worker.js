@@ -21,7 +21,10 @@ async function recoverStaleRuns() {
   const cutoff = new Date(Date.now() - STALE_RUN_MS);
   const stale = await prisma.agent.findMany({
     where: { status: "RUNNING", updatedAt: { lt: cutoff } },
-    select: { id: true }
+    select: { id: true },
+    // Process oldest abandoned runs first without monopolizing the scheduler.
+    orderBy: { updatedAt: "asc" },
+    take: MAX_AGENTS_PER_CYCLE
   });
 
   let recovered = 0;
