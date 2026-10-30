@@ -69,6 +69,12 @@ async function request(endpoint, options = {}) {
         throw new Error("Nieprawidłowa odpowiedź serwera.");
     }
 
+    // Some upstream endpoints report an application failure with HTTP 200.
+    // Never present that response as a completed agent action.
+    if (data?.success === false) {
+        throw new Error(data.error || data.message || "Operacja nie powiodła się.");
+    }
+
     return data;
 }
 
