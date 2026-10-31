@@ -17,7 +17,10 @@ async function main() {
   ]);
 
   const output = {
-    ...buildStagingReadiness({ users, agents, runs, successfulSupportedRuns }),
+    ...buildStagingReadiness({
+      users, agents, runs, successfulSupportedRuns,
+      databaseIsolationVerified: context.databaseIsolationVerified
+    }),
     railwayEnvironment: context.railwayEnvironment,
     databaseIsolationVerified: context.databaseIsolationVerified
   };
