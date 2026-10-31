@@ -29,6 +29,8 @@ async function recoverStaleRuns() {
 
   let recovered = 0;
   for (const agent of stale) {
+    // Do not begin a new recovery write once a shutdown is underway.
+    if (stopping) break;
     try {
       const now = new Date();
       const lock = await prisma.agent.updateMany({
@@ -79,6 +81,8 @@ async function cycle() {
       // A failed stale-run scan must not prevent healthy agents from running.
       console.error("[Worker] Stale run scan failed", error.message);
     }
+    // A SIGTERM during the stale scan must not start user provisioning.
+    if (stopping) return;
     const users = await prisma.user.findMany({
       select: { id: true }
     });
