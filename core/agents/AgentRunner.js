@@ -49,7 +49,7 @@ class AgentRunner {
       });
 
       // A recovered/stopped run must not overwrite a newer agent state.
-      await prisma.agent.updateMany({
+      const released = await prisma.agent.updateMany({
         where: { id: agent.id, status: "RUNNING" },
         data: {
           status: "IDLE",
@@ -57,6 +57,12 @@ class AgentRunner {
           nextRunAt: new Date(finishedAt.getTime() + intervalMinutes * 60000)
         }
       });
+
+      // A stale-run recovery or another worker may have taken ownership.
+      // Never report success when this run no longer owns the agent lock.
+      if (released.count !== 1) {
+        throw new Error("Agent run lost ownership before completion.");
+      }
 
       return result;
     } catch (error) {
