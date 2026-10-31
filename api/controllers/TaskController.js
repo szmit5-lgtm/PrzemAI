@@ -17,7 +17,7 @@ class TaskController {
 
             return res.status(500).json({
                 success: false,
-                error: err.message
+                error: "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
@@ -51,7 +51,7 @@ class TaskController {
 
             return res.status(500).json({
                 success: false,
-                error: err.message
+                error: "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
@@ -81,7 +81,7 @@ class TaskController {
 
             return res.status(500).json({
                 success: false,
-                error: err.message
+                error: "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
@@ -107,7 +107,7 @@ class TaskController {
 
             return res.status(500).json({
                 success: false,
-                error: err.message
+                error: "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
@@ -136,7 +136,7 @@ class TaskController {
 
             return res.status(500).json({
                 success: false,
-                error: err.message
+                error: "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
@@ -161,7 +161,7 @@ class TaskController {
 
             return res.status(500).json({
                 success: false,
-                error: err.message
+                error: "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
