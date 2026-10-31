@@ -10,11 +10,12 @@ const source = fs.readFileSync(
   path.join(__dirname, "../core/agents/AgentRunner.js"), "utf8"
 );
 
-function harness({ releaseCount = 1, financialError = null } = {}) {
+function harness({ releaseCount = 1, financialError = null, auditCreateError = null } = {}) {
   const events = [];
   const prisma = {
     agentRun: {
       async create({ data }) {
+        if (auditCreateError) throw auditCreateError;
         events.push({ action: "createRun", data });
         return { id: "test-run" };
       },
@@ -108,4 +109,17 @@ test("unsupported agent type is rejected rather than marked successful", async (
     events.filter(e => e.action === "updateRun").map(e => e.data.status),
     ["FAILED"]
   );
+});
+
+test("audit creation failure releases the RUNNING claim", async () => {
+  const { AgentRunner, events } = harness({
+    auditCreateError: new Error("audit storage unavailable")
+  });
+  await assert.rejects(new AgentRunner().run(agent()), /audit storage unavailable/);
+  assert.equal(events.some(e => e.action === "executeFinancial"), false);
+  assert.equal(events.some(e => e.action === "updateRun"), false);
+  const unlocks = events.filter(e => e.action === "updateAgent");
+  assert.equal(unlocks.length, 1);
+  assert.equal(unlocks[0].data.status, "ERROR");
+  assert.ok(Number.isFinite(unlocks[0].data.nextRunAt.getTime()));
 });
