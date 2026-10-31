@@ -3,6 +3,7 @@
 // Read-only staging readiness check. Never prints user identifiers or secrets.
 require("dotenv").config();
 const prisma = require("../lib/prisma");
+const { buildStagingReadiness } = require("../lib/stagingAgentReadiness");
 
 async function main() {
   if (process.env.RAILWAY_ENVIRONMENT_NAME !== "staging" &&
@@ -12,20 +13,11 @@ async function main() {
 
   const [users, agents, runs] = await Promise.all([
     prisma.user.count(),
-    prisma.agent.groupBy({ by: ["type", "status"], _count: { _all: true } }),
+    prisma.agent.groupBy({ by: ["type", "status", "enabled"], _count: { _all: true } }),
     prisma.agentRun.groupBy({ by: ["status"], _count: { _all: true } })
   ]);
-  const supportedRuntimeTypes = ["FINANCIAL"];
-  const output = {
-    environment: "staging",
-    users,
-    supportedRuntimeTypes,
-    agentCounts: agents.map(({ type, status, _count }) => ({
-      type, status, count: _count._all, runtimeSupported: supportedRuntimeTypes.includes(type)
-    })),
-    runCounts: runs.map(({ status, _count }) => ({ status, count: _count._all })),
-    readyForScheduledTests: users > 0 && agents.some(a => a.type === "FINANCIAL")
-  };
+
+  const output = buildStagingReadiness({ users, agents, runs });
   process.stdout.write(JSON.stringify(output, null, 2) + "\n");
   if (!output.readyForScheduledTests) process.exitCode = 2;
 }
