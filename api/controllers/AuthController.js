@@ -108,6 +108,16 @@ class AuthController {
         }
         catch (err) {
 
+            // Concurrent registrations can pass findUnique before the unique
+            // constraint rejects the second insert. Return the same 409 as
+            // the ordinary duplicate-email path without exposing DB details.
+            if (err?.code === "P2002") {
+                return res.status(409).json({
+                    success: false,
+                    error: "Konto z tym adresem e-mail już istnieje."
+                });
+            }
+
             return res.status(500).json({
 
                 success: false,
