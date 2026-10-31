@@ -22,3 +22,11 @@ export function parseTaskMutationResponse(response, { id, status } = {}) {
   }
   return item;
 }
+
+// A successful HTTP status alone is not proof that the task was deleted.
+export function parseTaskDeletionResponse(response) {
+  if (response?.success !== true) {
+    throw new Error("Nieprawidłowe potwierdzenie usunięcia zadania.");
+  }
+  return true;
+}
