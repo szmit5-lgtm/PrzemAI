@@ -81,7 +81,10 @@ test("lost execution lock cannot leave a false SUCCESS audit", async () => {
     events.filter(e => e.action === "updateRun").map(e => e.data.status),
     ["SUCCESS", "FAILED"]
   );
-  assert.equal(events.at(-1).data.status, "ERROR");
+  // Reclaim may already have started a new RUNNING execution. Never
+  // overwrite that newer owner with ERROR after our release loses the lock.
+  assert.equal(events.filter(e => e.action === "updateAgent").length, 1);
+  assert.equal(events.find(e => e.action === "updateAgent").data.status, "IDLE");
 });
 
 test("financial execution error records FAILED and schedules retry", async () => {
