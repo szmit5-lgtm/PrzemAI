@@ -4,12 +4,10 @@
 require("dotenv").config();
 const prisma = require("../lib/prisma");
 const { buildStagingReadiness, SUPPORTED_RUNTIME_TYPES } = require("../lib/stagingAgentReadiness");
+const { stagingDiagnosticContext } = require("../lib/stagingDiagnosticGuard");
 
 async function main() {
-  if (process.env.RAILWAY_ENVIRONMENT_NAME !== "staging" &&
-      process.env.PRZEMAI_ALLOW_LOCAL_DIAGNOSTIC !== "true") {
-    throw new Error("Diagnostic is restricted to Railway staging or explicitly opted-in local use.");
-  }
+  const context = stagingDiagnosticContext(process.env);
 
   const [users, agents, runs, successfulSupportedRuns] = await Promise.all([
     prisma.user.count(),
@@ -18,7 +16,11 @@ async function main() {
     prisma.agentRun.count({ where: { status: "SUCCESS", agent: { type: { in: [...SUPPORTED_RUNTIME_TYPES] } } } })
   ]);
 
-  const output = buildStagingReadiness({ users, agents, runs, successfulSupportedRuns });
+  const output = {
+    ...buildStagingReadiness({ users, agents, runs, successfulSupportedRuns }),
+    railwayEnvironment: context.railwayEnvironment,
+    databaseIsolationVerified: context.databaseIsolationVerified
+  };
   process.stdout.write(JSON.stringify(output, null, 2) + "\n");
   if (!output.readyForScheduledTests) process.exitCode = 2;
 }
