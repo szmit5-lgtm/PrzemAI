@@ -26,6 +26,7 @@ class AgentRunner {
     heartbeat.unref?.();
 
     let run;
+    let lostOwnership = false;
     try {
       run = await prisma.agentRun.create({
         data: { agentId: agent.id, status: "RUNNING", trigger }
@@ -61,6 +62,7 @@ class AgentRunner {
       // A stale-run recovery or another worker may have taken ownership.
       // Never report success when this run no longer owns the agent lock.
       if (released.count !== 1) {
+        lostOwnership = true;
         throw new Error("Agent run lost ownership before completion.");
       }
 
@@ -83,7 +85,9 @@ class AgentRunner {
         }
       }
 
-      try {
+      // Another worker may already own RUNNING after stale-run recovery.
+      // Do not mark that newer execution ERROR when our release lost the claim.
+      if (!lostOwnership) try {
         await prisma.agent.updateMany({
           where: { id: agent.id, status: "RUNNING" },
           data: {
