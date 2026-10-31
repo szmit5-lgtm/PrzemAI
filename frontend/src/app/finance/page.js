@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowUpRight, FileText, Filter, Inbox, RefreshCw, Wallet, Sh
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getFinancialDocuments, getFinanceSummary } from "@/lib/api";
+import { parseFinanceDashboardResponses } from "@/lib/financeDashboardPayload";
 
 const STATUS_LABELS = {
   NEW: "Nowy — do weryfikacji",
@@ -96,10 +97,10 @@ export default function FinancePage() {
           getFinanceSummary()
         ]);
         if (!active) return;
-        const documents = Array.isArray(documentsResponse?.items) ? documentsResponse.items : [];
+        const { documents, summary: financeSummary } = parseFinanceDashboardResponses(documentsResponse, summaryResponse);
         setItems(documents.slice(0, PAGE_SIZE));
         setHasMore(documents.length > PAGE_SIZE);
-        setSummary(summaryResponse?.data || null);
+        setSummary(financeSummary);
         setRefreshedAt(new Date());
       } catch (err) {
         if (!active) return;
