@@ -116,3 +116,29 @@ test("clears blockers only after independent isolation and supported-agent check
   assert.deepEqual(report.blockers, []);
   assert.equal(report.safeToRunStagingWrites, true);
 });
+
+test("truthy non-boolean isolation metadata cannot authorize staging writes", () => {
+  const report = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL")],
+    runs: [],
+    databaseIsolationVerified: "true"
+  });
+  assert.equal(report.readyForScheduledTests, true);
+  assert.equal(report.safeToRunStagingWrites, false);
+  assert.deepEqual(report.blockers, ["DATABASE_ISOLATION_UNVERIFIED"]);
+});
+
+test("historical successes cannot authorize writes after the supported agent is disabled", () => {
+  const report = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL", false)],
+    runs: [run("SUCCESS", 4)],
+    successfulSupportedRuns: 4,
+    databaseIsolationVerified: true
+  });
+  assert.equal(report.hasSuccessfulAgentRun, true);
+  assert.equal(report.readyForScheduledTests, false);
+  assert.equal(report.safeToRunStagingWrites, false);
+  assert.deepEqual(report.blockers, ["NO_ENABLED_SUPPORTED_AGENT"]);
+});
