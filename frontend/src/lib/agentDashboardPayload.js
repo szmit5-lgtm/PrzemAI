@@ -3,15 +3,18 @@
 export function parseAgentDashboardResponses(agentsResponse, integrationsResponse) {
   const agents = agentsResponse?.data;
   const integrations = integrationsResponse?.data;
+  const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 
-  if (!Array.isArray(agents) || !Array.isArray(integrations)) {
+  // Arrays containing null, primitives or nested arrays can crash the dashboard
+  // when it reads agent.enabled or renders integration fields.
+  if (!Array.isArray(agents) || !Array.isArray(integrations) ||
+      !agents.every(isRecord) || !integrations.every(isRecord)) {
     throw new Error("Nieprawidłowy format danych agentów lub integracji.");
   }
 
   return { agents, integrations };
 }
 
- 
 // Unknown counts are different from a verified empty account.
 export function getAgentDashboardSummary(agents, integrations, { loading = false, error = "" } = {}) {
   if (loading || error) {
