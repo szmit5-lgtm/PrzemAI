@@ -167,3 +167,14 @@ test("database write failure does not reveal internal details or the password", 
   assert.equal(creations.length, 1);
   assert.doesNotMatch(JSON.stringify(res.body), /hostname|credentials|password123|hashed-password/i);
 });
+
+test("concurrent duplicate registration returns 409 for Prisma unique constraint failure", async () => {
+  reset();
+  createError = Object.assign(new Error("private database details"), { code: "P2002" });
+  const res = await register({ email: "test@example.com", password: "password123" });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.success, false);
+  assert.equal(creations.length, 1);
+  assert.equal(hashes.length, 1);
+  assert.doesNotMatch(JSON.stringify(res.body), /private database|password123|hashed-password/i);
+});
