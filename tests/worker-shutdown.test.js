@@ -91,3 +91,67 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   assert.equal(events.disconnects, 1, "repeated signals must not disconnect twice");
   assert.equal(events.cleared, 1);
 });
+
+test("SIGTERM during default-agent provisioning waits and skips all subsequent work", async () => {
+  let releaseProvision;
+  const provisioning = new Promise(resolve => { releaseProvision = resolve; });
+  const handlers = {};
+  const events = { provisioned: [], dueReads: 0, runs: 0, disconnects: 0, exits: [] };
+  const prisma = {
+    user: { async findMany() { return [{ id: "user-1" }, { id: "user-2" }]; } },
+    agent: {
+      async findMany({ where }) {
+        if (where.status === "RUNNING") return [];
+        events.dueReads += 1;
+        return [];
+      },
+      async updateMany() { throw new Error("unexpected agent claim"); }
+    },
+    agentRun: { async updateMany() { throw new Error("unexpected audit"); } },
+    async $disconnect() { events.disconnects += 1; }
+  };
+  const dependencies = {
+    dotenv: { config() {} },
+    "./lib/prisma": prisma,
+    "./core/agents/AgentRunner": class {
+      async run() { events.runs += 1; }
+    },
+    "./api/services/AgentService": class {
+      async ensureDefaults(userId) {
+        events.provisioned.push(userId);
+        await provisioning;
+      }
+    }
+  };
+
+  vm.runInNewContext(source, {
+    require(name) {
+      if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
+      return dependencies[name];
+    },
+    console: { log() {}, warn() {}, error(message) { throw new Error(message); } },
+    process: {
+      env: {},
+      on(signal, handler) { handlers[signal] = handler; },
+      exit(code) { events.exits.push(code); }
+    },
+    Date,
+    setInterval() { return 1; },
+    clearInterval() {},
+    setTimeout
+  }, { filename: "worker.js" });
+
+  await settled();
+  assert.deepEqual(events.provisioned, ["user-1"]);
+  const shutdown = handlers.SIGTERM();
+  await settled();
+  assert.equal(events.disconnects, 0, "do not disconnect during provisioning");
+
+  releaseProvision();
+  await shutdown;
+  assert.deepEqual(events.provisioned, ["user-1"], "do not provision another user after SIGTERM");
+  assert.equal(events.dueReads, 0, "do not scan due agents after SIGTERM");
+  assert.equal(events.runs, 0);
+  assert.equal(events.disconnects, 1);
+  assert.deepEqual(events.exits, [0]);
+});
