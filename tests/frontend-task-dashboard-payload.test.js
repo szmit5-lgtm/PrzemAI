@@ -69,3 +69,16 @@ test("task completion rejects another task id or an uncompleted status", async (
   assert.throws(() => parseTaskMutationResponse({ item: { ...item, status: "TODO" } },
     { id: "task-4", status: "DONE" }), /Nieprawidłowe potwierdzenie zmiany zadania/);
 });
+
+test("task deletion accepts an explicit successful API acknowledgement", async () => {
+  const { parseTaskDeletionResponse } = await loadParser();
+  assert.equal(parseTaskDeletionResponse({ success: true, message: "Zadanie zostało usunięte." }), true);
+});
+
+test("task deletion rejects missing or malformed acknowledgements", async () => {
+  const { parseTaskDeletionResponse } = await loadParser();
+  for (const response of [null, {}, { success: false }, { success: "true" }, { message: "OK" }]) {
+    assert.throws(() => parseTaskDeletionResponse(response),
+      /Nieprawidłowe potwierdzenie usunięcia zadania/);
+  }
+});
