@@ -147,6 +147,21 @@ async function cycle() {
 
       if (lock.count !== 1) continue;
 
+      // SIGTERM can arrive while the claim query is in flight. Do not start
+      // a new agent after shutdown begins; release this unused claim so the
+      // next worker can schedule it without waiting for stale-run recovery.
+      if (stopping) {
+        try {
+          await prisma.agent.updateMany({
+            where: { id: agent.id, status: "RUNNING" },
+            data: { status: "IDLE", nextRunAt: new Date() }
+          });
+        } catch (error) {
+          console.error("[Worker] Failed to release claim during shutdown", agent.key, error.message);
+        }
+        break;
+      }
+
       // AgentRunner heartbeats both scheduled and manual executions.
       try {
         await runner.run({ ...agent, status: "RUNNING" }, "SCHEDULE");
