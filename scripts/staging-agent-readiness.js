@@ -25,7 +25,8 @@ async function main() {
     databaseIsolationVerified: context.databaseIsolationVerified
   };
   process.stdout.write(JSON.stringify(output, null, 2) + "\n");
-  if (!output.readyForScheduledTests) process.exitCode = 2;
+  // A successful exit must never authorize tests that may write to production data.
+  if (!output.safeToRunStagingWrites) process.exitCode = 2;
 }
 
 main().catch(error => {
