@@ -10,3 +10,25 @@ export function parseAgentDashboardResponses(agentsResponse, integrationsRespons
 
   return { agents, integrations };
 }
+
+ 
+// Unknown counts are different from a verified empty account.
+export function getAgentDashboardSummary(agents, integrations, { loading = false, error = "" } = {}) {
+  if (loading || error) {
+    return {
+      agentCount: null,
+      enabledAgentCount: null,
+      enabledIntegrationCount: null,
+      showEmptyAgents: false,
+      showEmptyIntegrations: false
+    };
+  }
+
+  return {
+    agentCount: agents.length,
+    enabledAgentCount: agents.filter(agent => agent.enabled).length,
+    enabledIntegrationCount: integrations.filter(integration => integration.enabled).length,
+    showEmptyAgents: agents.length === 0,
+    showEmptyIntegrations: integrations.length === 0
+  };
+}

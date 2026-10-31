@@ -6,7 +6,7 @@ import { Activity, ArrowLeft, Bot, Clock3, Mail, Play, Plug, RefreshCw, ShieldCh
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getAgents, runAgent, setAgentEnabled, getIntegrations, setIntegrationEnabled } from "@/lib/api";
-import { parseAgentDashboardResponses } from "@/lib/agentDashboardPayload";
+import { parseAgentDashboardResponses, getAgentDashboardSummary } from "@/lib/agentDashboardPayload";
 
 function formatDate(value) {
   if (!value) return "Brak danych";
@@ -84,6 +84,7 @@ export default function AgentsPage() {
   }
 
   const busy = Boolean(pending) || loading;
+  const summary = getAgentDashboardSummary(agents, integrations, { loading, error });
 
   return (
     <main className="min-h-screen bg-[#070e22] px-4 py-6 text-slate-100 sm:px-8">
@@ -112,9 +113,9 @@ export default function AgentsPage() {
           {error && <div role="alert" className="mt-5 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</div>}
           {notice && !error && <div role="status" className="mt-5 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-4 text-sm text-emerald-200">{notice}</div>}
           <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Activity className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{loading ? "—" : agents.length}</p><p className="mt-1 text-sm text-slate-400">Agenci na koncie</p></div>
-            <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Bot className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{loading ? "—" : agents.filter(agent => agent.enabled).length}</p><p className="mt-1 text-sm text-slate-400">Włączeni</p></div>
-            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[.05] p-5 md:col-span-1"><Plug className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{loading ? "—" : integrations.filter(integration => integration.enabled).length}</p><p className="mt-1 text-sm text-slate-400">Włączone integracje</p></div>
+            <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Activity className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{summary.agentCount ?? "—"}</p><p className="mt-1 text-sm text-slate-400">Agenci na koncie</p></div>
+            <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Bot className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{summary.enabledAgentCount ?? "—"}</p><p className="mt-1 text-sm text-slate-400">Włączeni</p></div>
+            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[.05] p-5 md:col-span-1"><Plug className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{summary.enabledIntegrationCount ?? "—"}</p><p className="mt-1 text-sm text-slate-400">Włączone integracje</p></div>
           </div>
         </section>
 
@@ -122,7 +123,7 @@ export default function AgentsPage() {
           <h2 className="text-2xl font-bold">Agenci</h2>
           <p className="mt-2 text-sm text-slate-400">„Włączony” oznacza gotowość do uruchomienia według harmonogramu, a nie ciągłą aktywność.</p>
           {loading ? <p role="status" className="mt-6 text-slate-300">Ładowanie agentów…</p> :
-            agents.length === 0 ? <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] p-8 text-sm text-slate-300">Brak skonfigurowanych agentów na tym koncie.</div> :
+            error ? null : summary.showEmptyAgents ? <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] p-8 text-sm text-slate-300">Brak skonfigurowanych agentów na tym koncie.</div> :
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {agents.map(agent => (
                 <article key={agent.id} className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#14274c] to-[#0b152c] p-6">
@@ -156,9 +157,9 @@ export default function AgentsPage() {
         <section className="mt-10">
           <h2 className="flex items-center gap-2 text-2xl font-bold"><Plug className="text-cyan-300" /> Integracje</h2>
           <p className="mt-2 text-sm text-slate-400">Włączenie integracji może rozpocząć pobieranie danych z podłączonej usługi.</p>
-          {!loading && integrations.length === 0 && <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] p-8 text-sm text-slate-300">Brak integracji na tym koncie.</div>}
+          {summary.showEmptyIntegrations && <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] p-8 text-sm text-slate-300">Brak integracji na tym koncie.</div>}
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {integrations.map(integration => (
+            {!loading && !error && integrations.map(integration => (
               <article key={integration.id} className="rounded-3xl border border-white/10 bg-white/[.05] p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-center gap-3"><Mail size={22} className="text-cyan-300" aria-hidden="true" /><div><h3 className="text-lg font-bold">{integration.name}</h3><p className="mt-1 text-xs text-slate-400">{integration.provider} · {integration.type}</p></div></div>

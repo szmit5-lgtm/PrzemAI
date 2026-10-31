@@ -50,3 +50,55 @@ test("agent dashboard rejects malformed integration data instead of showing zero
     );
   }
 });
+
+ 
+test("dashboard summary displays actual agent and integration counts after successful loading", async () => {
+  const { getAgentDashboardSummary } = await loadParser();
+  assert.deepEqual(
+    getAgentDashboardSummary(
+      [{ enabled: true }, { enabled: false }],
+      [{ enabled: true }, { enabled: false }]
+    ),
+    {
+      agentCount: 2,
+      enabledAgentCount: 1,
+      enabledIntegrationCount: 1,
+      showEmptyAgents: false,
+      showEmptyIntegrations: false
+    }
+  );
+});
+
+test("dashboard summary distinguishes a verified empty account from unavailable data", async () => {
+  const { getAgentDashboardSummary } = await loadParser();
+  assert.deepEqual(
+    getAgentDashboardSummary([], []),
+    {
+      agentCount: 0,
+      enabledAgentCount: 0,
+      enabledIntegrationCount: 0,
+      showEmptyAgents: true,
+      showEmptyIntegrations: true
+    }
+  );
+});
+
+test("dashboard summary does not report zero agents while refreshing", async () => {
+  const { getAgentDashboardSummary } = await loadParser();
+  const summary = getAgentDashboardSummary([], [], { loading: true });
+  assert.equal(summary.agentCount, null);
+  assert.equal(summary.enabledAgentCount, null);
+  assert.equal(summary.enabledIntegrationCount, null);
+  assert.equal(summary.showEmptyAgents, false);
+  assert.equal(summary.showEmptyIntegrations, false);
+});
+
+test("dashboard summary does not report zero agents after an API failure", async () => {
+  const { getAgentDashboardSummary } = await loadParser();
+  const summary = getAgentDashboardSummary([], [], { error: "API niedostępne" });
+  assert.equal(summary.agentCount, null);
+  assert.equal(summary.enabledAgentCount, null);
+  assert.equal(summary.enabledIntegrationCount, null);
+  assert.equal(summary.showEmptyAgents, false);
+  assert.equal(summary.showEmptyIntegrations, false);
+});
