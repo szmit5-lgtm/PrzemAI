@@ -35,8 +35,21 @@ test("successful run is reported separately from configuration readiness", () =>
   const report = buildStagingReadiness({
     users: 1,
     agents: [group("FINANCIAL")],
-    runs: [run("SUCCESS", 2), run("FAILED")]
+    runs: [run("SUCCESS", 2), run("FAILED")],
+    successfulSupportedRuns: 2
   });
   assert.equal(report.hasSuccessfulAgentRun, true);
   assert.deepEqual(report.runCounts, [{ status: "SUCCESS", count: 2 }, { status: "FAILED", count: 1 }]);
+});
+
+
+test("unrelated successful runs do not falsely verify a supported agent", () => {
+  const report = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL")],
+    runs: [run("SUCCESS", 3)],
+    successfulSupportedRuns: 0
+  });
+  assert.equal(report.readyForScheduledTests, true);
+  assert.equal(report.hasSuccessfulAgentRun, false);
 });
