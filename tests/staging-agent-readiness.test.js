@@ -84,3 +84,35 @@ test("authorizes staging writes only when isolation and executable agent are bot
   });
   assert.equal(noAgents.safeToRunStagingWrites, false);
 });
+
+test("explains why empty staging cannot run agent smoke tests", () => {
+  const report = buildStagingReadiness({ users: 0, agents: [], runs: [] });
+  assert.deepEqual(report.blockers, [
+    "NO_STAGING_USERS",
+    "NO_ENABLED_SUPPORTED_AGENT",
+    "DATABASE_ISOLATION_UNVERIFIED"
+  ]);
+  assert.equal(report.safeToRunStagingWrites, false);
+});
+
+test("reports isolation as the only blocker when a supported agent is configured", () => {
+  const report = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL")],
+    runs: [],
+    databaseIsolationVerified: false
+  });
+  assert.deepEqual(report.blockers, ["DATABASE_ISOLATION_UNVERIFIED"]);
+  assert.equal(report.readyForScheduledTests, true);
+});
+
+test("clears blockers only after independent isolation and supported-agent checks", () => {
+  const report = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL")],
+    runs: [],
+    databaseIsolationVerified: true
+  });
+  assert.deepEqual(report.blockers, []);
+  assert.equal(report.safeToRunStagingWrites, true);
+});
