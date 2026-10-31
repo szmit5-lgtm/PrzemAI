@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, Clock3, ListTodo, Plus, RefreshCw, Trash2 } fr
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getTasks, createTask, deleteTask, completeTask } from "@/lib/api";
+import { parseTaskDashboardResponse } from "@/lib/taskDashboardPayload";
 
 const emptyForm = { title: "", description: "", priority: "MEDIUM", dueDate: "" };
 const priorityLabels = { LOW: "Niski", MEDIUM: "Średni", HIGH: "Wysoki" };
@@ -35,8 +36,9 @@ export default function TasksPage() {
     setError("");
     try {
       const data = await getTasks();
-      setTasks(Array.isArray(data?.items) ? data.items : []);
+      setTasks(parseTaskDashboardResponse(data));
     } catch (err) {
+      setTasks([]);
       setError(err?.message || "Nie udało się pobrać zadań.");
     } finally {
       setLoading(false);
@@ -120,9 +122,9 @@ export default function TasksPage() {
         {error && <p role="alert" className="mt-6 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</p>}
         {notice && !error && <p role="status" className="mt-6 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-200">{notice}</p>}
         <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><ListTodo size={20} className="text-cyan-300" /><p className="mt-3 text-3xl font-bold">{loading ? "—" : tasks.length}</p><p className="mt-1 text-sm text-slate-400">Wszystkie</p></div>
-          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Clock3 size={20} className="text-cyan-300" /><p className="mt-3 text-3xl font-bold">{loading ? "—" : openCount}</p><p className="mt-1 text-sm text-slate-400">Do zrobienia</p></div>
-          <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[.05] p-5 md:col-span-1"><CheckCircle2 size={20} className="text-emerald-300" /><p className="mt-3 text-3xl font-bold">{loading ? "—" : completedCount}</p><p className="mt-1 text-sm text-slate-400">Wykonane</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><ListTodo size={20} className="text-cyan-300" /><p className="mt-3 text-3xl font-bold">{loading || error ? "—" : tasks.length}</p><p className="mt-1 text-sm text-slate-400">Wszystkie</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Clock3 size={20} className="text-cyan-300" /><p className="mt-3 text-3xl font-bold">{loading || error ? "—" : openCount}</p><p className="mt-1 text-sm text-slate-400">Do zrobienia</p></div>
+          <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[.05] p-5 md:col-span-1"><CheckCircle2 size={20} className="text-emerald-300" /><p className="mt-3 text-3xl font-bold">{loading || error ? "—" : completedCount}</p><p className="mt-1 text-sm text-slate-400">Wykonane</p></div>
         </div>
         <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(300px,0.85fr)_minmax(0,1.4fr)]">
           <section className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-[#14264b] to-[#0c1730] p-6 sm:p-7">
@@ -147,7 +149,7 @@ export default function TasksPage() {
           </section>
           <section aria-labelledby="tasks-list-title" className="min-w-0 rounded-3xl border border-white/10 bg-white/[.045] p-5 sm:p-7">
             <h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2>
-            {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : tasks.length === 0 ? (
+            {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : error ? <p className="mt-7 text-sm text-slate-300">Lista zadań jest chwilowo niedostępna.</p> : tasks.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center"><CheckCircle2 size={36} className="mx-auto text-cyan-300" /><p className="mt-4 text-lg font-bold">Nie masz jeszcze zadań</p><p className="mt-2 text-sm text-slate-400">Dodaj pierwsze zadanie w formularzu obok.</p></div>
             ) : (
               <div className="mt-6 space-y-3">
