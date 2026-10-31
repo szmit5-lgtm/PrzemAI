@@ -6,7 +6,7 @@ import { ArrowLeft, CheckCircle2, Clock3, ListTodo, Plus, RefreshCw, Trash2 } fr
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getTasks, createTask, deleteTask, completeTask } from "@/lib/api";
-import { parseTaskDashboardResponse, parseTaskMutationResponse } from "@/lib/taskDashboardPayload";
+import { parseTaskDashboardResponse, parseTaskMutationResponse, parseTaskDeletionResponse } from "@/lib/taskDashboardPayload";
 
 const emptyForm = { title: "", description: "", priority: "MEDIUM", dueDate: "" };
 const priorityLabels = { LOW: "Niski", MEDIUM: "Średni", HIGH: "Wysoki" };
@@ -92,7 +92,8 @@ export default function TasksPage() {
     setError("");
     setNotice("");
     try {
-      await deleteTask(id);
+      const response = await deleteTask(id);
+      parseTaskDeletionResponse(response);
       setTasks(current => current.filter(task => task.id !== id));
       setNotice("Zadanie zostało usunięte.");
     } catch (err) {
