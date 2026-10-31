@@ -12,3 +12,13 @@ export function parseTaskDashboardResponse(response) {
   }
   return items;
 }
+
+// Mutations must not insert malformed or unrelated records into the task list.
+export function parseTaskMutationResponse(response, { id, status } = {}) {
+  const [item] = parseTaskDashboardResponse({ items: [response?.item] });
+  if ((id !== undefined && item.id !== id) ||
+      (status !== undefined && item.status !== status)) {
+    throw new Error("Nieprawidłowe potwierdzenie zmiany zadania.");
+  }
+  return item;
+}

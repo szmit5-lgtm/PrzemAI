@@ -44,3 +44,28 @@ test("task dashboard rejects malformed records before rendering or mutating task
       /Nieprawidłowy format danych zadań/);
   }
 });
+
+test("task mutation accepts a valid task returned after creation", async () => {
+  const { parseTaskMutationResponse } = await loadParser();
+  const item = { id: "task-3", title: "Nowe zadanie", status: "TODO" };
+  assert.strictEqual(parseTaskMutationResponse({ success: true, item }), item);
+});
+
+test("task mutation rejects missing and malformed records before changing UI state", async () => {
+  const { parseTaskMutationResponse } = await loadParser();
+  for (const response of [null, {}, { item: null }, { item: [] },
+    { item: { id: "task-3", status: "TODO" } },
+    { item: { id: "task-3", title: "Zadanie" } }]) {
+    assert.throws(() => parseTaskMutationResponse(response), /Nieprawidłowy format danych zadań/);
+  }
+});
+
+test("task completion rejects another task id or an uncompleted status", async () => {
+  const { parseTaskMutationResponse } = await loadParser();
+  const item = { id: "task-4", title: "Oferta", status: "DONE" };
+  assert.strictEqual(parseTaskMutationResponse({ item }, { id: "task-4", status: "DONE" }), item);
+  assert.throws(() => parseTaskMutationResponse({ item }, { id: "task-5", status: "DONE" }),
+    /Nieprawidłowe potwierdzenie zmiany zadania/);
+  assert.throws(() => parseTaskMutationResponse({ item: { ...item, status: "TODO" } },
+    { id: "task-4", status: "DONE" }), /Nieprawidłowe potwierdzenie zmiany zadania/);
+});

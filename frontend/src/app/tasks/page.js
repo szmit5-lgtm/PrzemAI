@@ -6,7 +6,7 @@ import { ArrowLeft, CheckCircle2, Clock3, ListTodo, Plus, RefreshCw, Trash2 } fr
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getTasks, createTask, deleteTask, completeTask } from "@/lib/api";
-import { parseTaskDashboardResponse } from "@/lib/taskDashboardPayload";
+import { parseTaskDashboardResponse, parseTaskMutationResponse } from "@/lib/taskDashboardPayload";
 
 const emptyForm = { title: "", description: "", priority: "MEDIUM", dueDate: "" };
 const priorityLabels = { LOW: "Niski", MEDIUM: "Średni", HIGH: "Wysoki" };
@@ -58,8 +58,8 @@ export default function TasksPage() {
     setNotice("");
     try {
       const data = await createTask({ ...form, title: form.title.trim() });
-      if (!data?.item) throw new Error("Nie otrzymano potwierdzenia utworzenia zadania.");
-      setTasks(current => [data.item, ...current]);
+      const item = parseTaskMutationResponse(data);
+      setTasks(current => [item, ...current]);
       setForm(emptyForm);
       setNotice("Zadanie zostało dodane.");
     } catch (err) {
@@ -76,8 +76,8 @@ export default function TasksPage() {
     setNotice("");
     try {
       const data = await completeTask(id);
-      if (!data?.item) throw new Error("Nie otrzymano potwierdzenia wykonania zadania.");
-      setTasks(current => current.map(task => task.id === id ? data.item : task));
+      const item = parseTaskMutationResponse(data, { id, status: "DONE" });
+      setTasks(current => current.map(task => task.id === id ? item : task));
       setNotice("Zadanie oznaczono jako wykonane.");
     } catch (err) {
       setError(err?.message || "Nie udało się ukończyć zadania.");
