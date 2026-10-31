@@ -53,3 +53,34 @@ test("unrelated successful runs do not falsely verify a supported agent", () => 
   assert.equal(report.readyForScheduledTests, true);
   assert.equal(report.hasSuccessfulAgentRun, false);
 });
+
+test("never authorizes staging writes without independently verified database isolation", () => {
+  const report = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL")],
+    runs: [run("SUCCESS")],
+    successfulSupportedRuns: 1,
+    databaseIsolationVerified: false
+  });
+  assert.equal(report.readyForScheduledTests, true);
+  assert.equal(report.hasSuccessfulAgentRun, true);
+  assert.equal(report.safeToRunStagingWrites, false);
+});
+
+test("authorizes staging writes only when isolation and executable agent are both verified", () => {
+  const isolated = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL")],
+    runs: [],
+    databaseIsolationVerified: true
+  });
+  assert.equal(isolated.safeToRunStagingWrites, true);
+
+  const noAgents = buildStagingReadiness({
+    users: 1,
+    agents: [group("FINANCIAL", false)],
+    runs: [],
+    databaseIsolationVerified: true
+  });
+  assert.equal(noAgents.safeToRunStagingWrites, false);
+});
