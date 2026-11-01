@@ -85,7 +85,7 @@ test("task deletion rejects missing or malformed acknowledgements", async () => 
 
 test("task dashboard rejects whitespace-only task identifiers in lists and mutations", async () => {
   const { parseTaskDashboardResponse, parseTaskMutationResponse } = await loadParser();
-  const invalid = { id: " \\t ", title: "Oferta", status: "TODO" };
+  const invalid = { id: "   ", title: "Oferta", status: "TODO" };
   assert.throws(
     () => parseTaskDashboardResponse({ items: [invalid] }),
     /Nieprawidłowy format danych zadań/
