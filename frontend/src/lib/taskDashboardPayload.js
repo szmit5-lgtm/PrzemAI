@@ -8,7 +8,8 @@ export function parseTaskDashboardResponse(response) {
     typeof item.status === "string" && item.status.trim().length > 0;
 
   // Duplicate IDs make React reuse the wrong row and task actions ambiguous.
-  if (!Array.isArray(items) || !items.every(isTask) ||
+  if ((response?.success !== undefined && response.success !== true) ||
+      !Array.isArray(items) || !items.every(isTask) ||
       new Set(items.map(item => item.id)).size !== items.length) {
     throw new Error("Nieprawidłowy format danych zadań.");
   }
@@ -17,6 +18,9 @@ export function parseTaskDashboardResponse(response) {
 
 // Mutations must not insert malformed or unrelated records into the task list.
 export function parseTaskMutationResponse(response, { id, status } = {}) {
+  if (response?.success !== undefined && response.success !== true) {
+    throw new Error("Nieprawidłowe potwierdzenie zmiany zadania.");
+  }
   const [item] = parseTaskDashboardResponse({ items: [response?.item] });
   if ((id !== undefined && item.id !== id) ||
       (status !== undefined && item.status !== status)) {
