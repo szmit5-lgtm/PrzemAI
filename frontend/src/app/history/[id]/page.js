@@ -7,6 +7,7 @@ import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
 
 import { getHistoryItem } from "@/lib/api";
+import { parseHistoryDetailResponse } from "@/lib/historyDashboardPayload";
 
 export default function HistoryDetailsPage() {
 
@@ -26,7 +27,7 @@ export default function HistoryDetailsPage() {
 
                 const data = await getHistoryItem(id);
 
-                setItem(data.item);
+                setItem(parseHistoryDetailResponse(data));
 
             }
             catch (err) {
