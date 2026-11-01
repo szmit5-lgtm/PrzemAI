@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
+import { parseMemoryListResponse, parseMemoryMutationResponse } from "../../lib/memoryDashboardPayload";
 
 import {
     Brain,
@@ -53,6 +54,7 @@ export default function MemoryPage() {
     const [memories, setMemories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [loadError, setLoadError] = useState("");
 
     const [query, setQuery] = useState("");
     const [type, setType] = useState("ALL");
@@ -78,21 +80,17 @@ export default function MemoryPage() {
         try {
 
             setLoading(true);
-            setError("");
+            setLoadError("");
 
             const response =
                 await getMemories();
 
-            setMemories(
-                Array.isArray(response)
-                    ? response
-                    : response.memories || []
-            );
+            setMemories(parseMemoryListResponse(response));
 
         }
         catch (err) {
 
-            setError(
+            setLoadError(
                 err.message ||
                 "Nie udało się pobrać pamięci AI."
             );
@@ -233,17 +231,19 @@ export default function MemoryPage() {
 
             if (editingId) {
 
-                await updateMemory(
+                const response = await updateMemory(
                     editingId,
                     payload
                 );
+                parseMemoryMutationResponse(response, editingId);
 
             }
             else {
 
-                await createMemory(
+                const response = await createMemory(
                     payload
                 );
+                parseMemoryMutationResponse(response);
 
             }
 
@@ -275,7 +275,8 @@ export default function MemoryPage() {
             setArchivingId(id);
             setError("");
 
-            await archiveMemory(id);
+            const response = await archiveMemory(id);
+            parseMemoryMutationResponse(response, id, true);
 
             setMemories(current =>
                 current.filter(
@@ -779,11 +780,11 @@ export default function MemoryPage() {
 
                     </div>
 
-                    {error && (
+                    {(error || (!loading && loadError)) && (
 
                         <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
 
-                            {error}
+                            {error || loadError}
 
                         </div>
 
@@ -799,7 +800,7 @@ export default function MemoryPage() {
 
                             </div>
 
-                        ) : filteredMemories.length === 0 ? (
+                        ) : !loading && loadError ? null : !loadError && filteredMemories.length === 0 ? (
 
                             <div className="rounded-2xl border p-10 text-center text-slate-500">
 
