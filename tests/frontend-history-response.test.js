@@ -65,7 +65,7 @@ test("history details use a dynamic Next.js route for saved analysis IDs", async
   const literalPage = path.join(appDir, "id", "page.js");
   const detailsSource = await fs.readFile(dynamicPage, "utf8");
   await assert.rejects(fs.access(literalPage), { code: "ENOENT" });
-  assert.match(detailsSource, /useParams\\s*\\(/);
+  assert.ok(detailsSource.includes("useParams()"));
   const listSource = await fs.readFile(path.join(appDir, "page.js"), "utf8");
-  assert.match(listSource, /href=\\{\\s*\`\\/history\\/\\$\\{item\\.id\\}\`\\s*\\}/);
+  assert.ok(listSource.includes('href={`/history/${item.id}`}'));
 });
