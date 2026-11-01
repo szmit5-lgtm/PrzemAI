@@ -8,6 +8,7 @@ import { register } from "@/lib/api";
 export default function RegisterPage() {
 
     const router = useRouter();
+    const registrationEnabled = process.env.NEXT_PUBLIC_REGISTRATION_ENABLED !== "false";
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -18,6 +19,8 @@ export default function RegisterPage() {
     async function handleSubmit(e) {
 
         e.preventDefault();
+
+        if (!registrationEnabled || loading) return;
 
         if (password.length < 8) {
 
@@ -58,6 +61,18 @@ export default function RegisterPage() {
 
         }
 
+    }
+
+    if (!registrationEnabled) {
+        return (
+            <main className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+                <div className="w-full max-w-md rounded-3xl bg-white p-10 text-center shadow-xl">
+                    <h1 className="text-2xl font-bold">Rejestracja jest obecnie wyłączona</h1>
+                    <p className="mt-4 text-slate-600">Skontaktuj się z administratorem, aby uzyskać dostęp.</p>
+                    <Link href="/login" className="mt-6 inline-block font-semibold text-blue-600 hover:text-blue-700">Przejdź do logowania</Link>
+                </div>
+            </main>
+        );
     }
 
     return (
