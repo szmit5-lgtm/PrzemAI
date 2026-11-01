@@ -63,3 +63,25 @@ test("dashboard rejects ambiguous identities and non-boolean enabled flags", asy
     );
   }
 });
+
+test("dashboard rejects duplicate agent IDs and duplicate integration IDs", async () => {
+  const { parseAgentDashboardResponses } = await loadParser();
+  const firstAgent = { id: "agent-1", enabled: true };
+  const secondAgent = { id: "agent-1", enabled: false };
+  const firstIntegration = { id: "integration-1", enabled: true };
+  const secondIntegration = { id: "integration-1", enabled: false };
+  assert.throws(
+    () => parseAgentDashboardResponses({ data: [firstAgent, secondAgent] }, { data: [] }),
+    /Nieprawidłowy format danych agentów lub integracji/
+  );
+  assert.throws(
+    () => parseAgentDashboardResponses({ data: [] }, { data: [firstIntegration, secondIntegration] }),
+    /Nieprawidłowy format danych agentów lub integracji/
+  );
+  const agents = [firstAgent, { id: "agent-2", enabled: false }];
+  const integrations = [firstIntegration, { id: "integration-2", enabled: false }];
+  assert.deepEqual(
+    parseAgentDashboardResponses({ data: agents }, { data: integrations }),
+    { agents, integrations }
+  );
+});
