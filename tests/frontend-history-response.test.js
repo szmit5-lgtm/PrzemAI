@@ -33,6 +33,8 @@ test("history rejects unsuccessful or malformed responses rather than showing an
     { success: true, items: [null] }, { success: true, items: [{ ...analysis, id: " " }] },
     { success: true, items: [{ ...analysis, title: "" }] },
     { success: true, items: [{ ...analysis, createdAt: null }] },
+    { success: true, items: [{ ...analysis, createdAt: "not-a-date" }] },
+    { success: true, items: [{ ...analysis, createdAt: "2026-13-99T00:00:00Z" }] },
     { success: true, items: [analysis, analysis] }
   ]) {
     assert.throws(() => parseHistoryListResponse(response), /Nieprawidłowy format historii analiz/);
