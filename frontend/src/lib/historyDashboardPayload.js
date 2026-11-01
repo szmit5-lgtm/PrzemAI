@@ -26,3 +26,20 @@ export function parseHistoryDeletionResponse(response) {
   }
   return true;
 }
+
+
+// A successful HTTP response can still omit the requested analysis.
+// Treat that as an error instead of rendering a blank details page.
+export function parseHistoryDetailResponse(response) {
+  const item = response?.item;
+  if (response?.success !== true ||
+      item === null || typeof item !== "object" || Array.isArray(item) ||
+      typeof item.id !== "string" || item.id.trim().length === 0 ||
+      typeof item.title !== "string" || item.title.trim().length === 0 ||
+      typeof item.type !== "string" || item.type.trim().length === 0 ||
+      !Object.prototype.hasOwnProperty.call(item, "report") ||
+      item.report === null || item.report === undefined) {
+    throw new Error("Nieprawidłowy format zapisanej analizy.");
+  }
+  return item;
+}
