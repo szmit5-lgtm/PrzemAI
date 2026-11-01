@@ -6,7 +6,7 @@ import { Activity, ArrowLeft, Bot, Clock3, Mail, Play, Plug, RefreshCw, ShieldCh
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getAgents, runAgent, setAgentEnabled, getIntegrations, setIntegrationEnabled } from "@/lib/api";
-import { parseAgentDashboardResponses, getAgentDashboardSummary } from "@/lib/agentDashboardPayload";
+import { parseAgentDashboardResponses, getAgentDashboardSummary, parseAgentToggleResponse } from "@/lib/agentDashboardPayload";
 
 function formatDate(value) {
   if (!value) return "Brak danych";
@@ -144,7 +144,7 @@ export default function AgentsPage() {
                       <Play size={16} /> {pending === "run:" + agent.id ? "Uruchamianie…" : "Uruchom teraz"}
                     </button>
                     <button type="button" disabled={busy || agent.status === "RUNNING"}
-                      onClick={() => act("toggle:" + agent.id, () => setAgentEnabled(agent.id, !agent.enabled), agent.enabled ? "Agent wyłączony." : "Agent włączony.")}
+                      onClick={() => act("toggle:" + agent.id, () => setAgentEnabled(agent.id, !agent.enabled).then(response => parseAgentToggleResponse(response, { id: agent.id, enabled: !agent.enabled })), agent.enabled ? "Agent wyłączony." : "Agent włączony.")}
                       className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
                       {agent.enabled ? <ToggleRight size={18} className="text-emerald-300" /> : <ToggleLeft size={18} />} {agent.enabled ? "Wyłącz" : "Włącz"}
                     </button>
@@ -167,7 +167,7 @@ export default function AgentsPage() {
                 </div>
                 <p className="mt-5 text-sm text-slate-300">Ostatnia synchronizacja: <span className="text-white">{formatDate(integration.lastSyncAt)}</span></p>
                 <button type="button" disabled={busy}
-                  onClick={() => act("integration:" + integration.id, () => setIntegrationEnabled(integration.id, !integration.enabled), integration.enabled ? "Integracja wyłączona." : "Integracja włączona.")}
+                  onClick={() => act("integration:" + integration.id, () => setIntegrationEnabled(integration.id, !integration.enabled).then(response => parseAgentToggleResponse(response, { id: integration.id, enabled: !integration.enabled })), integration.enabled ? "Integracja wyłączona." : "Integracja włączona.")}
                   className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold hover:bg-white/10 disabled:opacity-50">
                   {integration.enabled ? <ToggleRight size={18} className="text-emerald-300" /> : <ToggleLeft size={18} />} {integration.enabled ? "Wyłącz integrację" : "Włącz integrację"}
                 </button>
