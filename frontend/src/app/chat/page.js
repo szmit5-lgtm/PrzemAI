@@ -11,6 +11,12 @@ import {
 
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
+import {
+    parseChatListResponse,
+    parseChatDetailResponse,
+    parseChatSendResponse,
+    parseChatArchiveResponse
+} from "@/lib/chatDashboardPayload";
 
 import {
     sendChatMessage,
@@ -45,6 +51,7 @@ export default function ChatPage() {
         useState(true);
     const [loadingConversation, setLoadingConversation] =
         useState(false);
+    const [conversationsError, setConversationsError] = useState(false);
 
     const messagesEndRef = useRef(null);
 
@@ -68,13 +75,13 @@ export default function ChatPage() {
 
             const data = await getConversations();
 
-            setConversations(
-                data.conversations || []
-            );
+            setConversations(parseChatListResponse(data));
+            setConversationsError(false);
 
         }
         catch (err) {
 
+            setConversationsError(true);
             alert(err.message);
 
         }
@@ -104,7 +111,7 @@ export default function ChatPage() {
 
             const data = await getConversation(id);
 
-            const conversation = data.conversation;
+            const conversation = parseChatDetailResponse(data, id);
 
             setActiveConversationId(conversation.id);
 
@@ -159,7 +166,8 @@ export default function ChatPage() {
 
         try {
 
-            await deleteConversation(id);
+            const response = await deleteConversation(id);
+            parseChatArchiveResponse(response);
 
             setConversations(current =>
                 current.filter(item => item.id !== id)
@@ -206,10 +214,11 @@ export default function ChatPage() {
 
         try {
 
-            const data = await sendChatMessage(
+            const response = await sendChatMessage(
                 text,
                 activeConversationId
             );
+            const data = parseChatSendResponse(response);
 
             setActiveConversationId(
                 data.conversationId
@@ -312,7 +321,14 @@ export default function ChatPage() {
 
                             )}
 
+                            {!loadingConversations && conversationsError && (
+                                <div role="alert" className="px-4 py-10 text-center text-sm text-red-300">
+                                    Nie udało się pobrać rozmów.
+                                </div>
+                            )}
+
                             {!loadingConversations &&
+                                !conversationsError &&
                                 conversations.length === 0 && (
 
                                 <div className="px-4 py-10 text-center text-sm text-slate-400">
