@@ -14,7 +14,10 @@ export function parseAgentDashboardResponses(agentsResponse, integrationsRespons
   // when it reads agent.enabled or renders integration fields.
   // Duplicate IDs make React reuse rows and leave toggle/run actions ambiguous.
   // Check each collection independently: agent and integration IDs may overlap.
-  if (!Array.isArray(agents) || !Array.isArray(integrations) ||
+  // Explicit API failures must never be presented as verified agent state.
+  if ((agentsResponse?.success !== undefined && agentsResponse.success !== true) ||
+      (integrationsResponse?.success !== undefined && integrationsResponse.success !== true) ||
+      !Array.isArray(agents) || !Array.isArray(integrations) ||
       !agents.every(isValidRecord) || !integrations.every(isValidRecord) ||
       new Set(agents.map(agent => agent.id)).size !== agents.length ||
       new Set(integrations.map(integration => integration.id)).size !== integrations.length) {
