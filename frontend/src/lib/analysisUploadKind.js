@@ -12,3 +12,12 @@ export function getAnalysisUploadKind(filename) {
 
     throw new Error("Nieobsługiwany format pliku. Wybierz PDF, DOCX, TXT lub nagranie audio/wideo.");
 }
+
+// Reject empty uploads before sending a request that cannot produce an analysis.
+export function validateAnalysisUploadFile(file) {
+    const kind = getAnalysisUploadKind(file?.name);
+    if (!Number.isSafeInteger(file?.size) || file.size <= 0) {
+        throw new Error("Plik jest pusty lub ma nieprawidłowy rozmiar.");
+    }
+    return kind;
+}

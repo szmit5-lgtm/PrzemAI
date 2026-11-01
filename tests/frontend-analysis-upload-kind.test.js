@@ -37,7 +37,23 @@ test("upload UI validates selection and routes via the same helper", async () =>
     const source = await fs.readFile(
         path.join(__dirname, "../frontend/src/app/components/FileUpload.js"), "utf8"
     );
-    assert.match(source, /getAnalysisUploadKind\(selected\.name\)/);
-    assert.match(source, /getAnalysisUploadKind\(file\.name\)/);
+    assert.match(source, /validateAnalysisUploadFile\(selected\)/);
+    assert.match(source, /validateAnalysisUploadFile\(file\)/);
     assert.match(source, /accept="\.pdf,\.docx,\.txt,\.mp3,\.wav,\.m4a,\.ogg,\.webm,\.mpeg,\.mp4"/);
+});
+
+test("empty or invalid-size uploads are rejected before calling the API", async () => {
+    const { validateAnalysisUploadFile } = await loadKind();
+    assert.equal(validateAnalysisUploadFile({ name: "umowa.pdf", size: 1 }), "document");
+    assert.equal(validateAnalysisUploadFile({ name: "spotkanie.mp3", size: 1024 }), "meeting");
+    for (const size of [0, -1, NaN, Infinity, undefined, "10"]) {
+        assert.throws(
+            () => validateAnalysisUploadFile({ name: "umowa.pdf", size }),
+            /Plik jest pusty lub ma nieprawidłowy rozmiar/
+        );
+    }
+    assert.throws(
+        () => validateAnalysisUploadFile({ name: "umowa.exe", size: 10 }),
+        /Nieobsługiwany format pliku/
+    );
 });

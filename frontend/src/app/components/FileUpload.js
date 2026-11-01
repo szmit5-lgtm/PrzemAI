@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 
 import ReportViewer from "./ReportViewer";
 import { parseAnalysisUploadResponse } from "@/lib/analysisUploadPayload";
-import { getAnalysisUploadKind } from "@/lib/analysisUploadKind";
+import { validateAnalysisUploadFile } from "@/lib/analysisUploadKind";
 
 import {
     uploadDocument,
@@ -44,7 +44,7 @@ export default function FileUpload() {
 
         try {
 
-            getAnalysisUploadKind(selected.name);
+            validateAnalysisUploadFile(selected);
             setFile(selected);
 
         } catch (err) {
@@ -72,7 +72,7 @@ export default function FileUpload() {
 
             formData.append("file", file);
 
-            const kind = getAnalysisUploadKind(file.name);
+            const kind = validateAnalysisUploadFile(file);
 
             const data = kind === "meeting"
                 ? await uploadMeeting(formData)
