@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
+import { parseHistoryListResponse, parseHistoryDeletionResponse } from "@/lib/historyDashboardPayload";
 
 import {
     getHistory,
@@ -15,19 +16,27 @@ export default function HistoryPage() {
 
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [error, setError] = useState("");
+    const [pendingId, setPendingId] = useState(null);
 
     async function loadHistory() {
 
+        setLoading(true);
+        setLoadError(false);
+        setError("");
         try {
 
             const data = await getHistory();
 
-            setItems(data.items || []);
+            setItems(parseHistoryListResponse(data));
 
         }
         catch (err) {
 
-            alert(err.message);
+            setItems([]);
+            setLoadError(true);
+            setError(err?.message || "Nie udało się pobrać historii analiz.");
 
         }
         finally {
@@ -46,15 +55,18 @@ export default function HistoryPage() {
 
     async function remove(id) {
 
-        if (!confirm("Usunąć analizę?")) {
+        if (pendingId || !window.confirm("Usunąć analizę?")) {
 
             return;
 
         }
 
+        setPendingId(id);
+        setError("");
         try {
 
-            await deleteHistoryItem(id);
+            const response = await deleteHistoryItem(id);
+            parseHistoryDeletionResponse(response);
 
             setItems(current =>
                 current.filter(item => item.id !== id)
@@ -63,7 +75,12 @@ export default function HistoryPage() {
         }
         catch (err) {
 
-            alert(err.message);
+            setError(err?.message || "Nie udało się usunąć analizy.");
+
+        }
+        finally {
+
+            setPendingId(null);
 
         }
 
@@ -101,11 +118,13 @@ export default function HistoryPage() {
 
                         <div className="rounded-xl bg-slate-100 px-4 py-2 font-semibold">
 
-                            {items.length}
+                            {loading || loadError ? "—" : items.length}
 
                         </div>
 
                     </div>
+
+                    {error && <p role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</p>}
 
                     {loading && (
 
@@ -117,7 +136,13 @@ export default function HistoryPage() {
 
                     )}
 
-                    {!loading && items.length === 0 && (
+                    {!loading && loadError && (
+
+                        <div className="mt-10 text-slate-600">Historia analiz jest chwilowo niedostępna. <button type="button" onClick={loadHistory} className="font-semibold text-blue-700 underline">Spróbuj ponownie</button></div>
+
+                    )}
+
+                    {!loading && !loadError && items.length === 0 && (
 
                         <div className="mt-10 rounded-2xl border-2 border-dashed p-16 text-center">
 
@@ -137,7 +162,7 @@ export default function HistoryPage() {
 
                     )}
 
-                    {!loading && items.length > 0 && (
+                    {!loading && !loadError && items.length > 0 && (
 
                         <div className="mt-8 space-y-4">
 
@@ -182,8 +207,11 @@ export default function HistoryPage() {
                                         </Link>
 
                                         <button
+                                            type="button"
+                                            disabled={pendingId !== null}
+                                            aria-label={`Usuń analizę: ${item.title}`}
                                             onClick={() => remove(item.id)}
-                                            className="rounded-xl border border-red-500 px-5 py-3 text-red-600 hover:bg-red-50"
+                                            className="rounded-xl border border-red-500 px-5 py-3 text-red-600 hover:bg-red-50 disabled:opacity-50"
                                         >
 
                                             Usuń
