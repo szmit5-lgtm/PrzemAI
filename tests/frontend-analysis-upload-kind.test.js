@@ -57,3 +57,17 @@ test("empty or invalid-size uploads are rejected before calling the API", async 
         /Nieobsługiwany format pliku/
     );
 });
+
+
+test("upload size validation matches the backend 500 MB limit", async () => {
+    const { validateAnalysisUploadFile } = await loadKind();
+    const maxBytes = 500 * 1024 * 1024;
+    assert.equal(validateAnalysisUploadFile({ name: "umowa.pdf", size: maxBytes }), "document");
+    assert.equal(validateAnalysisUploadFile({ name: "spotkanie.mp3", size: maxBytes }), "meeting");
+    for (const size of [maxBytes + 1, maxBytes + 1024 * 1024, Number.MAX_SAFE_INTEGER]) {
+        assert.throws(
+            () => validateAnalysisUploadFile({ name: "spotkanie.mp4", size }),
+            /Maksymalny rozmiar to 500 MB/
+        );
+    }
+});
