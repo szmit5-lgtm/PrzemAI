@@ -58,3 +58,14 @@ test("history UI distinguishes load failure from a verified empty history and va
   assert.match(source, /!loading && !loadError && items\.length === 0/);
   assert.match(source, /parseHistoryDeletionResponse\(response\)/);
 });
+
+test("history details use a dynamic Next.js route for saved analysis IDs", async () => {
+  const appDir = path.join(__dirname, "../frontend/src/app/history");
+  const dynamicPage = path.join(appDir, "[id]", "page.js");
+  const literalPage = path.join(appDir, "id", "page.js");
+  const detailsSource = await fs.readFile(dynamicPage, "utf8");
+  await assert.rejects(fs.access(literalPage), { code: "ENOENT" });
+  assert.match(detailsSource, /useParams\\s*\\(/);
+  const listSource = await fs.readFile(path.join(appDir, "page.js"), "utf8");
+  assert.match(listSource, /href=\\{\\s*\`\\/history\\/\\$\\{item\\.id\\}\`\\s*\\}/);
+});
