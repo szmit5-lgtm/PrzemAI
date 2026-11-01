@@ -65,3 +65,15 @@ export function parseAgentToggleResponse(response, { id, enabled } = {}) {
   }
   return record;
 }
+
+// A manual run is synchronous in the current API. HTTP 200 alone does not
+// prove the runner completed: require its explicit result summary.
+export function parseAgentRunResponse(response) {
+  const result = response?.data;
+  if (response?.success !== true ||
+      result === null || typeof result !== "object" || Array.isArray(result) ||
+      typeof result.summary !== "string" || !result.summary.trim()) {
+    throw new Error("Brak potwierdzenia zakończenia pracy agenta.");
+  }
+  return result;
+}
