@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 
 import ReportViewer from "./ReportViewer";
 import { parseAnalysisUploadResponse } from "@/lib/analysisUploadPayload";
+import { getAnalysisUploadKind } from "@/lib/analysisUploadKind";
 
 import {
     uploadDocument,
@@ -35,13 +36,23 @@ export default function FileUpload() {
 
     function selectFile(selected) {
 
-        if (!selected) {
+        if (!selected || loading) {
 
             return;
 
         }
 
-        setFile(selected);
+        try {
+
+            getAnalysisUploadKind(selected.name);
+            setFile(selected);
+
+        } catch (err) {
+
+            setFile(null);
+            alert(err.message);
+
+        }
 
     }
 
@@ -61,22 +72,9 @@ export default function FileUpload() {
 
             formData.append("file", file);
 
-            const extension = file.name
-                .split(".")
-                .pop()
-                .toLowerCase();
+            const kind = getAnalysisUploadKind(file.name);
 
-            const audio = [
-                "mp3",
-                "wav",
-                "m4a",
-                "ogg",
-                "webm",
-                "mpeg",
-                "mp4"
-            ];
-
-            const data = audio.includes(extension)
+            const data = kind === "meeting"
                 ? await uploadMeeting(formData)
                 : await uploadDocument(formData);
 
@@ -237,13 +235,11 @@ export default function FileUpload() {
                 hidden
                 ref={inputRef}
                 type="file"
+                accept=".pdf,.docx,.txt,.mp3,.wav,.m4a,.ogg,.webm,.mpeg,.mp4"
                 onChange={(e) => {
 
-                    selectFile(
-
-                        e.target.files?.[0]
-
-                    );
+                    selectFile(e.target.files?.[0]);
+                    e.target.value = "";
 
                 }}
             />
