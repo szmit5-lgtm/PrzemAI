@@ -3,7 +3,7 @@ export function parseTaskDashboardResponse(response) {
   const items = response?.items;
   const isTask = item =>
     item !== null && typeof item === "object" && !Array.isArray(item) &&
-    typeof item.id === "string" && item.id.length > 0 &&
+    typeof item.id === "string" && item.id.trim().length > 0 &&
     typeof item.title === "string" &&
     typeof item.status === "string";
 
