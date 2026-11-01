@@ -59,6 +59,22 @@ test("history UI distinguishes load failure from a verified empty history and va
   assert.match(source, /parseHistoryDeletionResponse\(response\)/);
 });
 
+test("history details require a confirmed analysis with a report", async () => {
+  const { parseHistoryDetailResponse } = await loadParser();
+  const item = { ...analysis, report: { summary: "OK" } };
+  assert.deepEqual(parseHistoryDetailResponse({ success: true, item }), item);
+  for (const response of [
+    null, {}, { success: true }, { success: false, item },
+    { success: true, item: null }, { success: true, item: [] },
+    { success: true, item: { ...item, id: "" } },
+    { success: true, item: { ...item, title: null } },
+    { success: true, item: { ...item, report: null } },
+    { success: true, item: { ...item, report: undefined } }
+  ]) {
+    assert.throws(() => parseHistoryDetailResponse(response), /Nieprawidłowy format zapisanej analizy/);
+  }
+});
+
 test("history details use a dynamic Next.js route for saved analysis IDs", async () => {
   const appDir = path.join(__dirname, "../frontend/src/app/history");
   const dynamicPage = path.join(appDir, "[id]", "page.js");
@@ -66,6 +82,7 @@ test("history details use a dynamic Next.js route for saved analysis IDs", async
   const detailsSource = await fs.readFile(dynamicPage, "utf8");
   await assert.rejects(fs.access(literalPage), { code: "ENOENT" });
   assert.ok(detailsSource.includes("useParams()"));
+  assert.ok(detailsSource.includes("setItem(parseHistoryDetailResponse(data))"));
   const listSource = await fs.readFile(path.join(appDir, "page.js"), "utf8");
   assert.ok(listSource.includes('href={`/history/${item.id}`}'));
 });
