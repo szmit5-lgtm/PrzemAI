@@ -6,7 +6,10 @@ export function parseHistoryListResponse(response) {
     typeof item.id === "string" && item.id.trim().length > 0 &&
     typeof item.title === "string" && item.title.trim().length > 0 &&
     typeof item.type === "string" && item.type.trim().length > 0 &&
-    typeof item.createdAt === "string" && item.createdAt.trim().length > 0;
+    typeof item.createdAt === "string" && item.createdAt.trim().length > 0 &&
+    // The history page formats this field as a date; reject invalid dates
+    // rather than rendering "Invalid Date" as if the analysis were valid.
+    Number.isFinite(Date.parse(item.createdAt));
 
   if (response?.success !== true || !Array.isArray(items) ||
       !items.every(isItem) ||
