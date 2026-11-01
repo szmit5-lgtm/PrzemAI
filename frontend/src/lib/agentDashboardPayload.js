@@ -4,11 +4,16 @@ export function parseAgentDashboardResponses(agentsResponse, integrationsRespons
   const agents = agentsResponse?.data;
   const integrations = integrationsResponse?.data;
   const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
+  // The UI uses IDs for actions and enabled as a boolean. A string like
+  // "false" is truthy and would incorrectly show an active agent/integration.
+  const isValidRecord = value => isRecord(value) &&
+    typeof value.id === "string" && value.id.trim().length > 0 &&
+    typeof value.enabled === "boolean";
 
   // Arrays containing null, primitives or nested arrays can crash the dashboard
   // when it reads agent.enabled or renders integration fields.
   if (!Array.isArray(agents) || !Array.isArray(integrations) ||
-      !agents.every(isRecord) || !integrations.every(isRecord)) {
+      !agents.every(isValidRecord) || !integrations.every(isValidRecord)) {
     throw new Error("Nieprawidłowy format danych agentów lub integracji.");
   }
 

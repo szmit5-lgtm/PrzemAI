@@ -41,3 +41,25 @@ test("dashboard rejects malformed integration records before rendering them", as
     { agents: [], integrations: [{ id: "gmail", enabled: false }] }
   );
 });
+
+
+test("dashboard rejects ambiguous identities and non-boolean enabled flags", async () => {
+  const { parseAgentDashboardResponses } = await loadParser();
+  for (const invalid of [
+    { id: "agent-1", enabled: "false" },
+    { id: "agent-1", enabled: 1 },
+    { id: "agent-1", enabled: null },
+    { id: "agent-1" },
+    { id: " ", enabled: false },
+    { id: 42, enabled: true }
+  ]) {
+    assert.throws(
+      () => parseAgentDashboardResponses({ data: [invalid] }, { data: [] }),
+      /Nieprawidłowy format danych agentów lub integracji/
+    );
+    assert.throws(
+      () => parseAgentDashboardResponses({ data: [] }, { data: [invalid] }),
+      /Nieprawidłowy format danych agentów lub integracji/
+    );
+  }
+});
