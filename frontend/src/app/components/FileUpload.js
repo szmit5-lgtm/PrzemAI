@@ -12,6 +12,7 @@ import {
 import { motion } from "framer-motion";
 
 import ReportViewer from "./ReportViewer";
+import { parseAnalysisUploadResponse } from "@/lib/analysisUploadPayload";
 
 import {
     uploadDocument,
@@ -79,9 +80,11 @@ export default function FileUpload() {
                 ? await uploadMeeting(formData)
                 : await uploadDocument(formData);
 
-            setFilename(data.filename);
+            const analysis = parseAnalysisUploadResponse(data, file.name);
 
-            setReport(data.report);
+            setFilename(analysis.filename);
+
+            setReport(analysis.report);
 
         }
         catch (err) {
