@@ -58,3 +58,13 @@ test("finance dashboard rejects missing, negative and non-numeric summary counts
       /Nieprawidłowy format danych finansowych/);
   }
 });
+
+test("finance dashboard rejects invoices without usable IDs for stable row rendering", async () => {
+  const { parseFinanceDashboardResponses } = await loadParser();
+  for (const invalid of [{}, { id: null }, { id: 17 }, { id: "" }, { id: "  " }]) {
+    assert.throws(
+      () => parseFinanceDashboardResponses({ items: [{ id: "invoice-ok" }, invalid] }, { data: emptySummary }),
+      /Nieprawidłowy format danych finansowych/
+    );
+  }
+});
