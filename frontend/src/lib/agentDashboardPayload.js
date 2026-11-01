@@ -47,3 +47,21 @@ export function getAgentDashboardSummary(agents, integrations, { loading = false
     showEmptyIntegrations: integrations.length === 0
   };
 }
+
+
+// A 2xx response is not enough to confirm that an agent or integration
+// was toggled. Require the backend's acknowledged state and identity.
+export function parseAgentToggleResponse(response, { id, enabled } = {}) {
+  const record = response?.data;
+  const valid = response?.success === true &&
+    record !== null && typeof record === "object" && !Array.isArray(record) &&
+    typeof record.id === "string" && record.id.trim().length > 0 &&
+    typeof record.enabled === "boolean" &&
+    (id === undefined || record.id === id) &&
+    (enabled === undefined || record.enabled === enabled);
+
+  if (!valid) {
+    throw new Error("Nieprawidłowe potwierdzenie zmiany ustawień agenta lub integracji.");
+  }
+  return record;
+}
