@@ -68,3 +68,18 @@ test("finance dashboard rejects invoices without usable IDs for stable row rende
     );
   }
 });
+
+test("finance dashboard rejects duplicate invoice IDs instead of rendering ambiguous rows", async () => {
+  const { parseFinanceDashboardResponses } = await loadParser();
+  const first = { id: "invoice-1", invoiceNumber: "FV/1" };
+  const duplicate = { id: "invoice-1", invoiceNumber: "FV/2" };
+  assert.throws(
+    () => parseFinanceDashboardResponses({ items: [first, duplicate] }, { data: emptySummary }),
+    /Nieprawidłowy format danych finansowych/
+  );
+  const documents = [first, { id: "invoice-2", invoiceNumber: "FV/2" }];
+  assert.strictEqual(
+    parseFinanceDashboardResponses({ items: documents }, { data: emptySummary }).documents,
+    documents
+  );
+});

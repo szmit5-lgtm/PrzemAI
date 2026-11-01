@@ -8,7 +8,9 @@ export function parseFinanceDashboardResponses(documentsResponse, summaryRespons
     typeof value.id === "string" && value.id.trim().length > 0;
   const isCount = value => Number.isSafeInteger(value) && value >= 0;
 
+  // Repeated IDs cause React to reuse rows and display misleading invoice data.
   if (!Array.isArray(documents) || !documents.every(isInvoice) ||
+      new Set(documents.map(document => document.id)).size !== documents.length ||
       !isRecord(summary) || !["total", "new", "mail", "ksef"].every(key => isCount(summary[key]))) {
     throw new Error("Nieprawidłowy format danych finansowych.");
   }
