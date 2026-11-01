@@ -20,6 +20,12 @@ import {
 } from "lucide-react";
 
 import {
+    parseProfileResponse,
+    parseSettingsResponse,
+    parsePasswordChangeResponse
+} from "../../lib/settingsDashboardPayload";
+
+import {
     getProfile,
     getSettings,
     updateSettings,
@@ -79,35 +85,8 @@ export default function SettingsPage() {
 
             ]);
 
-            setProfile(
-                profileResponse?.user ||
-                profileResponse
-            );
-
-            const loadedSettings =
-                settingsResponse?.settings ||
-                settingsResponse;
-
-            if (loadedSettings) {
-
-                setSettings({
-
-                    memoryEnabled:
-                        loadedSettings.memoryEnabled ?? true,
-
-                    historyEnabled:
-                        loadedSettings.historyEnabled ?? true,
-
-                    executiveMode:
-                        loadedSettings.executiveMode ?? true,
-
-                    aiModel:
-                        loadedSettings.aiModel ||
-                        "gpt-5.5"
-
-                });
-
-            }
+            setProfile(parseProfileResponse(profileResponse));
+            setSettings(parseSettingsResponse(settingsResponse));
 
         }
         catch (err) {
@@ -153,30 +132,7 @@ export default function SettingsPage() {
                     settings
                 );
 
-            const savedSettings =
-                response?.settings ||
-                response;
-
-            if (savedSettings) {
-
-                setSettings({
-
-                    memoryEnabled:
-                        savedSettings.memoryEnabled ?? true,
-
-                    historyEnabled:
-                        savedSettings.historyEnabled ?? true,
-
-                    executiveMode:
-                        savedSettings.executiveMode ?? true,
-
-                    aiModel:
-                        savedSettings.aiModel ||
-                        "gpt-5.5"
-
-                });
-
-            }
+            setSettings(parseSettingsResponse(response, settings));
 
             setSuccess(
                 "Ustawienia zostały zapisane."
@@ -260,10 +216,11 @@ export default function SettingsPage() {
 
             }
 
-            await changePassword(
+            const passwordResponse = await changePassword(
                 passwordForm.currentPassword,
                 passwordForm.newPassword
             );
+            parsePasswordChangeResponse(passwordResponse);
 
             setPasswordForm({
                 currentPassword: "",
