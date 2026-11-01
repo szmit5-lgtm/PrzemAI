@@ -7,7 +7,9 @@ export function parseTaskDashboardResponse(response) {
     typeof item.title === "string" && item.title.trim().length > 0 &&
     typeof item.status === "string" && item.status.trim().length > 0;
 
-  if (!Array.isArray(items) || !items.every(isTask)) {
+  // Duplicate IDs make React reuse the wrong row and task actions ambiguous.
+  if (!Array.isArray(items) || !items.every(isTask) ||
+      new Set(items.map(item => item.id)).size !== items.length) {
     throw new Error("Nieprawidłowy format danych zadań.");
   }
   return items;

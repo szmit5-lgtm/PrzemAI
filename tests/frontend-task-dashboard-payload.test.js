@@ -112,3 +112,14 @@ test("task dashboard rejects blank titles and statuses before displaying task co
       /Nieprawidłowy format danych zadań/);
   }
 });
+
+test("task dashboard rejects duplicate task identifiers instead of rendering ambiguous rows", async () => {
+  const { parseTaskDashboardResponse } = await loadParser();
+  const first = { id: "task-1", title: "Oferta", status: "TODO" };
+  const duplicate = { id: "task-1", title: "Odbiór", status: "DONE" };
+  assert.throws(
+    () => parseTaskDashboardResponse({ items: [first, duplicate] }),
+    /Nieprawidłowy format danych zadań/
+  );
+  assert.deepEqual(parseTaskDashboardResponse({ items: [first] }), [first]);
+});
