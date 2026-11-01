@@ -4,8 +4,8 @@ export function parseTaskDashboardResponse(response) {
   const isTask = item =>
     item !== null && typeof item === "object" && !Array.isArray(item) &&
     typeof item.id === "string" && item.id.trim().length > 0 &&
-    typeof item.title === "string" &&
-    typeof item.status === "string";
+    typeof item.title === "string" && item.title.trim().length > 0 &&
+    typeof item.status === "string" && item.status.trim().length > 0;
 
   if (!Array.isArray(items) || !items.every(isTask)) {
     throw new Error("Nieprawidłowy format danych zadań.");

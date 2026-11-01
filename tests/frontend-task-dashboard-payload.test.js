@@ -95,3 +95,20 @@ test("task dashboard rejects whitespace-only task identifiers in lists and mutat
     /Nieprawidłowy format danych zadań/
   );
 });
+
+test("task dashboard rejects blank titles and statuses before displaying task counts", async () => {
+  const { parseTaskDashboardResponse, parseTaskMutationResponse } = await loadParser();
+  const valid = { id: "task-1", title: "Oferta", status: "TODO" };
+  const invalid = [
+    { ...valid, title: "" },
+    { ...valid, title: "   " },
+    { ...valid, status: "" },
+    { ...valid, status: "  " }
+  ];
+  for (const item of invalid) {
+    assert.throws(() => parseTaskDashboardResponse({ items: [valid, item] }),
+      /Nieprawidłowy format danych zadań/);
+    assert.throws(() => parseTaskMutationResponse({ item }),
+      /Nieprawidłowy format danych zadań/);
+  }
+});
