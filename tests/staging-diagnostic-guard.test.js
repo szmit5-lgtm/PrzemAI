@@ -110,6 +110,11 @@ test("database isolation fails closed for PostgreSQL URI connection overrides", 
     "?port=5434",
     "?dbname=production",
     "?schema=public&host=postgres.railway.internal",
+    "?schema=private",
+    "?%73chema=private",
+    "?schema=",
+    "?schema=public&schema=private",
+    "?schema=public&schema=public",
     "#host=postgres.railway.internal"
   ]) {
     const context = stagingDiagnosticContext({
