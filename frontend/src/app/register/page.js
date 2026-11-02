@@ -50,7 +50,7 @@ export default function RegisterPage() {
         }
         catch (err) {
 
-            alert(err.message);
+            alert(err?.message || "Nie udało się utworzyć konta.");
 
         }
         finally {
@@ -100,11 +100,14 @@ export default function RegisterPage() {
 
                 <div className="mt-10">
 
-                    <label className="block text-sm font-medium mb-2">
+                    <label htmlFor="register-email" className="block text-sm font-medium mb-2">
                         E-mail
                     </label>
 
                     <input
+                        id="register-email"
+                        name="email"
+                        autoComplete="email"
                         type="email"
                         required
                         value={email}
@@ -116,11 +119,17 @@ export default function RegisterPage() {
 
                 <div className="mt-6">
 
-                    <label className="block text-sm font-medium mb-2">
+                    <label htmlFor="register-password" className="block text-sm font-medium mb-2">
                         Hasło
                     </label>
 
                     <input
+                        id="register-password"
+                        name="password"
+                        autoComplete="new-password"
+                        id="register-password-repeat"
+                        name="passwordRepeat"
+                        autoComplete="new-password"
                         type="password"
                         required
                         minLength={8}
@@ -137,7 +146,7 @@ export default function RegisterPage() {
 
                 <div className="mt-6">
 
-                    <label className="block text-sm font-medium mb-2">
+                    <label htmlFor="register-password-repeat" className="block text-sm font-medium mb-2">
                         Powtórz hasło
                     </label>
 
