@@ -30,7 +30,13 @@ async function main() {
 }
 
 main().catch(error => {
-  console.error("[Staging readiness] Failed:", error.message);
+  // Only allow known, credential-free guard messages; database errors may contain URLs or secrets.
+  const safeMessages = new Set([
+    "Read-only diagnostic is restricted to the verified PrzemAI staging services.",
+    "Local read-only diagnostic requires explicit opt-in."
+  ]);
+  console.error("[Staging readiness] Failed:", safeMessages.has(error?.message)
+    ? error.message : "Diagnostic failed; inspect restricted service diagnostics.");
   process.exitCode = 1;
 }).finally(async () => {
   await prisma.$disconnect();
