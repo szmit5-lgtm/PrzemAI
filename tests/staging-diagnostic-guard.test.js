@@ -61,3 +61,38 @@ test("requires explicit opt-in when not on Railway", () => {
   assert.throws(() => stagingDiagnosticContext({}), /explicit opt-in/);
   assert.equal(stagingDiagnosticContext({ PRZEMAI_ALLOW_LOCAL_DIAGNOSTIC: "true" }).railwayEnvironment, null);
 });
+
+test("verifies isolation only for the exact new staging database endpoint", () => {
+  const isolatedUrl = "postgresql://tester:dummy@postgres-uvfd.railway.internal:5432/railway?schema=public";
+  for (const serviceName of ["PrzemAI-staging", "PrzemAI-worker-staging"]) {
+    assert.equal(stagingDiagnosticContext({
+      ...railway(serviceName), DATABASE_URL: isolatedUrl
+    }).databaseIsolationVerified, true);
+  }
+});
+
+test("fails closed for production, lookalike, malformed and non-PostgreSQL database URLs", () => {
+  const candidates = [
+    undefined,
+    "",
+    "not-a-url",
+    "postgresql://u:p@postgres.railway.internal:5432/railway",
+    "postgresql://u:p@postgres-uvfd.railway.internal.attacker.invalid:5432/railway",
+    "postgresql://postgres-uvfd.railway.internal@postgres.railway.internal:5432/railway",
+    "https://postgres-uvfd.railway.internal:5432/railway",
+    "postgresql://u:p@postgres-uvfd.railway.internal:5432/other"
+  ];
+  for (const databaseUrl of candidates) {
+    assert.equal(stagingDiagnosticContext({
+      ...railway("PrzemAI-worker-staging"), DATABASE_URL: databaseUrl
+    }).databaseIsolationVerified, false);
+  }
+});
+
+test("local opt-in cannot claim isolated staging even with the staging database URL", () => {
+  const context = stagingDiagnosticContext({
+    PRZEMAI_ALLOW_LOCAL_DIAGNOSTIC: "true",
+    DATABASE_URL: "postgresql://u:p@postgres-uvfd.railway.internal:5432/railway"
+  });
+  assert.equal(context.databaseIsolationVerified, false);
+});
