@@ -6,7 +6,7 @@ import { Activity, ArrowLeft, Bot, Clock3, Mail, Play, Plug, RefreshCw, ShieldCh
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getAgents, runAgent, setAgentEnabled, getIntegrations, setIntegrationEnabled } from "@/lib/api";
-import { parseAgentDashboardResponses, getAgentDashboardSummary, parseAgentToggleResponse, parseAgentRunResponse } from "@/lib/agentDashboardPayload";
+import { parseAgentDashboardResponses, getAgentDashboardSummary, parseAgentToggleResponse, parseAgentRunResponse, getAgentStatusClass } from "@/lib/agentDashboardPayload";
 
 function formatDate(value) {
   if (!value) return "Brak danych";
@@ -17,6 +17,7 @@ function formatDate(value) {
 function statusLabel(status) {
   const labels = {
     IDLE: "Oczekuje",
+    PLANNED: "Zaplanowany",
     RUNNING: "W trakcie pracy",
     ERROR: "Wymaga uwagi",
     DISABLED: "Wyłączony",
@@ -24,13 +25,6 @@ function statusLabel(status) {
     FAILED: "Błąd"
   };
   return labels[status] || status || "Nieznany";
-}
-
-function statusClass(status) {
-  if (status === "RUNNING") return "border-cyan-400/30 bg-cyan-400/10 text-cyan-200";
-  if (status === "ERROR" || status === "FAILED") return "border-rose-400/30 bg-rose-400/10 text-rose-200";
-  if (status === "DISABLED") return "border-slate-400/20 bg-slate-400/10 text-slate-300";
-  return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200";
 }
 
 export default function AgentsPage() {
@@ -129,7 +123,7 @@ export default function AgentsPage() {
                 <article key={agent.id} className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#14274c] to-[#0b152c] p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div><div className="flex items-center gap-3"><div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot size={23} className="text-cyan-300" /></div><h3 className="text-xl font-bold">{agent.name}</h3></div><p className="mt-3 text-xs text-slate-400">Typ: {agent.type || "—"}</p></div>
-                    <span className={"rounded-full border px-3 py-1 text-xs font-semibold " + statusClass(agent.status)}>{statusLabel(agent.status)}</span>
+                    <span className={"rounded-full border px-3 py-1 text-xs font-semibold " + getAgentStatusClass(agent.status)}>{statusLabel(agent.status)}</span>
                   </div>
                   <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-black/10 p-4 text-xs text-slate-300">
                     <div><Clock3 size={16} className="mb-2 text-cyan-300" /> Interwał: {agent.intervalMinutes ?? "—"} min</div>

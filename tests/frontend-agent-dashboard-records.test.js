@@ -85,3 +85,21 @@ test("dashboard rejects duplicate agent IDs and duplicate integration IDs", asyn
     { agents, integrations }
   );
 });
+
+// A planned, idle or unknown agent is not proof of a successful execution.
+test("agent status styling reserves green for explicitly successful runs", async () => {
+  const { getAgentStatusClass } = await loadParser();
+  for (const status of ["IDLE", "PLANNED", "DISABLED", "UNKNOWN", null, undefined]) {
+    assert.match(getAgentStatusClass(status), /text-slate-300/);
+  }
+  assert.match(getAgentStatusClass("SUCCESS"), /text-emerald-200/);
+  assert.match(getAgentStatusClass("RUNNING"), /text-cyan-200/);
+  for (const status of ["ERROR", "FAILED"]) {
+    assert.match(getAgentStatusClass(status), /text-rose-200/);
+  }
+  const pageSource = await fs.readFile(
+    path.join(__dirname, "../frontend/src/app/agents/page.js"), "utf8"
+  );
+  assert.match(pageSource, /getAgentStatusClass\(agent\.status\)/);
+  assert.doesNotMatch(pageSource, /function statusClass\(/);
+});

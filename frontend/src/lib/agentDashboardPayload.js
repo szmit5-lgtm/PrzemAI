@@ -77,3 +77,11 @@ export function parseAgentRunResponse(response) {
   }
   return result;
 }
+
+// Unknown or idle states must not be styled as successful executions.
+export function getAgentStatusClass(status) {
+  if (status === "RUNNING") return "border-cyan-400/30 bg-cyan-400/10 text-cyan-200";
+  if (status === "ERROR" || status === "FAILED") return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+  if (status === "SUCCESS") return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200";
+  return "border-slate-400/20 bg-slate-400/10 text-slate-300";
+}
