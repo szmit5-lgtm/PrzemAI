@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register } from "@/lib/api";
+import { parseRegistrationResponse } from "@/lib/registrationPayload";
 
 export default function RegisterPage() {
 
@@ -40,10 +41,7 @@ export default function RegisterPage() {
 
         try {
 
-            await register(
-                email,
-                password
-            );
+            parseRegistrationResponse(await register(email.trim(), password), email);
 
             alert("Konto zostało utworzone. Możesz się teraz zalogować.");
 
