@@ -8,7 +8,7 @@ const vm = require("node:vm");
 
 const script = fs.readFileSync(path.join(__dirname, "../scripts/staging-agent-readiness.js"), "utf8");
 
-for (const failingQuery of ["user.count", "agentRun.count"]) {
+for (const failingQuery of ["user.count", "agent.groupBy", "agentRun.groupBy", "agentRun.count"]) {
   test(`staging diagnostic redacts credentials on ${failingQuery} database failure`, async () => {
     const secret = "postgresql://private-user:DO_NOT_EXPOSE@private-db.example/internal";
     const stdout = [];
