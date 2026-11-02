@@ -4,8 +4,10 @@ const MEETING_EXTENSIONS = new Set(["mp3", "wav", "m4a", "ogg", "webm", "mpeg", 
 const MAX_ANALYSIS_UPLOAD_BYTES = 500 * 1024 * 1024;
 
 export function getAnalysisUploadKind(filename) {
-    const extension = typeof filename === "string"
-        ? filename.split(".").pop().toLowerCase()
+    const dot = typeof filename === "string" ? filename.lastIndexOf(".") : -1;
+    // A bare "pdf" or hidden ".pdf" file has no real extension.
+    const extension = dot > 0 && dot < filename.length - 1
+        ? filename.slice(dot + 1).toLowerCase()
         : "";
 
     if (MEETING_EXTENSIONS.has(extension)) return "meeting";

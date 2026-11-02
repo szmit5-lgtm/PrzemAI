@@ -71,3 +71,13 @@ test("upload size validation matches the backend 500 MB limit", async () => {
         );
     }
 });
+
+
+test("bare extension names and hidden files are not treated as supported uploads", async () => {
+    const { getAnalysisUploadKind } = await loadKind();
+    for (const filename of ["pdf", "mp3", ".pdf", ".mp3", "report.", "."]) {
+        assert.throws(() => getAnalysisUploadKind(filename), /Nieobsługiwany format pliku/);
+    }
+    assert.equal(getAnalysisUploadKind("report.PDF"), "document");
+    assert.equal(getAnalysisUploadKind("recording.MP3"), "meeting");
+});
