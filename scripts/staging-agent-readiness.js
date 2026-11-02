@@ -39,5 +39,11 @@ main().catch(error => {
     ? error.message : "Diagnostic failed; inspect restricted service diagnostics.");
   process.exitCode = 1;
 }).finally(async () => {
-  await prisma.$disconnect();
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // Prisma disconnect failures can contain connection strings or credentials.
+    console.error("[Staging readiness] Failed: Database disconnect failed.");
+    process.exitCode = 1;
+  }
 });
