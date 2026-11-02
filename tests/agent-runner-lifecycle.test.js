@@ -25,7 +25,7 @@ function setup(runFinancial, options = {}) {
     agent: {
       async updateMany(args) {
         calls.states.push(args);
-        return { count: 1 };
+        return { count: options.releaseCount === 0 && args.data.status === "IDLE" ? 0 : 1 };
       }
     }
   };
@@ -178,4 +178,12 @@ test("success audit write failure does not leave the agent RUNNING", async () =>
   assert.deepEqual(calls.states[0].where, { id: agent.id, status: "RUNNING" });
   assert.equal(calls.states[0].data.status, "ERROR");
   assert.ok(calls.states[0].data.nextRunAt instanceof Date);
+});
+
+test("lost RUNNING ownership does not overwrite a newer execution with ERROR", async () => {
+  const { runner, calls } = setup(async () => ({ summary: "ok" }), { releaseCount: 0 });
+  await assert.rejects(runner.run(agent), /lost ownership/);
+  assert.equal(calls.financial.length, 1);
+  assert.deepEqual(calls.audited.map(item => item.data.status), ["SUCCESS", "FAILED"]);
+  assert.deepEqual(calls.states.map(item => item.data.status), ["IDLE"]);
 });
