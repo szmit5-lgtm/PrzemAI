@@ -96,3 +96,25 @@ test("local opt-in cannot claim isolated staging even with the staging database 
   });
   assert.equal(context.databaseIsolationVerified, false);
 });
+
+test("database isolation fails closed for PostgreSQL URI connection overrides", () => {
+  const base = "postgresql://tester:dummy@postgres-uvfd.railway.internal:5432/railway";
+  const valid = stagingDiagnosticContext({
+    ...railway("PrzemAI-worker-staging"), DATABASE_URL: base + "?schema=public"
+  });
+  assert.equal(valid.databaseIsolationVerified, true);
+
+  for (const suffix of [
+    "?host=postgres.railway.internal",
+    "?%68ost=postgres.railway.internal",
+    "?port=5434",
+    "?dbname=production",
+    "?schema=public&host=postgres.railway.internal",
+    "#host=postgres.railway.internal"
+  ]) {
+    const context = stagingDiagnosticContext({
+      ...railway("PrzemAI-worker-staging"), DATABASE_URL: base + suffix
+    });
+    assert.equal(context.databaseIsolationVerified, false, suffix);
+  }
+});
