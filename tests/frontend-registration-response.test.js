@@ -66,7 +66,7 @@ test("registration inputs have unique attributes, matching labels and password-m
     const source = await fs.readFile(
         path.join(__dirname, "../frontend/src/app/register/page.js"), "utf8"
     );
-    const inputs = [...source.matchAll(/<input\\b([\\s\\S]*?)\\/>/g)].map(match => match[1]);
+    const inputs = [...source.matchAll(/<input\b([\s\S]*?)\/>/g)].map(match => match[1]);
     const expected = [
         ["register-email", "email", "email"],
         ["register-password", "password", "new-password"],
@@ -79,7 +79,7 @@ test("registration inputs have unique attributes, matching labels and password-m
         const input = matching[0];
         for (const attr of ["id", "name", "autoComplete"]) {
             assert.equal(
-                (input.match(new RegExp('\\\\b' + attr + '="', "g")) || []).length,
+                (input.match(new RegExp('\\b' + attr + '="', "g")) || []).length,
                 1,
                 "duplicate " + attr + " on " + id
             );
@@ -88,5 +88,5 @@ test("registration inputs have unique attributes, matching labels and password-m
         assert.match(input, new RegExp('autoComplete="' + autocomplete + '"'));
         assert.match(source, new RegExp('htmlFor="' + id + '"'));
     }
-    assert.match(source, /alert\\(err\\?\\.message \\|\\| "Nie udało się utworzyć konta\\."\\)/);
+    assert.match(source, /alert\(err\?\.message \|\| "Nie udało się utworzyć konta\."\)/);
 });
