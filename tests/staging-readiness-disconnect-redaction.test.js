@@ -52,8 +52,8 @@ for (const queryFails of [false, true]) {
       new Promise((_, reject) => setTimeout(() => reject(new Error("Disconnect failure was not handled")), 1500))
     ]);
     assert.equal(fakeProcess.exitCode, 1);
-    assert.match(stderr.join(" "), /\\[Staging readiness\\] Failed: Database disconnect failed\\./);
-    assert.doesNotMatch(stderr.join(" "), /DO_NOT_EXPOSE|private-user|private-db\\.example/);
+    assert.match(stderr.join(" "), /\[Staging readiness\] Failed: Database disconnect failed\./);
+    assert.doesNotMatch(stderr.join(" "), /DO_NOT_EXPOSE|private-user|private-db\.example/);
     assert.equal(stdout.length, queryFails ? 0 : 1);
   });
 }
