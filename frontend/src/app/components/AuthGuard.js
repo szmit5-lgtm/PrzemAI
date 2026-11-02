@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getProfile } from "@/lib/api";
+import { parseAuthenticatedProfile } from "@/lib/profilePayload";
 
 const PUBLIC_PATHS = new Set(["/login", "/register", "/preview"]);
 
@@ -20,7 +21,11 @@ export default function AuthGuard({ children }) {
     setVerificationError("");
 
     getProfile()
-      .then(() => { if (active) setVerifiedPath(pathname); })
+      .then(data => {
+        if (!active) return;
+        parseAuthenticatedProfile(data);
+        setVerifiedPath(pathname);
+      })
 .catch(error => {
         if (!active) return;
         setVerifiedPath(null);
