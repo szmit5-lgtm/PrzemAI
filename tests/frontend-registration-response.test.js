@@ -62,15 +62,31 @@ test("registration page validates the API acknowledgement before showing success
     );
 });
 
-test("registration fields have associated labels and password-manager hints", async () => {
+test("registration inputs have unique attributes, matching labels and password-manager hints", async () => {
     const source = await fs.readFile(
         path.join(__dirname, "../frontend/src/app/register/page.js"), "utf8"
     );
-    for (const id of ["register-email", "register-password", "register-password-repeat"]) {
+    const inputs = [...source.matchAll(/<input\\b([\\s\\S]*?)\\/>/g)].map(match => match[1]);
+    const expected = [
+        ["register-email", "email", "email"],
+        ["register-password", "password", "new-password"],
+        ["register-password-repeat", "passwordRepeat", "new-password"]
+    ];
+    assert.equal(inputs.length, expected.length);
+    for (const [id, name, autocomplete] of expected) {
+        const matching = inputs.filter(input => input.includes('id="' + id + '"'));
+        assert.equal(matching.length, 1, "exactly one input for " + id);
+        const input = matching[0];
+        for (const attr of ["id", "name", "autoComplete"]) {
+            assert.equal(
+                (input.match(new RegExp('\\\\b' + attr + '="', "g")) || []).length,
+                1,
+                "duplicate " + attr + " on " + id
+            );
+        }
+        assert.match(input, new RegExp('name="' + name + '"'));
+        assert.match(input, new RegExp('autoComplete="' + autocomplete + '"'));
         assert.match(source, new RegExp('htmlFor="' + id + '"'));
-        assert.match(source, new RegExp('id="' + id + '"'));
     }
-    assert.match(source, /name="email"\s+autoComplete="email"\s+type="email"/);
-    assert.equal((source.match(/autoComplete="new-password"/g) || []).length, 2);
-    assert.match(source, /alert\(err\?\.message \|\| "Nie udało się utworzyć konta\."\)/);
+    assert.match(source, /alert\\(err\\?\\.message \\|\\| "Nie udało się utworzyć konta\\."\\)/);
 });
