@@ -9,6 +9,12 @@ export function parseAgentDashboardResponses(agentsResponse, integrationsRespons
   const isValidRecord = value => isRecord(value) &&
     typeof value.id === "string" && value.id.trim().length > 0 &&
     typeof value.enabled === "boolean";
+  // The dashboard reads runs[0].status when showing the last execution.
+  // Reject malformed nested records rather than crashing the entire page.
+  const isValidAgentRecord = value => isValidRecord(value) &&
+    (value.runs === undefined || (Array.isArray(value.runs) &&
+      value.runs.every(run => isRecord(run) &&
+        typeof run.status === "string" && run.status.trim().length > 0)));
 
   // Arrays containing null, primitives or nested arrays can crash the dashboard
   // when it reads agent.enabled or renders integration fields.
@@ -18,7 +24,7 @@ export function parseAgentDashboardResponses(agentsResponse, integrationsRespons
   if ((agentsResponse?.success !== undefined && agentsResponse.success !== true) ||
       (integrationsResponse?.success !== undefined && integrationsResponse.success !== true) ||
       !Array.isArray(agents) || !Array.isArray(integrations) ||
-      !agents.every(isValidRecord) || !integrations.every(isValidRecord) ||
+      !agents.every(isValidAgentRecord) || !integrations.every(isValidRecord) ||
       new Set(agents.map(agent => agent.id)).size !== agents.length ||
       new Set(integrations.map(integration => integration.id)).size !== integrations.length) {
     throw new Error("Nieprawidłowy format danych agentów lub integracji.");

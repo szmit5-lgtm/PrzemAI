@@ -103,3 +103,16 @@ test("agent status styling reserves green for explicitly successful runs", async
   assert.match(pageSource, /getAgentStatusClass\(agent\.status\)/);
   assert.doesNotMatch(pageSource, /function statusClass\(/);
 });
+
+test("dashboard rejects malformed nested run records before rendering the last result", async () => {
+  const { parseAgentDashboardResponses } = await loadParser();
+  const valid = { id: "agent-1", enabled: true, runs: [{ status: "SUCCESS", startedAt: "2026-11-02T06:00:00Z" }] };
+  assert.deepEqual(parseAgentDashboardResponses({ data: [valid] }, { data: [] }).agents, [valid]);
+
+  for (const runs of [null, "not-an-array", { 0: null, length: 1 }, [null], [false], [[]], [{}], [{ status: null }], [{ status: " " }], [{ status: {} }]]) {
+    assert.throws(
+      () => parseAgentDashboardResponses({ data: [{ id: "agent-1", enabled: true, runs }] }, { data: [] }),
+      /Nieprawidłowy format danych agentów lub integracji/
+    );
+  }
+});
