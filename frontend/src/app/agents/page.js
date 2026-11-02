@@ -6,7 +6,7 @@ import { Activity, ArrowLeft, Bot, Clock3, Mail, Play, Plug, RefreshCw, ShieldCh
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import { getAgents, runAgent, setAgentEnabled, getIntegrations, setIntegrationEnabled } from "@/lib/api";
-import { parseAgentDashboardResponses, getAgentDashboardSummary, parseAgentToggleResponse, parseAgentRunResponse, getAgentStatusClass } from "@/lib/agentDashboardPayload";
+import { parseAgentDashboardResponses, getAgentDashboardSummary, parseAgentToggleResponse, parseAgentRunResponse, getAgentStatusClass, canRunAgent } from "@/lib/agentDashboardPayload";
 
 function formatDate(value) {
   if (!value) return "Brak danych";
@@ -122,7 +122,7 @@ export default function AgentsPage() {
               {agents.map(agent => (
                 <article key={agent.id} className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#14274c] to-[#0b152c] p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><div className="flex items-center gap-3"><div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot size={23} className="text-cyan-300" /></div><h3 className="text-xl font-bold">{agent.name}</h3></div><p className="mt-3 text-xs text-slate-400">Typ: {agent.type || "—"}</p></div>
+                    <div><div className="flex items-center gap-3"><div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot size={23} className="text-cyan-300" /></div><h3 className="text-xl font-bold">{agent.name}</h3></div><p className="mt-3 text-xs text-slate-400">Typ: {agent.type || "—"}</p>{agent.type !== "FINANCIAL" && <p className="mt-2 text-xs text-amber-200">Uruchamianie tego typu agenta jest jeszcze w przygotowaniu.</p>}</div>
                     <span className={"rounded-full border px-3 py-1 text-xs font-semibold " + getAgentStatusClass(agent.status)}>{statusLabel(agent.status)}</span>
                   </div>
                   <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-black/10 p-4 text-xs text-slate-300">
@@ -132,10 +132,10 @@ export default function AgentsPage() {
                   </div>
                   {agent.runs?.length > 0 && <div className="mt-4 text-xs text-slate-400">Ostatni wynik: <span className="text-slate-200">{statusLabel(agent.runs[0].status)}</span> · {formatDate(agent.runs[0].startedAt)}</div>}
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <button type="button" disabled={busy || !agent.enabled || agent.status === "RUNNING"}
+                    <button type="button" disabled={busy || !canRunAgent(agent)}
                       onClick={() => act("run:" + agent.id, () => runAgent(agent.id).then(parseAgentRunResponse), "Agent zakończył pracę. Sprawdź ostatni wynik poniżej.")}
                       className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
-                      <Play size={16} /> {pending === "run:" + agent.id ? "Uruchamianie…" : "Uruchom teraz"}
+                      <Play size={16} /> {agent.type !== "FINANCIAL" ? "W przygotowaniu" : pending === "run:" + agent.id ? "Uruchamianie…" : "Uruchom teraz"}
                     </button>
                     <button type="button" disabled={busy || agent.status === "RUNNING"}
                       onClick={() => act("toggle:" + agent.id, () => setAgentEnabled(agent.id, !agent.enabled).then(response => parseAgentToggleResponse(response, { id: agent.id, enabled: !agent.enabled })), agent.enabled ? "Agent wyłączony." : "Agent włączony.")}
