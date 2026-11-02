@@ -34,6 +34,6 @@ test("staging diagnostic fails closed without exposing connection details from t
   ]);
   assert.equal(fakeProcess.exitCode, 1);
   assert.deepEqual(stdout, []);
-  assert.match(stderr.join(" "), /\\[Staging readiness\\] Failed/);
-  assert.doesNotMatch(stderr.join(" "), /DO_NOT_EXPOSE|db-user|db\\.example/);
+  assert.match(stderr.join(" "), /\[Staging readiness\] Failed/);
+  assert.doesNotMatch(stderr.join(" "), /DO_NOT_EXPOSE|db-user|db\.example/);
 });
