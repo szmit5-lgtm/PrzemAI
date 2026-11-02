@@ -187,3 +187,28 @@ test("lost RUNNING ownership does not overwrite a newer execution with ERROR", a
   assert.deepEqual(calls.audited.map(item => item.data.status), ["SUCCESS", "FAILED"]);
   assert.deepEqual(calls.states.map(item => item.data.status), ["IDLE"]);
 });
+
+test("manual run records MANUAL trigger and releases the agent after success", async () => {
+  const { runner, calls } = setup(async () => ({ summary: "manual-ok" }));
+  const result = await runner.run(agent, "MANUAL");
+  assert.equal(result.summary, "manual-ok");
+  assert.deepEqual(calls.created[0].data, {
+    agentId: agent.id, status: "RUNNING", trigger: "MANUAL"
+  });
+  assert.deepEqual(calls.financial, [{ userId: agent.userId }]);
+  assert.deepEqual(calls.audited.map(item => item.data.status), ["SUCCESS"]);
+  assert.deepEqual(calls.states.map(item => item.data.status), ["IDLE"]);
+  assert.equal(
+    calls.states[0].data.nextRunAt.getTime() - calls.states[0].data.lastRunAt.getTime(),
+    agent.intervalMinutes * 60 * 1000
+  );
+});
+
+test("failed manual run records failure and releases the RUNNING claim", async () => {
+  const { runner, calls } = setup(async () => { throw new Error("manual integration failure"); });
+  await assert.rejects(runner.run(agent, "MANUAL"), /manual integration failure/);
+  assert.equal(calls.created[0].data.trigger, "MANUAL");
+  assert.deepEqual(calls.audited.map(item => item.data.status), ["FAILED"]);
+  assert.deepEqual(calls.states.map(item => item.data.status), ["ERROR"]);
+  assert.deepEqual(calls.states[0].where, { id: agent.id, status: "RUNNING" });
+});
