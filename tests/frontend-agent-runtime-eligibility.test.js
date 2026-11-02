@@ -12,10 +12,13 @@ async function loadEligibility() {
   return import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
 }
 
-test("manual runs are offered only for enabled, non-running FINANCIAL agents", async () => {
+test("manual runs are offered only for enabled FINANCIAL agents in retryable states", async () => {
   const { canRunAgent } = await loadEligibility();
   assert.equal(canRunAgent({ type: "FINANCIAL", enabled: true, status: "IDLE" }), true);
-  assert.equal(canRunAgent({ type: "FINANCIAL", enabled: true, status: "RUNNING" }), false);
+  assert.equal(canRunAgent({ type: "FINANCIAL", enabled: true, status: "ERROR" }), true);
+  for (const status of ["RUNNING", "PLANNED", "PENDING", "SUCCESS", "", null, undefined]) {
+    assert.equal(canRunAgent({ type: "FINANCIAL", enabled: true, status }), false, String(status));
+  }
   assert.equal(canRunAgent({ type: "FINANCIAL", enabled: false, status: "IDLE" }), false);
   assert.equal(canRunAgent(null), false);
   assert.equal(canRunAgent({}), false);
