@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Bot, LockKeyhole, ShieldCheck, Sparkles, MessageSquare, Workflow, FileText } from "lucide-react";
 import { login } from "@/lib/api";
+import { parseLoginResponse } from "@/lib/loginPayload";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,9 +21,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await login(email.trim(), password);
-      if (!data?.token) throw new Error("Nie udało się rozpocząć sesji.");
-      localStorage.setItem("token", data.token);
+      const token = parseLoginResponse(await login(email.trim(), password));
+      localStorage.setItem("token", token);
       router.replace("/");
     } catch (err) {
       setError(err.message || "Nie udało się zalogować.");
