@@ -61,3 +61,16 @@ test("registration page validates the API acknowledgement before showing success
         source.indexOf('alert("Konto zostało utworzone.')
     );
 });
+
+test("registration fields have associated labels and password-manager hints", async () => {
+    const source = await fs.readFile(
+        path.join(__dirname, "../frontend/src/app/register/page.js"), "utf8"
+    );
+    for (const id of ["register-email", "register-password", "register-password-repeat"]) {
+        assert.match(source, new RegExp('htmlFor="' + id + '"'));
+        assert.match(source, new RegExp('id="' + id + '"'));
+    }
+    assert.match(source, /name="email"\s+autoComplete="email"\s+type="email"/);
+    assert.equal((source.match(/autoComplete="new-password"/g) || []).length, 2);
+    assert.match(source, /alert\(err\?\.message \|\| "Nie udało się utworzyć konta\."\)/);
+});
