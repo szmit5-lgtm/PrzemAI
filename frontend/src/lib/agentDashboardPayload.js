@@ -84,6 +84,14 @@ export function parseAgentRunResponse(response) {
   return result;
 }
 
+// The current server-side AgentRunner implements only FINANCIAL. Do not offer
+// a manual run for planned types: enabling an agent is not proof of support.
+export function canRunAgent(agent) {
+  return agent?.type === "FINANCIAL" &&
+    agent.enabled === true &&
+    agent.status !== "RUNNING";
+}
+
 // Unknown or idle states must not be styled as successful executions.
 export function getAgentStatusClass(status) {
   if (status === "RUNNING") return "border-cyan-400/30 bg-cyan-400/10 text-cyan-200";
