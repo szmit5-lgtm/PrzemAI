@@ -127,9 +127,6 @@ export default function RegisterPage() {
                         id="register-password"
                         name="password"
                         autoComplete="new-password"
-                        id="register-password-repeat"
-                        name="passwordRepeat"
-                        autoComplete="new-password"
                         type="password"
                         required
                         minLength={8}
@@ -151,6 +148,9 @@ export default function RegisterPage() {
                     </label>
 
                     <input
+                        id="register-password-repeat"
+                        name="passwordRepeat"
+                        autoComplete="new-password"
                         type="password"
                         required
                         minLength={8}
