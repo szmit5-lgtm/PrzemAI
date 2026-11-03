@@ -15,7 +15,7 @@ class DocumentService {
         const text = await this.documentEngine.extractText(filePath);
 
         if (!text || !text.trim()) {
-            throw new Error("Nie udało się odczytać treści dokumentu.");
+            throw new Error("Nie znaleziono tekstu w dokumencie. Jeśli PDF jest skanem lub zdjęciem, wymagane jest rozpoznawanie tekstu (OCR).");
         }
 
         const prompt = `
