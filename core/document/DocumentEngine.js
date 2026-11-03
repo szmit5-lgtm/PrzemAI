@@ -29,8 +29,6 @@ class DocumentEngine {
 
     async readPDF(filePath) {
 
-        console.log("Reading PDF:", filePath);
-
         const buffer = fs.readFileSync(filePath);
 
         const result = await pdf(buffer);
