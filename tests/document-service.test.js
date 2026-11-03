@@ -106,3 +106,13 @@ test("scanned PDF reports malformed AI JSON without returning a false success", 
   assert.equal(calls.scanned.length, 1);
   assert.equal(calls.ai.length, 0);
 });
+
+test("text-based PDF uses extracted text without uploading the PDF file", async () => {
+  const report = { summary: "Tekstowy PDF", actionItems: [] };
+  const { service, calls } = documentService({ extractedText: "Faktura nr 123", response: report });
+  const result = await service.analyze("invoice.pdf");
+  assert.equal(result, report);
+  assert.equal(calls.ai.length, 1);
+  assert.equal(calls.scanned.length, 0, "text-based PDFs must not be uploaded as binary files");
+  assert.match(calls.ai[0].user, /Faktura nr 123/);
+});
