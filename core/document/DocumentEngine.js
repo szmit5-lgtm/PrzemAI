@@ -7,10 +7,6 @@ class DocumentEngine {
 
     async extractText(filePath) {
 
-        console.log("=== DocumentEngine ===");
-        console.log("pdf:", pdf);
-        console.log("typeof pdf:", typeof pdf);
-
         const extension = path.extname(filePath).toLowerCase();
 
         switch (extension) {
