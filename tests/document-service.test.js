@@ -8,7 +8,7 @@ const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../api/services/DocumentService.js"), "utf8");
 
-function documentService({ extractedText, extractionError, response } = {}) {
+function documentService({ extractedText, extractionError, response, scannedFile } = {}) {
   const calls = { extracted: [], ai: [], scanned: [] };
   class DocumentEngine {
     async extractText(filePath) {
@@ -27,7 +27,7 @@ function documentService({ extractedText, extractionError, response } = {}) {
   const dependencies = {
     "../../core/document/DocumentEngine": DocumentEngine,
     "../../core/ai/AIEngine": AIEngine,
-    "node:fs/promises": { readFile: async () => Buffer.from("%PDF-1.4 scanned") },
+    "node:fs/promises": { readFile: async () => scannedFile ?? Buffer.from("%PDF-1.4 scanned") },
     "node:path": path
   };
   const context = {
@@ -83,4 +83,15 @@ test("scanned PDF is sent to multimodal analysis when text extraction is empty",
   const attachment = calls.scanned[0].input[1].content[1];
   assert.equal(attachment.type, "input_file");
   assert.match(attachment.file_data, /^data:application\/pdf;base64,/);
+});
+
+
+test("oversized scanned PDF is rejected before sending data to AI", async () => {
+  const { service, calls } = documentService({
+    extractedText: "",
+    scannedFile: Buffer.alloc(20 * 1024 * 1024 + 1)
+  });
+  await assert.rejects(service.analyze("oversized.pdf"), /20 MB/);
+  assert.equal(calls.scanned.length, 0);
+  assert.equal(calls.ai.length, 0);
 });
