@@ -18,7 +18,7 @@ class DocumentEngine {
                 return await this.readDOCX(filePath);
 
             case ".txt":
-                return fs.readFileSync(filePath, "utf8");
+                return await fs.promises.readFile(filePath, "utf8");
 
             default:
                 throw new Error(`Nieobsługiwany format: ${extension}`);
@@ -29,7 +29,7 @@ class DocumentEngine {
 
     async readPDF(filePath) {
 
-        const buffer = fs.readFileSync(filePath);
+        const buffer = await fs.promises.readFile(filePath);
 
         const result = await pdf(buffer);
 
