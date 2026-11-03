@@ -1,3 +1,4 @@
+const fs = require("node:fs/promises");
 const HistoryService = require("../services/HistoryService");
 const DocumentService = require("../services/DocumentService");
 const TaskService = require("../services/TaskService");
@@ -83,6 +84,14 @@ class DocumentController {
 
             });
 
+        }
+        finally {
+            // Uploaded files are temporary; avoid accumulating documents on disk.
+            if (req.file?.path) {
+                await fs.unlink(req.file.path).catch((error) => {
+                    console.error("[DocumentController] Upload cleanup failed:", error.code || error.name);
+                });
+            }
         }
 
     }
