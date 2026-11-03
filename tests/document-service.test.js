@@ -9,7 +9,7 @@ const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../api/services/DocumentService.js"), "utf8");
 
 function documentService({ extractedText, extractionError, response } = {}) {
-  const calls = { extracted: [], ai: [] };
+  const calls = { extracted: [], ai: [], scanned: [] };
   class DocumentEngine {
     async extractText(filePath) {
       calls.extracted.push(filePath);
@@ -18,6 +18,7 @@ function documentService({ extractedText, extractionError, response } = {}) {
     }
   }
   class AIEngine {
+    constructor() { this.client = { responses: { create: async options => { calls.scanned.push(options); return { output_text: JSON.stringify(response) }; } } }; }
     async ask(options) {
       calls.ai.push(options);
       return response;
@@ -25,10 +26,13 @@ function documentService({ extractedText, extractionError, response } = {}) {
   }
   const dependencies = {
     "../../core/document/DocumentEngine": DocumentEngine,
-    "../../core/ai/AIEngine": AIEngine
+    "../../core/ai/AIEngine": AIEngine,
+    "node:fs/promises": { readFile: async () => Buffer.from("%PDF-1.4 scanned") },
+    "node:path": path
   };
   const context = {
     module: { exports: {} },
+    Buffer,
     require(name) {
       assert.ok(Object.hasOwn(dependencies, name), `unexpected dependency: ${name}`);
       return dependencies[name];
@@ -41,8 +45,8 @@ function documentService({ extractedText, extractionError, response } = {}) {
 test("document analysis rejects empty extracted text without calling AI", async () => {
   for (const extractedText of ["", " \n\t ", null]) {
     const { service, calls } = documentService({ extractedText });
-    await assert.rejects(service.analyze("empty.pdf"), /Nie udało się odczytać treści dokumentu/);
-    assert.deepEqual(calls.extracted, ["empty.pdf"]);
+    await assert.rejects(service.analyze("empty.txt"), /Nie znaleziono tekstu w dokumencie/);
+    assert.deepEqual(calls.extracted, ["empty.txt"]);
     assert.equal(calls.ai.length, 0);
   }
 });
@@ -66,4 +70,17 @@ test("document extraction failure is propagated without invoking AI", async () =
   const { service, calls } = documentService({ extractionError: error });
   await assert.rejects(service.analyze("broken.pdf"), err => err === error);
   assert.equal(calls.ai.length, 0);
+});
+
+
+test("scanned PDF is sent to multimodal analysis when text extraction is empty", async () => {
+  const report = { summary: "Odczytany skan", actionItems: [] };
+  const { service, calls } = documentService({ extractedText: "", response: report });
+  const result = await service.analyze("scan.pdf");
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), report);
+  assert.equal(calls.ai.length, 0);
+  assert.equal(calls.scanned.length, 1);
+  const attachment = calls.scanned[0].input[1].content[1];
+  assert.equal(attachment.type, "input_file");
+  assert.match(attachment.file_data, /^data:application\/pdf;base64,/);
 });
