@@ -23,14 +23,14 @@ class AuthController {
             const {
                 email,
                 password
-            } = req.body;
+            } = req.body || {};
 
             const normalizedEmail =
                 String(email || "")
                     .trim()
                     .toLowerCase();
 
-            if (!normalizedEmail || !password) {
+            if (typeof email !== "string" || typeof password !== "string" || !normalizedEmail || !password) {
 
                 return res.status(400).json({
 
