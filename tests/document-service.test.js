@@ -95,3 +95,14 @@ test("oversized scanned PDF is rejected before sending data to AI", async () => 
   assert.equal(calls.scanned.length, 0);
   assert.equal(calls.ai.length, 0);
 });
+
+test("scanned PDF reports malformed AI JSON without returning a false success", async () => {
+  const { service, calls } = documentService({ extractedText: "", response: null });
+  service.ai.client.responses.create = async options => {
+    calls.scanned.push(options);
+    return { output_text: "not valid JSON" };
+  };
+  await assert.rejects(service.analyze("scan.pdf"), /Nie udało się przeanalizować skanu PDF/);
+  assert.equal(calls.scanned.length, 1);
+  assert.equal(calls.ai.length, 0);
+});
