@@ -138,13 +138,13 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
     // while allowing healthy integrations to finish first.
     if (failedIntegrations > 0 || ksefFailed) {
-      throw new Error(`Financial Agent: ${failedIntegrations} mailbox synchronization(s) failed.`);
+      throw new Error(`Financial Agent: synchronization failed (mailboxes: ${failedIntegrations}, KSeF: ${ksefFailed ? 1 : 0}).`);
     }
 
     return {
