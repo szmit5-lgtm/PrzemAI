@@ -41,3 +41,35 @@ test("restricts integration management to organization admins", async () => {
   await assert.rejects(requireKsefOrganizationAccess({ prisma, organizationId: "dekonica", userId: "member", allowedRoles: ["OWNER", "ADMIN"] }), /access denied/);
   assert.deepEqual(roles, ["OWNER", "ADMIN"]);
 });
+
+test("rejects cross-organization membership returned by database", async () => {
+  const prisma = { organizationMembership: { findFirst: async () => ({
+    id: "m2", organizationId: "other-company", role: "ADMIN"
+  }) } };
+  await assert.rejects(requireKsefOrganizationAccess({
+    prisma, organizationId: "dekonica", userId: "u1"
+  }), /access denied/);
+});
+
+test("rejects membership role outside requested administrative roles", async () => {
+  const prisma = { organizationMembership: { findFirst: async () => ({
+    id: "m3", organizationId: "dekonica", role: "MEMBER"
+  }) } };
+  await assert.rejects(requireKsefOrganizationAccess({
+    prisma, organizationId: "dekonica", userId: "u1", allowedRoles: ["OWNER", "ADMIN"]
+  }), /access denied/);
+});
+
+test("rejects malformed identifiers and roles without querying database", async () => {
+  let calls = 0;
+  const prisma = { organizationMembership: { findFirst: async () => { calls++; return membership; } } };
+  for (const args of [
+    { organizationId: " dekonica", userId: "u1" },
+    { organizationId: "dekonica", userId: "u1 " },
+    { organizationId: "dekonica", userId: "u1", allowedRoles: [] },
+    { organizationId: "dekonica", userId: "u1", allowedRoles: ["ADMIN", "SUPERUSER"] }
+  ]) {
+    await assert.rejects(requireKsefOrganizationAccess({ prisma, ...args }), /access denied/);
+  }
+  assert.equal(calls, 0);
+});
