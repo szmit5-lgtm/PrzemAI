@@ -56,7 +56,7 @@ test("document analysis requests structured JSON and preserves extracted source 
   const report = { summary: "Umowa", actionItems: [{ title: "Zapłacić", priority: "HIGH", dueDate: null }] };
   const { service, calls } = documentService({ extractedText: text, response: report });
   const result = await service.analyze("agreement.docx");
-  assert.equal(result, report);
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), report);
   assert.deepEqual(calls.extracted, ["agreement.docx"]);
   assert.equal(calls.ai.length, 1);
   assert.equal(calls.ai[0].json, true);
@@ -111,8 +111,35 @@ test("text-based PDF uses extracted text without uploading the PDF file", async 
   const report = { summary: "Tekstowy PDF", actionItems: [] };
   const { service, calls } = documentService({ extractedText: "Faktura nr 123", response: report });
   const result = await service.analyze("invoice.pdf");
-  assert.equal(result, report);
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), report);
   assert.equal(calls.ai.length, 1);
   assert.equal(calls.scanned.length, 0, "text-based PDFs must not be uploaded as binary files");
   assert.match(calls.ai[0].user, /Faktura nr 123/);
+});
+
+
+test("executive report limits sections and removes duplicate or malformed tasks", async () => {
+  const response = {
+    summary: "Raport",
+    keyInformation: Array.from({ length: 8 }, (_, i) => "Fakt " + i),
+    risks: Array.from({ length: 6 }, (_, i) => "Ryzyko " + i),
+    recommendations: Array.from({ length: 5 }, (_, i) => "Zalecenie " + i),
+    actionItems: [
+      { title: " Podpisać dokument ", priority: "HIGH" },
+      { title: "podpisać   dokument", priority: "HIGH" },
+      null,
+      { title: "", priority: "LOW" },
+      ...Array.from({ length: 7 }, (_, i) => ({ title: "Zadanie " + i, priority: "UNKNOWN" }))
+    ]
+  };
+  const { service } = documentService({ extractedText: "Treść", response });
+  const result = await service.analyze("form.pdf");
+  assert.equal(result.keyInformation.length, 5);
+  assert.equal(result.risks.length, 3);
+  assert.equal(result.recommendations.length, 3);
+  assert.equal(result.actionItems.length, 5);
+  assert.equal(result.actionItems[0].title, "Podpisać dokument");
+  assert.equal(result.actionItems[1].title, "Zadanie 0");
+  assert.equal(result.actionItems[1].priority, "MEDIUM");
+  assert.equal(response.actionItems.length, 11, "input report must not be mutated");
 });
