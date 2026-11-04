@@ -32,3 +32,15 @@ test("valid file sizes including the upper boundary are accepted", () => {
   assert.equal(validateAnalysisUploadFile({ name: "report.pdf", size: 1 }), "document");
   assert.equal(validateAnalysisUploadFile({ name: "recording.mp3", size: 500 * 1024 * 1024 }), "meeting");
 });
+
+test("multi-dot filenames retain the final extension", () => {
+  assert.equal(getAnalysisUploadKind("invoice.final.v2.PDF"), "document");
+  assert.equal(getAnalysisUploadKind("meeting.2026.11.04.MP4"), "meeting");
+  assert.throws(() => getAnalysisUploadKind("invoice.pdf.exe"), /Nieobsługiwany format/);
+});
+
+test("document uploads accept exactly 500 MB but reject the next byte", () => {
+  const limit = 500 * 1024 * 1024;
+  assert.equal(validateAnalysisUploadFile({ name: "invoice.pdf", size: limit }), "document");
+  assert.throws(() => validateAnalysisUploadFile({ name: "invoice.pdf", size: limit + 1 }), /zbyt duży/);
+});
