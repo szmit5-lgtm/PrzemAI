@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "mode": "proposal_only",
+  "enabled": false,
+  "monthlyBudgetPLN": 200,
+  "budgetPolicy": {
+    "hardStopOnLimit": true,
+    "requiresVerifiedProviderSpend": true,
+    "onMissingSpendData": "pause",
+    "alertAtPercent": [50, 80, 100],
+    "currency": "PLN",
+    "billingPeriod": "calendar_month"
+  },
+  "execution": {
+    "maxConcurrentAgents": 2,
+    "maxJobsPerDay": 4,
+    "maxRuntimeMinutesPerJob": 20,
+    "requiresHumanApprovalForPaidActivation": true,
+    "requiresHumanApprovalForProductionDeployment": true,
+    "requiresHumanApprovalForDatabaseMigration": true,
+    "allowProductionDatabaseWrites": false,
+    "allowProductionBackendChanges": false,
+    "allowSecretsInLogs": false,
+    "allowAutomaticMerge": false,
+    "allowAutomaticDeploy": false,
+    "branchPrefix": "agent/",
+    "requirePullRequest": true,
+    "requirePassingTests": true
+  },
+  "roles": [
+    {"id": "coordinator", "scope": "triage_and_review", "writesCode": false},
+    {"id": "ksef", "scope": "read_only_connector_and_tests", "writesCode": true},
+    {"id": "finance", "scope": "financial_agent_and_tests", "writesCode": true},
+    {"id": "frontend", "scope": "dashboard_and_tests", "writesCode": true}
+  ],
+  "priority": ["ksef", "finance", "frontend"],
+  "note": "Configuration proposal only. No scheduler, API credentials, paid provider, or runner is activated by this file."
+}
