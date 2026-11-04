@@ -357,3 +357,11 @@ export async function createOrganization(organization) {
         body: JSON.stringify(organization)
     });
 }
+
+export async function registerOrganization(company) {
+    return request("/api/organizations/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(company)
+    });
+}
