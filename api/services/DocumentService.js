@@ -22,10 +22,21 @@ class DocumentService {
             if (Array.isArray(result[field])) result[field] = result[field].slice(0, limit);
         }
         if (Array.isArray(result.actionItems)) {
-            result.actionItems = result.actionItems.map(item => ({
-                ...item,
-                priority: ["LOW", "MEDIUM", "HIGH"].includes(item.priority) ? item.priority : "MEDIUM"
-            }));
+            const seen = new Set();
+            result.actionItems = result.actionItems
+                .filter(item => item && typeof item === "object" && !Array.isArray(item) && typeof item.title === "string" && item.title.trim())
+                .filter(item => {
+                    const key = item.title.trim().toLocaleLowerCase("pl-PL").replace(/\\s+/g, " ");
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                })
+                .slice(0, 5)
+                .map(item => ({
+                    ...item,
+                    title: item.title.trim(),
+                    priority: ["LOW", "MEDIUM", "HIGH"].includes(item.priority) ? item.priority : "MEDIUM"
+                }));
         }
         return result;
     }
