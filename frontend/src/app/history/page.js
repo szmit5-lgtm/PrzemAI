@@ -19,6 +19,8 @@ export default function HistoryPage() {
     const [loadError, setLoadError] = useState(false);
     const [error, setError] = useState("");
     const [pendingId, setPendingId] = useState(null);
+    const [search, setSearch] = useState("");
+    const visibleItems = items.filter(item => `${item.title || ""} ${item.type || ""}`.toLocaleLowerCase("pl-PL").includes(search.trim().toLocaleLowerCase("pl-PL")));
 
     async function loadHistory() {
 
@@ -163,10 +165,18 @@ export default function HistoryPage() {
                     )}
 
                     {!loading && !loadError && items.length > 0 && (
+                        <label className="mt-7 block text-sm font-medium text-slate-700">Szukaj w historii
+                            <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nazwa dokumentu lub rodzaj analizy" className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+                        </label>
+                    )}
+
+                    {!loading && !loadError && items.length > 0 && visibleItems.length === 0 && <p role="status" className="mt-6 rounded-xl bg-slate-50 p-5 text-slate-600">Brak wyników dla podanej frazy.</p>}
+
+                    {!loading && !loadError && visibleItems.length > 0 && (
 
                         <div className="mt-8 space-y-4">
 
-                            {items.map(item => (
+                            {visibleItems.map(item => (
 
                                 <div
                                     key={item.id}
