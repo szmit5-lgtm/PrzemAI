@@ -51,3 +51,27 @@ test("KSeF token redemption requires both access and refresh token", async () =>
   });
   await assert.rejects(auth.redeem("temporary-token"), /redeemed tokens/);
 });
+
+test("KSeF authentication never includes upstream error body or token in thrown errors", async () => {
+  const secret = "sensitive-token-must-not-leak";
+  const auth = new KsefTokenAuth({
+    environment: "production",
+    fetchImpl: async () => ({
+      ok: false,
+      status: 403,
+      text: async () => "server echoed " + secret
+    })
+  });
+  await assert.rejects(auth.redeem(secret), error => {
+    assert.equal(error.message, "KSeF authentication HTTP 403.");
+    assert.doesNotMatch(error.message, /sensitive-token|server echoed/);
+    return true;
+  });
+});
+
+test("KSeF authentication refuses unknown API environments before network access", () => {
+  assert.throws(() => new KsefTokenAuth({
+    environment: "https://untrusted.example",
+    fetchImpl: async () => { throw new Error("must not call"); }
+  }), /configuration/);
+});
