@@ -12,13 +12,31 @@ class DocumentService {
 
     }
 
+
+    formatExecutiveReport(report) {
+        if (!report || typeof report !== "object" || Array.isArray(report)) return report;
+        const result = { ...report };
+        for (const [field, limit] of Object.entries({
+            keyInformation: 5, dates: 5, risks: 3, recommendations: 3, actionItems: 5
+        })) {
+            if (Array.isArray(result[field])) result[field] = result[field].slice(0, limit);
+        }
+        if (Array.isArray(result.actionItems)) {
+            result.actionItems = result.actionItems.map(item => ({
+                ...item,
+                priority: ["LOW", "MEDIUM", "HIGH"].includes(item.priority) ? item.priority : "MEDIUM"
+            }));
+        }
+        return result;
+    }
+
     async analyze(filePath) {
 
         const text = await this.documentEngine.extractText(filePath);
 
         if (!text || !text.trim()) {
             if (path.extname(filePath).toLowerCase() === ".pdf") {
-                return this.analyzeScannedPDF(filePath);
+                return this.formatExecutiveReport(await this.analyzeScannedPDF(filePath));
             }
             throw new Error("Nie znaleziono tekstu w dokumencie.");
         }
@@ -74,11 +92,11 @@ Dokument:
 ${text}
 `;
 
-return await this.ai.ask({
+return this.formatExecutiveReport(await this.ai.ask({
     system: "Jesteś ekspertem analizującym dokumenty biznesowe. Odpowiadasz wyłącznie poprawnym JSON.",
     user: prompt,
     json: true
-});
+}));
 
     }
 
