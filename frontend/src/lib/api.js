@@ -12,7 +12,7 @@ function getToken() {
 
 async function request(endpoint, options = {}) {
     // A failed login is not an expired authenticated session.
-    const isCredentialRequest = endpoint === "/api/auth/login" || endpoint === "/api/auth/register";
+    const isCredentialRequest = ["/api/auth/login", "/api/auth/register", "/api/organizations/register"].includes(endpoint);
     const token = isCredentialRequest ? null : getToken();
 
     const headers = {
