@@ -28,3 +28,16 @@ test("KSeF mapping does not persist upstream token or arbitrary raw fields", () 
   });
   assert.doesNotMatch(JSON.stringify(result), /never-persist-this|do-not-copy/);
 });
+
+test("KSeF mapping does not confuse invoicing timestamp with issue date", () => {
+  const result = mapKsefInvoice({
+    ksefNumber: "KSEF-789",
+    invoicingDate: "2026-11-04T14:15:00Z"
+  });
+  assert.equal(result.issueDate, null);
+});
+
+test("KSeF mapping rejects whitespace-only and oversized invoice identifiers", () => {
+  assert.throws(() => mapKsefInvoice({ ksefNumber: "   " }), /ksefNumber/);
+  assert.throws(() => mapKsefInvoice({ ksefNumber: "x".repeat(257) }), /ksefNumber/);
+});
