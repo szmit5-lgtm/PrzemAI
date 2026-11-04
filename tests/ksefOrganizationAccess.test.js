@@ -96,3 +96,14 @@ test("permits a regular member to read when membership is valid", async () => {
     prisma, organizationId: "dekonica", userId: "u1"
   }), member);
 });
+
+test("rejects malformed membership records", async () => {
+  for (const id of [undefined, null, "", "  ", 42]) {
+    const prisma = { organizationMembership: { findFirst: async () => ({
+      id, organizationId: "dekonica", role: "ADMIN"
+    }) } };
+    await assert.rejects(requireKsefOrganizationAccess({
+      prisma, organizationId: "dekonica", userId: "u1"
+    }), /access denied/);
+  }
+});
