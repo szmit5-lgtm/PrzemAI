@@ -8,7 +8,7 @@ const HOSTS = Object.freeze({
 });
 
 function validateNip(nip) {
-  if (typeof nip !== "string" || !/^\\d{10}$/.test(nip)) {
+  if (typeof nip !== "string" || !/^[0-9]{10}$/.test(nip)) {
     throw new Error("KSeF context NIP must contain 10 digits.");
   }
   return nip;
