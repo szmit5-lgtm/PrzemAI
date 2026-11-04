@@ -17,7 +17,7 @@ class DocumentService {
         if (!report || typeof report !== "object" || Array.isArray(report)) return report;
         const result = { ...report };
         for (const [field, limit] of Object.entries({
-            keyInformation: 5, dates: 5, risks: 3, recommendations: 3, actionItems: 5
+            keyInformation: 5, dates: 5, risks: 3, recommendations: 3
         })) {
             if (Array.isArray(result[field])) result[field] = result[field].slice(0, limit);
         }
