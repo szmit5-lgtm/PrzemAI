@@ -90,19 +90,19 @@ export default function HistoryPage() {
 
         <main className="min-h-screen bg-slate-100">
 
-            <div className="mx-auto max-w-7xl p-8">
+            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
 
                 <UserMenu />
 
                 <Navbar />
 
-                <div className="rounded-3xl border bg-white p-10 shadow-sm">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-10">
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
 
                         <div>
 
-                            <h1 className="text-3xl font-bold">
+                            <h1 className="text-2xl font-bold sm:text-3xl">
 
                                 Historia analiz
 
@@ -110,7 +110,7 @@ export default function HistoryPage() {
 
                             <p className="mt-2 text-slate-500">
 
-                                Wszystkie zapisane analizy.
+                                Przeglądaj wcześniejsze analizy dokumentów i spotkań.
 
                             </p>
 
@@ -128,7 +128,7 @@ export default function HistoryPage() {
 
                     {loading && (
 
-                        <div className="mt-10">
+                        <div className="mt-10 text-slate-600">
 
                             Ładowanie...
 
@@ -144,7 +144,7 @@ export default function HistoryPage() {
 
                     {!loading && !loadError && items.length === 0 && (
 
-                        <div className="mt-10 rounded-2xl border-2 border-dashed p-16 text-center">
+                        <div className="mt-10 rounded-2xl border-2 border-dashed p-8 text-center sm:p-16">
 
                             <div className="text-6xl">
 
@@ -170,12 +170,12 @@ export default function HistoryPage() {
 
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between rounded-2xl border p-6 hover:bg-slate-50 transition"
+                                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:p-6"
                                 >
 
                                     <div>
 
-                                        <h2 className="text-lg font-semibold">
+                                        <h2 className="break-words text-lg font-semibold">
 
                                             {item.title}
 
@@ -195,11 +195,11 @@ export default function HistoryPage() {
 
                                     </div>
 
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-wrap gap-3">
 
                                         <Link
                                             href={`/history/${item.id}`}
-                                            className="rounded-xl bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
+                                            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700"
                                         >
 
                                             Otwórz
@@ -211,7 +211,7 @@ export default function HistoryPage() {
                                             disabled={pendingId !== null}
                                             aria-label={`Usuń analizę: ${item.title}`}
                                             onClick={() => remove(item.id)}
-                                            className="rounded-xl border border-red-500 px-5 py-3 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                            className="rounded-xl border border-red-300 px-5 py-3 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
                                         >
 
                                             Usuń
