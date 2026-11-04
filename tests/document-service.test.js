@@ -143,3 +143,23 @@ test("executive report limits sections and removes duplicate or malformed tasks"
   assert.equal(result.actionItems[1].priority, "MEDIUM");
   assert.equal(response.actionItems.length, 11, "input report must not be mutated");
 });
+
+
+test("scanned PDF applies executive report limits and task deduplication", async () => {
+  const response = {
+    summary: "Skan",
+    keyInformation: ["A", "B", "C", "D", "E", "F"],
+    actionItems: [
+      { title: " Zweryfikować podpis ", priority: "HIGH" },
+      { title: "zweryfikować   podpis", priority: "HIGH" },
+      { title: "Przekazać dokument", priority: "LOW" }
+    ]
+  };
+  const { service, calls } = documentService({ extractedText: "", response });
+  const result = await service.analyze("scan.pdf");
+  assert.equal(calls.scanned.length, 1);
+  assert.equal(result.keyInformation.length, 5);
+  assert.equal(result.actionItems.length, 2);
+  assert.equal(result.actionItems[0].title, "Zweryfikować podpis");
+  assert.equal(result.actionItems[1].title, "Przekazać dokument");
+});
