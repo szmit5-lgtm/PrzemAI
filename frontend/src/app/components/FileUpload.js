@@ -20,7 +20,7 @@ import {
     uploadMeeting
 } from "@/lib/api";
 
-export default function FileUpload() {
+export default function FileUpload({ mode = "document" }) {
 
     const inputRef = useRef(null);
 
@@ -44,7 +44,8 @@ export default function FileUpload() {
 
         try {
 
-            validateAnalysisUploadFile(selected);
+            const kind = validateAnalysisUploadFile(selected);
+            if (kind !== mode) throw new Error(mode === "meeting" ? "Wybierz nagranie audio lub wideo." : "Wybierz plik PDF, DOCX lub TXT.");
             setFile(selected);
 
         } catch (err) {
@@ -123,33 +124,32 @@ export default function FileUpload() {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass p-10"
+            className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#14274c] to-[#0b152c] p-5 shadow-xl sm:p-10"
         >
 
             <div className="flex items-center justify-between">
 
                 <div>
 
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-200">
 
                         <Sparkles size={16} />
 
-                        AI Analysis
+                        {mode === "meeting" ? "MEETING ANALYSIS" : "DOCUMENT ANALYSIS"}
 
                     </div>
 
-                    <h2 className="text-4xl font-bold">
+                    <h2 className="text-2xl font-bold text-white sm:text-3xl">
 
-                        Dodaj dokument
+                        {mode === "meeting" ? "Prześlij nagranie" : "Prześlij dokument"}
 
                     </h2>
 
-                    <p className="mt-3 max-w-xl text-slate-500">
+                    <p className="mt-3 max-w-xl text-slate-300">
 
-                        Przeciągnij plik lub kliknij poniżej.
-                        PrzemAI automatycznie przeanalizuje dokument,
-                        przygotuje executive summary oraz zapisze go
-                        w historii.
+                        {mode === "meeting"
+                          ? "Prześlij nagranie, aby uzyskać podsumowanie spotkania i zapisać wynik w historii."
+                          : "Prześlij PDF, DOCX lub TXT. PrzemAI przygotuje podsumowanie i zapisze analizę w historii."}
 
                     </p>
 
@@ -189,36 +189,37 @@ export default function FileUpload() {
 
                 onClick={() => inputRef.current.click()}
 
-                className={`mt-10 cursor-pointer rounded-3xl border-2 border-dashed p-16 transition-all duration-300 ${
+                className={`mt-7 cursor-pointer rounded-2xl border-2 border-dashed p-6 transition-all duration-300 sm:p-12 ${
                     dragging
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-slate-300 bg-white hover:border-blue-500 hover:bg-slate-50"
+                        ? "border-cyan-300 bg-cyan-300/10"
+                        : "border-white/20 bg-white/[.04] hover:border-cyan-400/50 hover:bg-white/[.07]"
                 }`}
 
             >
 
                 <div className="flex flex-col items-center">
 
-                    <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-xl">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-200">
 
                         <UploadCloud size={42} />
 
                     </div>
 
-                    <h3 className="mt-8 text-3xl font-bold">
+                    <h3 className="mt-6 text-xl font-bold text-white sm:text-2xl">
 
                         Przeciągnij plik tutaj
 
                     </h3>
 
-                    <p className="mt-3 text-slate-500">
+                    <p className="mt-3 text-sm text-slate-300">
 
-                        PDF • DOCX • TXT • MP3 • WAV • MP4
+                        {mode === "meeting" ? "MP3 · WAV · M4A · OGG · WEBM · MP4" : "PDF · DOCX · TXT"}
 
                     </p>
 
                     <button
-                        className="mt-10 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-8 py-4 text-lg font-semibold text-white shadow-xl hover:scale-105"
+                        type="button"
+                        className="mt-7 flex items-center gap-3 rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-300"
                     >
 
                         <ArrowUp size={20} />
@@ -235,7 +236,7 @@ export default function FileUpload() {
                 hidden
                 ref={inputRef}
                 type="file"
-                accept=".pdf,.docx,.txt,.mp3,.wav,.m4a,.ogg,.webm,.mpeg,.mp4"
+                accept={mode === "meeting" ? ".mp3,.wav,.m4a,.ogg,.webm,.mpeg,.mp4" : ".pdf,.docx,.txt"}
                 onChange={(e) => {
 
                     selectFile(e.target.files?.[0]);
@@ -246,11 +247,11 @@ export default function FileUpload() {
 
             {file && (
 
-                <div className="mt-8 flex items-center justify-between rounded-3xl border bg-white p-6 shadow-sm">
+                <div className="mt-7 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.06] p-5">
 
                     <div className="flex items-center gap-5">
 
-                        <div className="rounded-2xl bg-slate-100 p-4">
+                        <div className="rounded-xl bg-cyan-400/10 p-3 text-cyan-200">
 
                             {file.type.startsWith("audio")
 
@@ -264,13 +265,13 @@ export default function FileUpload() {
 
                         <div>
 
-                            <h3 className="font-semibold">
+                            <h3 className="break-all font-semibold text-white">
 
                                 {file.name}
 
                             </h3>
 
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-slate-300">
 
                                 {(file.size / 1024 / 1024).toFixed(2)} MB
 
@@ -286,7 +287,7 @@ export default function FileUpload() {
 
                         onClick={analyze}
 
-                        className="rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-8 py-4 font-semibold text-white shadow-lg hover:scale-105"
+                        className="rounded-xl bg-cyan-400 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-300 disabled:opacity-50"
 
                     >
 
