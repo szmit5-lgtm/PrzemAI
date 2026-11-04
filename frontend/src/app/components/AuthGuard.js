@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getProfile } from "@/lib/api";
 import { parseAuthenticatedProfile } from "@/lib/profilePayload";
 
-const PUBLIC_PATHS = new Set(["/login", "/register", "/preview"]);
+const PUBLIC_PATHS = new Set(["/login", "/register", "/preview", "/business/register"]);
 
 export default function AuthGuard({ children }) {
   const pathname = usePathname();
