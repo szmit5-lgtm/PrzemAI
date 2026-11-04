@@ -57,7 +57,16 @@ Struktura odpowiedzi:
 Zasady:
 
 - nie dodawaj żadnego tekstu poza JSON,
-- actionItems mają zawierać wszystkie zadania wynikające z dokumentu,
+- pisz wyłącznie po polsku, jasno i profesjonalnie, dla osoby zarządzającej firmą,
+- summary: maksymalnie 3 krótkie zdania, zaczynając od celu dokumentu i najważniejszego wniosku,
+- keyInformation: maksymalnie 5 najważniejszych faktów, bez pobocznych szczegółów,
+- dates: tylko terminy i daty istotne operacyjnie; pomijaj daty ustaw, cytowanych aktów prawnych i ogólne okresy retencji,
+- risks: maksymalnie 3 konkretne ryzyka wynikające z treści dokumentu; nie wymyślaj ryzyk,
+- recommendations: maksymalnie 3 konkretne zalecenia bez powtarzania zadań,
+- actionItems: maksymalnie 5 konkretnych, niepowtarzających się zadań; łącz podobne czynności i pomijaj rutynowe obowiązki niezwiązane z decyzją użytkownika,
+- priority pozostaje LOW, MEDIUM lub HIGH dla zgodności z API; dueDate ustaw tylko gdy dokument zawiera rzeczywisty termin,
+- nie powielaj informacji RODO, chyba że wpływają na istotną decyzję lub obowiązek,
+- jeżeli nie da się ustalić, czy dokument podpisano, nie twierdź, że jest niepodpisany,
 - jeżeli dokument nie zawiera zadań, zwróć pustą tablicę.
 
 Dokument:
@@ -85,12 +94,12 @@ return await this.ai.ask({
             input: [
                 {
                     role: "system",
-                    content: [{ type: "input_text", text: "Jesteś ekspertem analizującym dokumenty biznesowe. Odczytaj skan PDF i odpowiedz wyłącznie poprawnym JSON." }]
+                    content: [{ type: "input_text", text: "Jesteś ekspertem analizującym dokumenty biznesowe. Odczytaj skan PDF i odpowiedz wyłącznie poprawnym JSON po polsku. Podsumowanie maksymalnie 3 zdania; do 5 kluczowych informacji, 3 istotnych ryzyk, 3 zaleceń i 5 niepowtarzających się zadań. Pomijaj poboczne informacje RODO i daty aktów prawnych. Nie wymyślaj faktów ani terminów." }]
                 },
                 {
                     role: "user",
                     content: [
-                        { type: "input_text", text: 'Przeanalizuj załączony skan PDF. Zwróć JSON z polami: summary (string), keyInformation (array), dates (array), risks (array), recommendations (array), actionItems (array obiektów: title, description, priority, dueDate). Nie wymyślaj informacji niewidocznych w dokumencie.' },
+                        { type: "input_text", text: 'Przeanalizuj załączony skan PDF. Zwróć JSON z polami: summary (string), keyInformation (array), dates (array), risks (array), recommendations (array), actionItems (array obiektów: title, description, priority, dueDate). Zwięźle i profesjonalnie po polsku: summary do 3 zdań, keyInformation do 5 punktów, dates tylko istotne terminy operacyjne, risks do 3, recommendations do 3, actionItems do 5 konkretnych i niepowtarzających się zadań. Nie wymyślaj informacji niewidocznych w dokumencie.' },
                         { type: "input_file", filename: "document.pdf", file_data: "data:application/pdf;base64," + file.toString("base64") }
                     ]
                 }
