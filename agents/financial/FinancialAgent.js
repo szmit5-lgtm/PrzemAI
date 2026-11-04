@@ -4,6 +4,8 @@ const prisma = require("../../lib/prisma");
 const HomePlMailConnector = require("../../connectors/mail/HomePlMailConnector");
 const mailDocumentId = require("../../lib/mailDocumentId");
 const { canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
+const { fetchKsefInvoiceMetadata } = require("../../connectors/ksef/KsefReadOnlyFlow");
+const { importKsefMetadata } = require("../../connectors/ksef/importKsefMetadata");
 
 class FinancialAgent {
   async run({ userId } = {}) {
@@ -106,13 +108,42 @@ class FinancialAgent {
       }
     }
 
+    // Explicit opt-in: never run a production KSeF request without owner and NIP.
+    // Shared Railway environment contains staging-named services: fail closed.
+    let ksefImported = 0;
+    let ksefDuplicates = 0;
+    let ksefFailed = false;
+    if (process.env.KSEF_SYNC_ENABLED === "true" &&
+        process.env.KSEF_OWNER_USER_ID === userId &&
+        /^[0-9]{10}$/.test(process.env.KSEF_NIP || "") &&
+        process.env.KSEF_TOKEN &&
+        process.env.KSEF_ENVIRONMENT === "production") {
+      try {
+        const to = new Date();
+        const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+        const invoices = await fetchKsefInvoiceMetadata({
+          token: process.env.KSEF_TOKEN,
+          nip: process.env.KSEF_NIP,
+          environment: "production",
+          from: from.toISOString(),
+          to: to.toISOString()
+        });
+        const imported = await importKsefMetadata({ userId, invoices, prisma });
+        ksefImported = imported.created;
+        ksefDuplicates = imported.duplicates;
+      } catch {
+        ksefFailed = true;
+        console.warn("[FinancialAgent] KSeF synchronization failed (details redacted)");
+      }
+    }
+
     const summary =
       `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
     // while allowing healthy integrations to finish first.
-    if (failedIntegrations > 0) {
+    if (failedIntegrations > 0 || ksefFailed) {
       throw new Error(`Financial Agent: ${failedIntegrations} mailbox synchronization(s) failed.`);
     }
 
@@ -123,7 +154,10 @@ class FinancialAgent {
         checkedMessages,
         newDocuments,
         blockedIntegrations,
-        failedIntegrations
+        failedIntegrations,
+        ksefImported,
+        ksefDuplicates,
+        ksefFailed
       }
     };
   }
