@@ -73,3 +73,26 @@ test("rejects malformed identifiers and roles without querying database", async 
   }
   assert.equal(calls, 0);
 });
+
+test("denies absent Prisma client without a database call", async () => {
+  await assert.rejects(requireKsefOrganizationAccess({
+    organizationId: "dekonica", userId: "u1"
+  }), /access denied/);
+});
+
+test("does not turn database errors into authorization grants", async () => {
+  const prisma = { organizationMembership: { findFirst: async () => {
+    throw new Error("database unavailable");
+  } } };
+  await assert.rejects(requireKsefOrganizationAccess({
+    prisma, organizationId: "dekonica", userId: "u1"
+  }), /database unavailable/);
+});
+
+test("permits a regular member to read when membership is valid", async () => {
+  const member = { id: "m4", organizationId: "dekonica", role: "MEMBER" };
+  const prisma = { organizationMembership: { findFirst: async () => member } };
+  assert.deepEqual(await requireKsefOrganizationAccess({
+    prisma, organizationId: "dekonica", userId: "u1"
+  }), member);
+});
