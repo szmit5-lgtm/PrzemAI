@@ -6,7 +6,11 @@ import {
     MessageSquare,
     Trash2,
     Send,
-    LoaderCircle
+    LoaderCircle,
+    Mic,
+    MicOff,
+    Volume2,
+    VolumeX
 } from "lucide-react";
 
 import Navbar from "../components/Navbar";
@@ -54,6 +58,72 @@ export default function ChatPage() {
     const [conversationsError, setConversationsError] = useState(false);
 
     const messagesEndRef = useRef(null);
+    const recognitionRef = useRef(null);
+    const [listening, setListening] = useState(false);
+    const [voiceSupported, setVoiceSupported] = useState(false);
+    const [speakReplies, setSpeakReplies] = useState(false);
+    const [voiceError, setVoiceError] = useState("");
+
+    useEffect(() => {
+        setVoiceSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+        return () => {
+            recognitionRef.current?.abort();
+            window.speechSynthesis?.cancel();
+        };
+    }, []);
+
+    function toggleMicrophone() {
+        if (listening) {
+            recognitionRef.current?.stop();
+            return;
+        }
+        const BrowserRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!BrowserRecognition) {
+            setVoiceError("Ta przeglądarka nie obsługuje rozpoznawania mowy. Użyj aktualnego Chrome lub Edge.");
+            return;
+        }
+        setVoiceError("");
+        const recognition = new BrowserRecognition();
+        recognition.lang = "pl-PL";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.onresult = event => {
+            const transcript = Array.from(event.results)
+                .map(result => result[0]?.transcript || "")
+                .join(" ").trim();
+            if (transcript) setMessage(current => current ? `${current.trim()} ${transcript}` : transcript);
+        };
+        recognition.onerror = event => {
+            if (event.error !== "aborted" && event.error !== "no-speech") {
+                setVoiceError(event.error === "not-allowed"
+                    ? "Aby dyktować, zezwól przeglądarce na korzystanie z mikrofonu."
+                    : "Nie udało się rozpoznać mowy. Spróbuj ponownie.");
+            }
+            setListening(false);
+        };
+        recognition.onend = () => {
+            setListening(false);
+            recognitionRef.current = null;
+        };
+        recognitionRef.current = recognition;
+        try {
+            recognition.start();
+            setListening(true);
+        } catch {
+            setListening(false);
+            setVoiceError("Nie udało się uruchomić mikrofonu.");
+        }
+    }
+
+    function readAnswer(answer) {
+        if (!speakReplies || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(answer);
+        utterance.lang = "pl-PL";
+        utterance.rate = 1;
+        window.speechSynthesis.speak(utterance);
+    }
+
 
     useEffect(() => {
 
@@ -235,6 +305,7 @@ export default function ChatPage() {
                 }
             ]);
 
+            readAnswer(data.answer);
             await loadConversations();
 
         }
@@ -546,6 +617,29 @@ export default function ChatPage() {
                         </div>
 
                         <div className="border-t p-6">
+                            <div className="mb-3 flex flex-wrap items-center gap-3">
+                                <button type="button"
+                                    onClick={toggleMicrophone}
+                                    disabled={!voiceSupported || loading || loadingConversation}
+                                    aria-pressed={listening}
+                                    className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${listening ? "border-red-400 bg-red-50 text-red-700" : "border-slate-300 text-slate-700"}`}>
+                                    {listening ? <MicOff size={18} /> : <Mic size={18} />}
+                                    {listening ? "Zakończ dyktowanie" : "Mów do PrzemAI"}
+                                </button>
+                                <button type="button"
+                                    onClick={() => {
+                                        setSpeakReplies(value => !value);
+                                        window.speechSynthesis?.cancel();
+                                    }}
+                                    aria-pressed={speakReplies}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+                                    {speakReplies ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                                    {speakReplies ? "Odpowiedzi głosowe: włączone" : "Odpowiedzi głosowe: wyłączone"}
+                                </button>
+                            </div>
+                            {voiceError && <p role="alert" className="mb-3 text-sm text-red-700">{voiceError}</p>}
+                            {!voiceSupported && <p className="mb-3 text-xs text-slate-500">Dyktowanie głosowe wymaga obsługiwanej przeglądarki i zgody na mikrofon.</p>}
+
 
                             <textarea
                                 rows={3}
