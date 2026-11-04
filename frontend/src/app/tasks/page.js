@@ -31,6 +31,7 @@ export default function TasksPage() {
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState(false);
   const [notice, setNotice] = useState("");
+  const [taskFilter, setTaskFilter] = useState("OPEN");
 
   async function loadTasks() {
     setLoading(true);
@@ -106,6 +107,7 @@ export default function TasksPage() {
   const openCount = tasks.filter(task => task.status !== "DONE").length;
   const completedCount = tasks.filter(task => task.status === "DONE").length;
   const busy = saving || Boolean(pendingId);
+  const visibleTasks = tasks.filter(task => taskFilter === "ALL" || (taskFilter === "DONE" ? task.status === "DONE" : task.status !== "DONE"));
 
   return (
     <main className="min-h-screen bg-[#070e22] px-4 py-6 text-slate-100 sm:px-8">
@@ -152,12 +154,12 @@ export default function TasksPage() {
             </form>
           </section>
           <section aria-labelledby="tasks-list-title" className="min-w-0 rounded-3xl border border-white/10 bg-white/[.045] p-5 sm:p-7">
-            <h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2>
-            {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : loadError ? <p className="mt-7 text-sm text-slate-300">Lista zadań jest chwilowo niedostępna.</p> : tasks.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center"><CheckCircle2 size={36} className="mx-auto text-cyan-300" /><p className="mt-4 text-lg font-bold">Nie masz jeszcze zadań</p><p className="mt-2 text-sm text-slate-400">Dodaj pierwsze zadanie w formularzu obok.</p></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2><div role="group" aria-label="Filtr zadań" className="flex flex-wrap gap-2">{[["OPEN", "Do zrobienia"], ["DONE", "Wykonane"], ["ALL", "Wszystkie"]].map(([value, label]) => <button key={value} type="button" aria-pressed={taskFilter === value} onClick={() => setTaskFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${taskFilter === value ? "bg-cyan-400 text-slate-950" : "border border-white/15 text-slate-200 hover:bg-white/10"}`}>{label}</button>)}</div></div>
+            {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : loadError ? <p className="mt-7 text-sm text-slate-300">Lista zadań jest chwilowo niedostępna. <button type="button" onClick={loadTasks} className="font-semibold text-cyan-300 underline">Spróbuj ponownie</button></p> : visibleTasks.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center"><CheckCircle2 size={36} className="mx-auto text-cyan-300" /><p className="mt-4 text-lg font-bold">Brak zadań w wybranym widoku</p><p className="mt-2 text-sm text-slate-400">Zmień filtr albo dodaj nowe zadanie.</p></div>
             ) : (
               <div className="mt-6 space-y-3">
-                {tasks.map(task => (
+                {visibleTasks.map(task => (
                   <article key={task.id} className={`rounded-2xl border p-5 ${task.status === "DONE" ? "border-emerald-400/20 bg-emerald-400/[.05]" : "border-white/10 bg-slate-950/30"}`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
