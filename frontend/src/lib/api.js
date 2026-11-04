@@ -345,3 +345,15 @@ export async function getFinancialDocuments(params = {}) {
 export async function getFinanceSummary() {
     return request("/api/finance/summary");
 }
+
+export async function getOrganizations() {
+    return request("/api/organizations");
+}
+
+export async function createOrganization(organization) {
+    return request("/api/organizations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(organization)
+    });
+}
