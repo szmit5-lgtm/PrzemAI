@@ -11,7 +11,8 @@ function mapKsefInvoice(invoice) {
       ksefNumber.length > 256) {
     throw new Error("KSeF invoice is missing a valid ksefNumber.");
   }
-  const issueDate = invoice.invoicingDate || invoice.issueDate || null;
+  // Invoicing timestamp is not necessarily the invoice issue date.
+  const issueDate = invoice.issueDate || null;
   let parsedDate = null;
   if (issueDate !== null) {
     parsedDate = new Date(issueDate);
