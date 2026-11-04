@@ -118,7 +118,7 @@ export default function HistoryPage() {
 
                         </div>
 
-                        <div className="rounded-xl bg-slate-100 px-4 py-2 font-semibold">
+                        <div role="status" aria-label="Liczba zapisanych analiz" className="rounded-xl bg-slate-100 px-4 py-2 font-semibold">
 
                             {loading || loadError ? "—" : items.length}
 
