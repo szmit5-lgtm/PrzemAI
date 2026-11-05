@@ -38,7 +38,10 @@ function analyzeKsefXml(xml,projects=[]) {
     throw new Error("Invalid KSeF document for analysis.");
   }
   const rows = elements(xml,"FaWiersz",251);
-  const items = rows.slice(0,250).map(row => clean(elements(row,"P_7",1)[0] || "")).filter(Boolean);
+  // On advance invoices, positions may be in Zamowienie/P_7Z instead of FaWiersz/P_7.
+  const regularItems = rows.slice(0,250).map(row => clean(elements(row,"P_7",1)[0] || "")).filter(Boolean);
+  const orderItems = elements(xml,"P_7Z",100).map(clean).filter(Boolean);
+  const items = regularItems.length ? regularItems : orderItems;
   const title = items.length
     ? clean(items[0]).slice(0,115)
     : null;
@@ -57,11 +60,21 @@ function analyzeKsefXml(xml,projects=[]) {
   // document descriptions, never in seller/buyer fields or generic identifiers.
   const extra = elements(xml,"DodatkowyOpis",100)
     .map(part=>clean(elements(part,"Wartosc",1)[0] || "")).filter(Boolean);
-  const evidence = tokens([...items.slice(0,250),...extra].join(" "));
+  // Official FA(3) includes optional contract/order identifiers. They can
+  // name the worksite even if the product lines are generic.
+  const orders = elements(xml,"NrZamowienia",100).map(clean).filter(Boolean);
+  const contracts = elements(xml,"NrUmowy",100).map(clean).filter(Boolean);
+  const evidence = tokens([...regularItems.slice(0,250),...orderItems,
+    ...extra,...orders,...contracts].join(" "));
   const matches = [];
   for (const project of projects.slice(0,300)) {
     if (project.status && project.status !== "ACTIVE") continue;
-    const aliases = [project.name,...(Array.isArray(project.aliases) ? project.aliases : [])];
+    const projectName = tokens(String(project.name || ""));
+    // Polish grammatical inflections used in construction invoices.
+    const inflections = projectName === "mielno" ? ["mielnie"] :
+      projectName === "zgorzelec" ? ["zgorzelcu","zgorzelca"] : [];
+    const aliases = [project.name,...inflections,
+      ...(Array.isArray(project.aliases) ? project.aliases : [])];
     if (aliases.some(alias=>typeof alias === "string" && meaningfulAlias(alias) &&
       wholeMatch(evidence,tokens(alias)))) matches.push(project);
   }
