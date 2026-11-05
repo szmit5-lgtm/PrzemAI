@@ -278,11 +278,11 @@ export default function FinancePage() {
                       <td className="p-4"><span className="rounded-lg border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-xs font-semibold text-blue-200">{SOURCE_LABELS[item.source] || item.source || "—"}</span></td>
                       <td className="max-w-64 break-words p-4 font-medium text-white">{item.source === "KSEF" ?
                         <Link href={"/finance/" + encodeURIComponent(item.id)} className="text-cyan-200 underline decoration-cyan-500/50 underline-offset-4 hover:text-cyan-100">
-                          {item.invoiceNumber || item.ksefNumber || "Szczegóły faktury"} <ArrowUpRight size={13} className="inline" />
+                          {item.displayTitle || item.invoiceNumber || item.ksefNumber || "Szczegóły faktury"} <ArrowUpRight size={13} className="inline" />
                         </Link> : (item.invoiceNumber || item.ksefNumber || item.rawData?.filename || "—")}</td>
                       <td className="max-w-48 break-words p-4 text-slate-300">{item.sellerName || item.rawData?.from || "—"}</td>
                       <td className="max-w-64 break-words p-4 text-slate-300" title={item.metadata?.analysis?.description || ""}>
-                        {item.metadata?.analysis?.description || (item.source === "KSEF" ? "Do analizy" : "—")}
+                        {item.metadata?.analysis?.description || (item.source === "KSEF" ? "Opis wstępny — oczekuje na XML" : "—")}
                       </td>
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.netAmount, item.currency)}</td>
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.vatAmount, "PLN")}</td>

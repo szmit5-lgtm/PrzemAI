@@ -153,7 +153,7 @@ export default function FinancialDocumentPage() {
         record ? <>
           <div className="mt-8 flex items-center gap-3"><FileText className="text-cyan-300 print:text-black" size={27}/>
             <div><div className="text-sm uppercase tracking-widest text-cyan-300 print:text-black">Faktura KSeF</div>
-              <h1 className="mt-1 break-all text-2xl font-black sm:text-3xl">{record.invoiceNumber || record.ksefNumber || "Dokument"}</h1>
+              <h1 className="mt-1 break-all text-2xl font-black sm:text-3xl">{record.displayTitle || record.invoiceNumber || record.ksefNumber || "Dokument"}</h1>
             </div>
           </div>
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -6,6 +6,7 @@ const { authorizeKsefReadOnly } = require("./KsefReadOnlyFlow");
 const KsefClient = require("./KsefClient");
 const { importKsefMetadata } = require("./importKsefMetadata");
 const { analyzeKsefXml } = require("./analyzeKsefXml");
+const { ensureDekonicaProjects } = require("./ensureDekonicaProjects");
 
 // Backfill historic windows in bounded batches; persist progress after each
 // complete bidirectional window, so interrupted runs resume safely.
@@ -101,6 +102,7 @@ async function syncKsefOwner({
   historyComplete = !nextHistoryWindow(cursor, recentStart);
 
   // Analyze existing XML as well as newly downloaded invoices, within owner scope.
+  await ensureDekonicaProjects({ prisma, userId });
   const projects = typeof prisma.project?.findMany === "function"
     ? await prisma.project.findMany({
         where: { userId, status: "ACTIVE" },
@@ -162,8 +164,8 @@ async function syncKsefOwner({
     ? await prisma.financialDocument.findMany({
         where: { userId, source: "KSEF", rawData: { not: Prisma.DbNull } },
         select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
-        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-        take: 300
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take: 1000
       }) : [];
   const processed = new Set();
   for (const item of [...fetchedDocuments, ...existing]) {
@@ -182,6 +184,7 @@ async function syncKsefOwner({
         version: 1,
         projectCatalogSignature,
         description: analysis.description,
+        title: analysis.title,
         itemCount: analysis.itemCount,
         itemPreview: analysis.itemPreview,
         projectDecision: analysis.projectDecision,

@@ -21,7 +21,7 @@ function elements(xml,name,max=100) {
   return found;
 }
 function tokens(value) {
-  return value.toLocaleLowerCase("pl-PL").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  return value.toLocaleLowerCase("pl-PL").replace(/ł/g, "l").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
 }
 function wholeMatch(haystack,needle) {
@@ -39,6 +39,9 @@ function analyzeKsefXml(xml,projects=[]) {
   }
   const rows = elements(xml,"FaWiersz",251);
   const items = rows.slice(0,250).map(row => clean(elements(row,"P_7",1)[0] || "")).filter(Boolean);
+  const title = items.length
+    ? clean(items[0]).slice(0,115)
+    : null;
   const description = items.length
     ? items.slice(0,3).join("; ") + (items.length > 3 ? " (+" + (items.length-3) + " kolejnych pozycji)" : "")
     : "Brak pozycji towarów/usług w odczytanym XML";
@@ -64,6 +67,7 @@ function analyzeKsefXml(xml,projects=[]) {
   }
   const unique = matches.length === 1 ? matches[0] : null;
   return {
+    title,
     description,
     itemCount: items.length,
     itemPreview: items.slice(0,5),

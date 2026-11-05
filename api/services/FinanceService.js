@@ -1,4 +1,5 @@
 const prisma = require("../../lib/prisma");
+const { financialDocumentLabel } = require("../../lib/financialDocumentLabel");
 
 class FinanceService {
     async list(userId, options = {}) {
@@ -48,6 +49,8 @@ class FinanceService {
             ...item,
       // Full KSeF XML is available only from the single-document endpoint.
       rawData: item.source === "KSEF" ? null : item.rawData,
+      displayTitle: item.source === "KSEF" ? financialDocumentLabel(item) : null,
+      descriptionReady: item.source === "KSEF" && !!item.metadata?.analysis?.description,
             netAmount:
                 item.netAmount?.toString() || null,
             vatAmount:
@@ -66,6 +69,7 @@ class FinanceService {
         if (!document) return null;
         return {
             ...document,
+            displayTitle: document.source === "KSEF" ? financialDocumentLabel(document) : null,
             netAmount: document.netAmount?.toString() || null,
             vatAmount: document.vatAmount?.toString() || null,
             grossAmount: document.grossAmount?.toString() || null
