@@ -166,7 +166,7 @@ test("a broken mailbox does not block healthy imports or leak IMAP errors", asyn
     await assert.rejects(
       new FinancialAgent().run({ userId: "owner-test" }),
       error => {
-        assert.match(error.message, /1 mailbox synchronization/);
+        assert.match(error.message, /synchronization failed \(mailboxes: 1, KSeF: 0\)/);
         assert.doesNotMatch(error.message, /NEVER-EXPOSE-THIS/);
         return true;
       }
