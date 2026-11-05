@@ -58,6 +58,16 @@ async function syncKsefOwner({
   let duplicates = 0;
   let xmlFetched = 0;
   let xmlFailed = 0;
+  const xmlFailureCodes = {};
+  function classifyXmlFailure(error) {
+    const message = String(error?.message || "");
+    const status = /KSeF invoice XML HTTP ([0-9]{3})/.exec(message);
+    if (status) return "HTTP_" + status[1];
+    if (/identifier/.test(message)) return "INVALID_IDENTIFIER";
+    if (/Invalid or oversized/.test(message)) return "INVALID_XML";
+    if (/network|stream/.test(message)) return "NETWORK";
+    return "OTHER";
+  }
   let historicWindow = null;
   let historicalWindows = 0;
   let historyComplete = false;
@@ -144,6 +154,8 @@ async function syncKsefOwner({
       xmlFetched += 1;
     } catch (error) {
       xmlFailed += 1;
+      const code = classifyXmlFailure(error);
+      xmlFailureCodes[code] = (xmlFailureCodes[code] || 0) + 1;
       // Save only bounded retry diagnostics; never log XML, invoice identifiers
       // or upstream response bodies, which can contain sensitive data.
       const attempts = Math.min(100, (Number(state?.attempts) || 0) + 1);
@@ -221,7 +233,7 @@ async function syncKsefOwner({
     if (existing.length < 40) break;
   }
   return { created, duplicates, xmlFetched, xmlFailed, historicWindow, historicalWindows, historyComplete,
-    projectAssigned, projectDescribed, projectReview, projectErrors };
+    projectAssigned, projectDescribed, projectReview, projectErrors, xmlFailureCodes };
 }
 
 module.exports = { syncKsefOwner, nextHistoryWindow };
