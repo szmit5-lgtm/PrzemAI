@@ -11,6 +11,7 @@ let inserted = [];
 let syncUpdates = [];
 let fetchCount = 0;
 let queryCount = 0;
+let ksefFetchCount = 0;
 
 const integration = {
   id: "integration-test",
@@ -62,6 +63,9 @@ Module._load = function (request, parent, isMain) {
   const source = parent?.filename?.replaceAll("\\", "/") || "";
   if (source.endsWith("/agents/financial/FinancialAgent.js")) {
     if (request === "../../lib/prisma") return prisma;
+    if (request === "../../connectors/ksef/KsefReadOnlyFlow") {
+      return { fetchKsefInvoiceMetadata: async () => { ksefFetchCount += 1; return []; } };
+    }
     if (request === "../../connectors/mail/HomePlMailConnector") return FakeConnector;
     if (request === "../../lib/mailAccessPolicy") {
       return { canSyncMailIntegration: () => authorized };
@@ -86,6 +90,7 @@ function reset() {
   syncUpdates = [];
   fetchCount = 0;
   queryCount = 0;
+  ksefFetchCount = 0;
 }
 
 function message(date, attachments) {
@@ -196,4 +201,31 @@ test("missing tenant ID fails closed before querying any mailbox", async () => {
   assert.equal(queryCount, 0);
   assert.equal(fetchCount, 0);
   assert.equal(inserted.length, 0);
+});
+
+
+test("configured KSeF token cannot fetch invoices without owner binding", async () => {
+  reset();
+  availableIntegrations = [];
+  const keys = ["KSEF_SYNC_ENABLED", "KSEF_OWNER_USER_ID", "KSEF_NIP", "KSEF_TOKEN", "KSEF_ENVIRONMENT"];
+  const original = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  try {
+    process.env.KSEF_SYNC_ENABLED = "true";
+    delete process.env.KSEF_OWNER_USER_ID;
+    process.env.KSEF_NIP = "1234567890";
+    process.env.KSEF_TOKEN = "SENSITIVE-TEST-TOKEN";
+    process.env.KSEF_ENVIRONMENT = "production";
+    const result = await new FinancialAgent().run({ userId: "owner-test" });
+    assert.equal(result.metadata.ksefStatus, "OWNER_NOT_CONFIGURED");
+    assert.equal(result.metadata.ksefImported, 0);
+    assert.equal(result.metadata.ksefFailed, false);
+    assert.equal(ksefFetchCount, 0);
+    assert.match(result.summary, /stan KSeF OWNER_NOT_CONFIGURED/);
+    assert.doesNotMatch(JSON.stringify(result), /SENSITIVE-TEST-TOKEN|1234567890|owner-test/);
+  } finally {
+    for (const key of keys) {
+      if (original[key] === undefined) delete process.env[key];
+      else process.env[key] = original[key];
+    }
+  }
 });
