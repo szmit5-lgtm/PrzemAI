@@ -3,7 +3,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+// This test replaces the AI client before analysis; no real credentials are needed.
+const previousApiKey = process.env.OPENAI_API_KEY;
+if (!previousApiKey) process.env.OPENAI_API_KEY = "test-only-placeholder-key";
 const DocumentService = require("../api/services/DocumentService");
+if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY;
+else process.env.OPENAI_API_KEY = previousApiKey;
 
 test("blank uploaded document is rejected before calling AI", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "przemai-empty-document-"));
