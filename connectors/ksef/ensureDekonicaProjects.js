@@ -17,7 +17,8 @@ async function ensureDekonicaProjects({prisma,userId,env=process.env}={}){
   let created=0;
   for(const project of PILOT_PROJECTS){
     if(existing.some(item=>item.name?.trim().toLocaleLowerCase("pl-PL")===
-      project.name.toLocaleLowerCase("pl-PL")))continue;
+      project.name.toLocaleLowerCase("pl-PL") &&
+      /dekonica/i.test(item.company || "")))continue;
     await prisma.project.create({data:{
       userId,name:project.name,company:"Dekonica",aliases:project.aliases,status:"ACTIVE"
     }});
