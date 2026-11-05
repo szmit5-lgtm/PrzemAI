@@ -12,6 +12,10 @@ router.get(
         controller.list(req, res)
 );
 
+router.get("/projects", verifyToken, (req, res) => controller.projects(req, res));
+router.post("/projects", verifyToken, (req, res) => controller.createProject(req, res));
+router.patch("/documents/:id/project", verifyToken, (req, res) => controller.assignProject(req, res));
+
 router.get(
     "/documents/:id",
     verifyToken,

@@ -72,6 +72,70 @@ class FinanceService {
         };
     }
 
+    async listProjects(userId) {
+        return prisma.project.findMany({
+            where: { userId, status: "ACTIVE" },
+            select: { id: true, name: true, aliases: true, company: true },
+            orderBy: { name: "asc" },
+            take: 300
+        });
+    }
+
+    async createProject(userId, payload) {
+        const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+        const company = typeof payload?.company === "string" ? payload.company.trim() : "";
+        const aliases = Array.isArray(payload?.aliases)
+            ? [...new Set(payload.aliases.map(x=>typeof x === "string" ? x.trim() : "")
+                .filter(x=>x.length >= 3 && x.length <= 100))].slice(0,10)
+            : [];
+        if (name.length < 3 || name.length > 120 || company.length > 100) {
+            throw new Error("Nazwa projektu musi mieć 3–120 znaków.");
+        }
+        const existing = await prisma.project.findFirst({
+            where: { userId, name, status: "ACTIVE" },
+            select: { id: true }
+        });
+        if (existing) throw new Error("Projekt o tej nazwie już istnieje.");
+        return prisma.project.create({ data: {
+            userId, name, company: company || null, aliases, status: "ACTIVE"
+        } });
+    }
+
+    async assignProject(userId, id, projectId) {
+        if (typeof id !== "string" || !id.trim() || id.length > 128) {
+            throw new Error("Nieprawidłowy dokument.");
+        }
+        if (projectId !== null && (typeof projectId !== "string" || !projectId.trim() || projectId.length > 128)) {
+            throw new Error("Nieprawidłowy projekt.");
+        }
+        const existing = await prisma.financialDocument.findFirst({
+            where: { userId, id }, select: { id: true, metadata: true }
+        });
+        if (!existing) return null;
+        let project = null;
+        if (projectId !== null) {
+            project = await prisma.project.findFirst({
+                where: { userId, id: projectId, status: "ACTIVE" },
+                select: { id: true, name: true }
+            });
+            if (!project) throw new Error("Projekt nie istnieje na Twoim koncie.");
+        }
+        const metadata = existing.metadata && typeof existing.metadata === "object" &&
+            !Array.isArray(existing.metadata) ? existing.metadata : {};
+        const analysis = metadata.analysis && typeof metadata.analysis === "object" &&
+            !Array.isArray(metadata.analysis) ? metadata.analysis : {};
+        await prisma.financialDocument.updateMany({
+            where: { id, userId },
+            data: {
+                projectId,
+                metadata: { ...metadata, analysis: {
+                    ...analysis, projectDecision: "MANUAL", projectHint: project?.name || null
+                } }
+            }
+        });
+        return { id, projectId, project };
+    }
+
     async summary(userId) {
         const [
             total,

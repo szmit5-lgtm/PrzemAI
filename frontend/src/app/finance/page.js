@@ -183,6 +183,11 @@ export default function FinancePage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-5 sm:p-6">
             <div>
               <h2 className="flex items-center gap-2 text-xl font-bold"><Filter size={20} className="text-cyan-300" aria-hidden="true" /> Rejestr dokumentów</h2>
+              <p className="mt-3 text-xs text-slate-400">
+                <Link href="/finance/projects" className="font-semibold text-cyan-300 underline underline-offset-4">
+                  Zarządzaj inwestycjami i aliasami do automatycznego przypisywania
+                </Link>
+              </p>
               <p className="mt-2 text-xs text-slate-400">
                 {loading ? "Ładowanie…" : error ? "Dane niedostępne" : "Strona " + (page + 1) + " · dokumenty: " + items.length}
                 {refreshedAt && !loading && !error ? " · Aktualizacja: " + refreshedAt.toLocaleTimeString("pl-PL") : ""}
@@ -247,7 +252,11 @@ export default function FinancePage() {
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.vatAmount, "PLN")}</td>
                       <td className="whitespace-nowrap p-4 font-semibold text-white">{formatMoney(item.grossAmount, item.currency)}</td>
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatDate(item.dueDate)}</td>
-                      <td className="p-4 text-slate-300">{item.project?.name || "Nieprzypisany"}</td>
+                      <td className="p-4 text-slate-300">
+                        {item.project?.name || "Do przypisania"}
+                        {item.metadata?.analysis?.projectDecision === "AUTO_ASSIGNED" && 
+                          <span className="ml-1 text-xs text-cyan-300">(automatycznie)</span>}
+                      </td>
                       <td className="p-4"><span className={item.status === "ERROR" ? "rounded-lg border border-rose-400/25 bg-rose-400/10 px-2.5 py-1 text-xs text-rose-200" : item.status === "NEW" ? "rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200" : "rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-200"}>{STATUS_LABELS[item.status] || item.status || "—"}</span></td>
                     </tr>
                   ))}

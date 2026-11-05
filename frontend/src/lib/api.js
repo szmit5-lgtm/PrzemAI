@@ -347,6 +347,24 @@ export async function getFinancialDocument(id) {
     return request("/api/finance/documents/" + encodeURIComponent(id));
 }
 
+export async function getFinanceProjects() {
+    return request("/api/finance/projects");
+}
+
+export async function createFinanceProject(project) {
+    return request("/api/finance/projects", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(project)
+    });
+}
+
+export async function assignFinanceProject(id, projectId) {
+    return request("/api/finance/documents/" + encodeURIComponent(id) + "/project", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId })
+    });
+}
+
 export async function getFinanceSummary() {
     return request("/api/finance/summary");
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Download, FileText, Printer, RefreshCw } from "lucide-react";
-import { getFinancialDocument } from "@/lib/api";
+import { getFinancialDocument, getFinanceProjects, assignFinanceProject } from "@/lib/api";
 
 function money(value, currency = "PLN") {
   if (value === null || value === undefined || value === "") return "—";
@@ -80,6 +80,16 @@ export default function FinancialDocumentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [projects, setProjects] = useState([]);
+  const [chosenProject, setChosenProject] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    getFinanceProjects().then(r=>setProjects(Array.isArray(r.items) ? r.items : [])).catch(()=>{});
+  }, []);
+  useEffect(() => {
+    setChosenProject(record?.projectId || "");
+  }, [record?.projectId]);
 
   useEffect(() => {
     if (typeof id !== "string") return;
@@ -96,6 +106,21 @@ export default function FinancialDocumentPage() {
 
   const items = useMemo(() => parseItems(record?.rawData?.xml), [record?.rawData?.xml]);
   const payment = useMemo(() => readPaymentTerms(record?.rawData?.xml), [record?.rawData?.xml]);
+
+  async function saveProject() {
+    if (!record?.id || assigning) return;
+    setAssigning(true);
+    setNotice("");
+    try {
+      await assignFinanceProject(record.id, chosenProject || null);
+      setNotice("Przypisanie projektu zapisane.");
+      setRefresh(n=>n+1);
+    } catch(error) {
+      setNotice(error.message || "Błąd przypisywania projektu.");
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   function downloadXml() {
     const xml = record?.rawData?.xml;
@@ -144,6 +169,36 @@ export default function FinancialDocumentPage() {
             <Info label="Termin płatności" value={payment.terms.length ? payment.terms.map(date).join(", ") : date(record.dueDate)}/>
           </div>
           {payment.paidAtIssue && <p className="mt-4 text-xs text-slate-300">Na dokumencie wystawca oznaczył płatność jako dokonaną przed wystawieniem. Nie jest to potwierdzenie bieżącego stanu konta bankowego.</p>}
+          <section className="mt-8 rounded-2xl border border-white/10 bg-white/[.04] p-5 print:hidden">
+            <h2 className="text-xl font-bold">Opis i przypisanie inwestycji</h2>
+            <p className="mt-3 text-sm text-slate-200">
+              {record.metadata?.analysis?.description || "Agent przygotuje opis na podstawie pozycji faktury podczas najbliższej synchronizacji."}
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              {record.metadata?.analysis?.projectDecision === "AUTO_ASSIGNED"
+                ? "Projekt rozpoznany automatycznie na podstawie opisu pozycji."
+                : record.metadata?.analysis?.projectDecision === "MANUAL"
+                ? "Projekt wskazany ręcznie."
+                : "Projekt wymaga sprawdzenia — brak jednoznacznego dopasowania."}
+            </p>
+            <div className="mt-4 flex flex-wrap items-end gap-3">
+              <label className="text-sm">Projekt
+                <select value={chosenProject} onChange={e=>setChosenProject(e.target.value)}
+                  className="mt-1 block min-w-56 rounded-xl border border-white/20 bg-[#101d3c] px-4 py-3">
+                  <option value="">Nieprzypisany</option>
+                  {projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}
+                </select>
+              </label>
+              <button disabled={assigning} onClick={saveProject}
+                className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">
+                {assigning ? "Zapisuję..." : "Zapisz przypisanie"}
+              </button>
+              <Link href="/finance/projects" className="text-sm text-cyan-300 underline underline-offset-4">
+                Dodaj inwestycję
+              </Link>
+            </div>
+            {notice && <p role="status" className="mt-3 text-xs text-cyan-200">{notice}</p>}
+          </section>
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[.04] p-5">
             <h2 className="text-xl font-bold">Za co wystawiono fakturę</h2>
             {items.length ? <div className="mt-5 overflow-x-auto">
