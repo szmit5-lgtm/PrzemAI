@@ -10,6 +10,8 @@ const service = new AgentService();
 const CYCLE_MS = 60000;
 const STALE_RUN_MS = 90 * 60000;
 const MAX_AGENTS_PER_CYCLE = 50;
+const { workerOwnerScope } = require("./lib/workerOwnerScope");
+const ownerScope = workerOwnerScope();
 
 let busy = false;
 let stopping = false;
@@ -84,6 +86,7 @@ async function cycle() {
     // A SIGTERM during the stale scan must not start user provisioning.
     if (stopping) return;
     const users = await prisma.user.findMany({
+      ...(ownerScope ? { where: { id: ownerScope } } : {}),
       select: { id: true }
     });
 
@@ -108,6 +111,7 @@ async function cycle() {
     const due = stopping ? [] : await prisma.agent.findMany({
       where: {
         enabled: true,
+        ...(ownerScope ? { userId: ownerScope } : {}),
         OR: [
           { nextRunAt: null },
           { nextRunAt: { lte: new Date() } }
