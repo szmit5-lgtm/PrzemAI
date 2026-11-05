@@ -342,6 +342,11 @@ export async function getFinancialDocuments(params = {}) {
     return request(`/api/finance/documents${suffix}`);
 }
 
+export async function getFinancialDocument(id) {
+    if (typeof id !== "string" || !id.trim()) throw new Error("Nieprawidłowy identyfikator faktury.");
+    return request("/api/finance/documents/" + encodeURIComponent(id));
+}
+
 export async function getFinanceSummary() {
     return request("/api/finance/summary");
 }

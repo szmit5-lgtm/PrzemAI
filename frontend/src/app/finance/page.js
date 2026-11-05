@@ -153,6 +153,32 @@ export default function FinancePage() {
           </div>
         </section>
 
+        {Array.isArray(summary?.amounts) && summary.amounts.length > 0 &&
+          <section className="mt-7 rounded-3xl border border-white/10 bg-white/[.045] p-5 sm:p-6">
+            <h2 className="text-xl font-bold">Zestawienie kwot z KSeF</h2>
+            <p className="mt-2 text-sm text-slate-400">Kwoty z oficjalnych metadanych. VAT jest wykazany w PLN. Zestawienie nie oznacza potwierdzenia płatności.</p>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-sm text-left">
+                <thead className="text-xs uppercase tracking-wide text-slate-400"><tr>
+                  <th className="p-3">Rodzaj</th><th className="p-3">Waluta</th>
+                  <th className="p-3">Faktury</th><th className="p-3">Netto</th>
+                  <th className="p-3">VAT w PLN</th><th className="p-3">Brutto</th>
+                </tr></thead>
+                <tbody>{summary.amounts.map((amount, index) => (
+                  <tr key={index} className="border-t border-white/10">
+                    <td className="p-3">{amount.direction === "INCOMING" ? "Zakupowe" : amount.direction === "OUTGOING" ? "Sprzedażowe" : "Niesklasyfikowane"}</td>
+                    <td className="p-3">{amount.currency}</td>
+                    <td className="p-3 tabular-nums">{amount.count}</td>
+                    <td className="p-3 tabular-nums">{formatMoney(amount.net, amount.currency)}</td>
+                    <td className="p-3 tabular-nums">{formatMoney(amount.vatPLN, "PLN")}</td>
+                    <td className="p-3 tabular-nums font-bold">{formatMoney(amount.gross, amount.currency)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </section>
+        }
+
         <section className="mt-8 overflow-hidden rounded-3xl border border-white/10 bg-white/[.045]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-5 sm:p-6">
             <div>
@@ -199,7 +225,9 @@ export default function FinancePage() {
                     <th scope="col" className="p-4">Źródło</th>
                     <th scope="col" className="p-4">Dokument</th>
                     <th scope="col" className="p-4">Kontrahent</th>
-                    <th scope="col" className="whitespace-nowrap p-4">Kwota brutto</th>
+                    <th scope="col" className="whitespace-nowrap p-4">Netto</th>
+                    <th scope="col" className="whitespace-nowrap p-4">VAT (PLN)</th>
+                    <th scope="col" className="whitespace-nowrap p-4">Brutto</th>
                     <th scope="col" className="p-4">Termin</th>
                     <th scope="col" className="p-4">Projekt</th>
                     <th scope="col" className="p-4">Status</th>
@@ -210,8 +238,13 @@ export default function FinancePage() {
                     <tr key={item.id} className="border-b border-white/[.07] transition hover:bg-white/[.035]">
                       <td className="whitespace-nowrap p-4 text-slate-300" title={item.source === "MAIL" ? (item.issueDate ? "Data z historycznego importu poczty — wymaga weryfikacji z fakturą" : "Data otrzymania e-mail, nie data wystawienia faktury") : "Data dokumentu"}>{formatDate(item.issueDate || (item.source === "MAIL" ? item.rawData?.receivedAt : null))}</td>
                       <td className="p-4"><span className="rounded-lg border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-xs font-semibold text-blue-200">{SOURCE_LABELS[item.source] || item.source || "—"}</span></td>
-                      <td className="max-w-64 break-words p-4 font-medium text-white">{item.invoiceNumber || item.ksefNumber || item.rawData?.filename || "—"}</td>
+                      <td className="max-w-64 break-words p-4 font-medium text-white">{item.source === "KSEF" ?
+                        <Link href={"/finance/" + encodeURIComponent(item.id)} className="text-cyan-200 underline decoration-cyan-500/50 underline-offset-4 hover:text-cyan-100">
+                          {item.invoiceNumber || item.ksefNumber || "Szczegóły faktury"} <ArrowUpRight size={13} className="inline" />
+                        </Link> : (item.invoiceNumber || item.ksefNumber || item.rawData?.filename || "—")}</td>
                       <td className="max-w-48 break-words p-4 text-slate-300">{item.sellerName || item.rawData?.from || "—"}</td>
+                      <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.netAmount, item.currency)}</td>
+                      <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.vatAmount, "PLN")}</td>
                       <td className="whitespace-nowrap p-4 font-semibold text-white">{formatMoney(item.grossAmount, item.currency)}</td>
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatDate(item.dueDate)}</td>
                       <td className="p-4 text-slate-300">{item.project?.name || "Nieprzypisany"}</td>
