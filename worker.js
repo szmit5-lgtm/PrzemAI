@@ -10,8 +10,8 @@ const service = new AgentService();
 const CYCLE_MS = 60000;
 const STALE_RUN_MS = 90 * 60000;
 const MAX_AGENTS_PER_CYCLE = 50;
-const { workerOwnerScope } = require("./lib/workerOwnerScope");
-const ownerScope = workerOwnerScope();
+const ownerScope = process.env.WORKER_OWNER_USER_ID === undefined
+  ? null : require("./lib/workerOwnerScope").workerOwnerScope();
 
 let busy = false;
 let stopping = false;
