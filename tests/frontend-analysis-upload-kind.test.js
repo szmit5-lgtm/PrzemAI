@@ -39,7 +39,9 @@ test("upload UI validates selection and routes via the same helper", async () =>
     );
     assert.match(source, /validateAnalysisUploadFile\(selected\)/);
     assert.match(source, /validateAnalysisUploadFile\(file\)/);
-    assert.match(source, /accept="\.pdf,\.docx,\.txt,\.mp3,\.wav,\.m4a,\.ogg,\.webm,\.mpeg,\.mp4"/);
+    assert.match(source, /accept=\{mode === "meeting" \?/);
+    assert.match(source, /"\.mp3,\.wav,\.m4a,\.ogg,\.webm,\.mpeg,\.mp4"/);
+    assert.match(source, /"\.pdf,\.docx,\.txt"/);
 });
 
 test("empty or invalid-size uploads are rejected before calling the API", async () => {
