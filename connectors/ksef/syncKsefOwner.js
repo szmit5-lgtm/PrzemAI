@@ -4,6 +4,7 @@ const { Prisma } = require("@prisma/client");
 const { authorizeKsefReadOnly } = require("./KsefReadOnlyFlow");
 const KsefClient = require("./KsefClient");
 const { importKsefMetadata } = require("./importKsefMetadata");
+const { analyzeKsefXml } = require("./analyzeKsefXml");
 
 // One historical window per scheduled execution. Progress is persisted in the
 // owner's Financial Agent configuration only after both directions complete.
@@ -74,26 +75,63 @@ async function syncKsefOwner({
     historicWindow = historical;
   }
 
-  // Metadata-only rows from earlier versions are picked up as well.
-  // Never transmit the XML through logs or the bulk invoice-list endpoint.
+  // Analyze existing XML as well as newly downloaded invoices, within owner scope.
+  const projects = typeof prisma.project?.findMany === "function"
+    ? await prisma.project.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { id: true, name: true, aliases: true, status: true, company: true },
+        take: 300
+      }) : [];
   const documents = await prisma.financialDocument.findMany({
-    where: { userId, source: "KSEF", rawData: { equals: Prisma.DbNull } },
-    select: { id: true, ksefNumber: true },
+    where: { userId, source: "KSEF" },
+    select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
     orderBy: [{ issueDate: "desc" }, { id: "desc" }],
-    take: XML_BATCH
+    take: 150
   });
+  // Bound XML network traffic: each run downloads at most 15 full documents.
+  let attempted = 0;
   for (const item of documents) {
     if (!item.ksefNumber) continue;
+    let xml = typeof item.rawData?.xml === "string" ? item.rawData.xml : null;
+    if (!xml) {
+      if (attempted >= XML_BATCH) continue;
+      attempted += 1;
+      try {
+        xml = await client.getInvoiceXml(item.ksefNumber);
+        await prisma.financialDocument.updateMany({
+          where: { id: item.id, userId, source: "KSEF" },
+          data: { rawData: { xml, origin: "KSEF_OFFICIAL_XML", downloadedAt: new Date().toISOString() } }
+        });
+        xmlFetched += 1;
+      } catch {
+        xmlFailed += 1;
+        continue;
+      }
+    }
+    if (item.metadata?.analysis?.version === 1) continue;
     try {
-      const xml = await client.getInvoiceXml(item.ksefNumber);
+      const analysis = analyzeKsefXml(xml, projects);
+      const metadata = item.metadata && typeof item.metadata === "object" &&
+        !Array.isArray(item.metadata) ? item.metadata : {};
+      const analyzed = {
+        version: 1,
+        description: analysis.description,
+        itemCount: analysis.itemCount,
+        itemPreview: analysis.itemPreview,
+        projectDecision: analysis.projectDecision,
+        projectHint: analysis.projectHint,
+        analyzedAt: new Date().toISOString()
+      };
+      const data = { metadata: { ...metadata, analysis: analyzed } };
+      // Existing manually approved assignments must never be replaced.
+      if (!item.projectId && analysis.projectId) data.projectId = analysis.projectId;
+      if (!item.dueDate && analysis.dueDate) data.dueDate = analysis.dueDate;
       await prisma.financialDocument.updateMany({
         where: { id: item.id, userId, source: "KSEF" },
-        data: { rawData: { xml, origin: "KSEF_OFFICIAL_XML", downloadedAt: new Date().toISOString() } }
+        data
       });
-      xmlFetched += 1;
     } catch {
-      // Preserve verified monetary metadata even if XML is temporarily unavailable.
-      xmlFailed += 1;
+      // Leave the document available and retry parsing next cycle.
     }
   }
   return { created, duplicates, xmlFetched, xmlFailed, historicWindow };
