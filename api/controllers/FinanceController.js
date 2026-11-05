@@ -36,6 +36,23 @@ class FinanceController {
         }
     }
 
+    async queueKsefBackfill(req, res) {
+        try {
+            const result = await this.service.queueKsefBackfill(req.user.id);
+            return res.status(result.queued ? 202 : 200).json({
+                success: true, data: result
+            });
+        } catch (error) {
+            if (error?.message === "Integracja KSeF nie jest aktywna na tym koncie." ||
+                error?.message === "Włącz najpierw Financial Agent.") {
+                return res.status(403).json({ success: false, error: error.message });
+            }
+            return res.status(500).json({
+                success: false, error: "Nie udało się zlecić importu historycznego."
+            });
+        }
+    }
+
     async projects(req, res) {
         try {
             return res.json({ success: true, items: await this.service.listProjects(req.user.id) });

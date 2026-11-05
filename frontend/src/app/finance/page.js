@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, FileText, Filter, Inbox, RefreshCw, Wallet, ShieldCheck } from "lucide-react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
-import { getFinancialDocuments, getFinanceSummary, getProfile } from "@/lib/api";
+import { getFinancialDocuments, getFinanceSummary, getProfile, queueKsefHistoryImport } from "@/lib/api";
 import { parseFinanceDashboardResponses } from "@/lib/financeDashboardPayload";
 
 const STATUS_LABELS = {
@@ -86,6 +86,23 @@ export default function FinancePage() {
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [ownerId, setOwnerId] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importNotice, setImportNotice] = useState("");
+  async function requestKsefImport() {
+    if (importing) return;
+    setImporting(true);
+    setImportNotice("");
+    try {
+      const result = await queueKsefHistoryImport();
+      setImportNotice(result.data?.queued
+        ? "Zlecono pobranie brakujących faktur. Agent podejmie pracę w najbliższym cyklu."
+        : "Agent już pracuje nad synchronizacją. Odśwież dane po zakończeniu jego cyklu.");
+    } catch (error) {
+      setImportNotice(error?.message || "Nie udało się zlecić importu.");
+    } finally {
+      setImporting(false);
+    }
+  }
   useEffect(() => {
     getProfile().then(result => setOwnerId(result?.user?.id || "")).catch(()=>{});
   }, []);
@@ -142,6 +159,10 @@ export default function FinancePage() {
                 Import załącznika nie oznacza jeszcze odczytania ani zatwierdzenia faktury.
               </p>
             </div>
+            <button type="button" onClick={requestKsefImport} disabled={importing}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-5 py-3 text-sm font-bold text-emerald-100 transition hover:bg-emerald-300/20 disabled:opacity-50">
+              {importing ? "Zlecam..." : "Pobierz brakujące faktury"}
+            </button>
             <button type="button" onClick={() => setRefreshKey(key => key + 1)}
               disabled={loading}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-5 py-3 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/20 disabled:opacity-50">
@@ -149,6 +170,7 @@ export default function FinancePage() {
               Odśwież dane
             </button>
           </div>
+          {importNotice && <p role="status" className="mt-4 text-sm text-emerald-200">{importNotice}</p>}
           {ownerId && <p className="mt-5 text-xs text-slate-400">
             ID Twojego konta (potrzebne do bezpiecznego połączenia KSeF):{" "}
             <button type="button" onClick={() => navigator.clipboard.writeText(ownerId)}

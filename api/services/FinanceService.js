@@ -72,6 +72,31 @@ class FinanceService {
         };
     }
 
+    async queueKsefBackfill(userId) {
+        // A KSeF credential belongs to one explicitly configured owner.
+        // Never let a different authenticated account queue this import.
+        if (!userId || process.env.KSEF_SYNC_ENABLED !== "true" ||
+            process.env.KSEF_OWNER_USER_ID !== userId) {
+            throw new Error("Integracja KSeF nie jest aktywna na tym koncie.");
+        }
+        const agent = await prisma.agent.findFirst({
+            where: { userId, key: "financial", type: "FINANCIAL", enabled: true },
+            select: { id: true, status: true }
+        });
+        if (!agent) throw new Error("Włącz najpierw Financial Agent.");
+        if (agent.status === "RUNNING") {
+            return { queued: false, status: "RUNNING" };
+        }
+        const updated = await prisma.agent.updateMany({
+            where: { id: agent.id, userId, enabled: true,
+                NOT: { status: "RUNNING" } },
+            data: { nextRunAt: new Date(), status: "IDLE" }
+        });
+        return updated.count === 1
+            ? { queued: true, status: "QUEUED" }
+            : { queued: false, status: "RUNNING" };
+    }
+
     async listProjects(userId) {
         return prisma.project.findMany({
             where: { userId, status: "ACTIVE" },

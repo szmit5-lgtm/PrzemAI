@@ -365,6 +365,10 @@ export async function assignFinanceProject(id, projectId) {
     });
 }
 
+export async function queueKsefHistoryImport() {
+    return request("/api/finance/history/import", { method: "POST" });
+}
+
 export async function getFinanceSummary() {
     return request("/api/finance/summary");
 }
