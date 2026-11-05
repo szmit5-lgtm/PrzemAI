@@ -118,6 +118,10 @@ class FinancialAgent {
     let ksefHistoryWindow = null;
     let ksefHistoryWindows = 0;
     let ksefHistoryComplete = false;
+    let projectAssigned = 0;
+    let projectDescribed = 0;
+    let projectReview = 0;
+    let projectErrors = 0;
     const ksefEligibility = getKsefSyncEligibility(userId);
     let ksefStatus = ksefEligibility.status;
     if (ksefEligibility.allowed) {
@@ -133,6 +137,10 @@ class FinancialAgent {
         ksefHistoryWindow = result.historicWindow;
         ksefHistoryWindows = result.historicalWindows;
         ksefHistoryComplete = result.historyComplete;
+        projectAssigned = result.projectAssigned || 0;
+        projectDescribed = result.projectDescribed || 0;
+        projectReview = result.projectReview || 0;
+        projectErrors = result.projectErrors || 0;
         ksefStatus = "SYNCED";
       } catch {
         ksefStatus = "ERROR";
@@ -142,7 +150,7 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -167,7 +175,11 @@ class FinancialAgent {
         ksefXmlFailed,
         ksefHistoryWindow,
         ksefHistoryWindows,
-        ksefHistoryComplete
+        ksefHistoryComplete,
+        projectAssigned,
+        projectDescribed,
+        projectReview,
+        projectErrors
       }
     };
   }
