@@ -19,10 +19,10 @@ test("PDF extraction passes file bytes to parser and returns extracted text", as
     module: { exports: {} },
     console: { log() {} },
     require(name) {
-      if (name === "fs") return { readFileSync: (p) => {
+      if (name === "fs") return { promises: { readFile: async (p) => {
         assert.equal(p, filePath);
         return bytes;
-      } };
+      } } };
       if (name === "path") return path;
       if (name === "pdf-parse") return async (buffer) => {
         calls.push(buffer);
