@@ -191,7 +191,7 @@ test("a broken mailbox does not block healthy imports or leak IMAP errors", asyn
 
 test("missing tenant ID fails closed before querying any mailbox", async () => {
   reset();
-  for (const userId of [undefined, null, "", " ", " owner-test "]) {
+  for (const userId of [undefined, null, "", " ", " owner-test ", 0, 42, false, true, {}, { id: "owner-test" }, ["owner-test"]]) {
     await assert.rejects(
       new FinancialAgent().run({ userId }),
       /authenticated user ID/
