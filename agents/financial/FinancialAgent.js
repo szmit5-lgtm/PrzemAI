@@ -6,6 +6,7 @@ const mailDocumentId = require("../../lib/mailDocumentId");
 const { canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
 const { fetchKsefInvoiceMetadata } = require("../../connectors/ksef/KsefReadOnlyFlow");
 const { importKsefMetadata } = require("../../connectors/ksef/importKsefMetadata");
+const { getKsefSyncEligibility } = require("../../lib/ksefSyncEligibility");
 
 class FinancialAgent {
   async run({ userId } = {}) {
@@ -113,11 +114,9 @@ class FinancialAgent {
     let ksefImported = 0;
     let ksefDuplicates = 0;
     let ksefFailed = false;
-    if (process.env.KSEF_SYNC_ENABLED === "true" &&
-        process.env.KSEF_OWNER_USER_ID === userId &&
-        /^[0-9]{10}$/.test(process.env.KSEF_NIP || "") &&
-        process.env.KSEF_TOKEN &&
-        process.env.KSEF_ENVIRONMENT === "production") {
+    const ksefEligibility = getKsefSyncEligibility(userId);
+    let ksefStatus = ksefEligibility.status;
+    if (ksefEligibility.allowed) {
       try {
         const to = new Date();
         const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
@@ -131,14 +130,16 @@ class FinancialAgent {
         const imported = await importKsefMetadata({ userId, invoices, prisma });
         ksefImported = imported.created;
         ksefDuplicates = imported.duplicates;
+        ksefStatus = "SYNCED";
       } catch {
+        ksefStatus = "ERROR";
         ksefFailed = true;
         console.warn("[FinancialAgent] KSeF synchronization failed (details redacted)");
       }
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -157,7 +158,8 @@ class FinancialAgent {
         failedIntegrations,
         ksefImported,
         ksefDuplicates,
-        ksefFailed
+        ksefFailed,
+        ksefStatus
       }
     };
   }
