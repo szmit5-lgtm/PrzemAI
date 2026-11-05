@@ -111,8 +111,8 @@ async function syncKsefOwner({
       }) : [];
   // This pilot's KSeF credentials represent Dekonica only; never match
   // projects explicitly labeled as another business.
-  const permittedProjects = projects.filter(project => !project.company ||
-    /dekonica/i.test(project.company));
+  const permittedProjects = projects.filter(project =>
+    typeof project.company === "string" && /dekonica/i.test(project.company));
   const projectCatalogSignature = createHash("sha256").update(JSON.stringify(permittedProjects)).digest("hex").slice(0,16);
   // Query the *missing* XML records instead of only the newest 150 invoices.
   // A durable retry timestamp prevents a few unauthorized or invalid XMLs
@@ -158,52 +158,70 @@ async function syncKsefOwner({
     }
   }
 
-  // Newly fetched XML is analyzed immediately. Include older XML documents
-  // imported by previous software versions to enrich their descriptions.
-  const existing = typeof prisma.financialDocument.findMany === "function"
-    ? await prisma.financialDocument.findMany({
-        where: { userId, source: "KSEF", rawData: { not: Prisma.DbNull } },
-        select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        take: 1000
-      }) : [];
+  // Revisit EVERY imported XML across stable pages, not only the newest 1000.
+  // Reclassification also runs for old invoices when Dekonica project aliases change.
+  let projectAssigned = 0;
+  let projectDescribed = 0;
+  let projectReview = 0;
+  let projectErrors = 0;
   const processed = new Set();
-  for (const item of [...fetchedDocuments, ...existing]) {
-    if (processed.has(item.id)) continue;
+
+  async function classify(item) {
+    if (!item?.id || processed.has(item.id)) return;
     processed.add(item.id);
     const xml = item.rawData?.xml;
-    if (typeof xml !== "string" || !xml) continue;
-    if (item.metadata?.analysis?.version === 1 &&
-        (item.metadata.analysis.projectDecision === "MANUAL" ||
-         item.metadata.analysis.projectCatalogSignature === projectCatalogSignature)) continue;
+    if (typeof xml !== "string" || !xml) return;
+    const previous = item.metadata?.analysis;
+    if (previous?.projectDecision === "MANUAL") return;
+    if (previous?.version === 2 &&
+        previous.projectCatalogSignature === projectCatalogSignature) return;
     try {
       const analysis = analyzeKsefXml(xml, permittedProjects);
       const metadata = item.metadata && typeof item.metadata === "object" &&
         !Array.isArray(item.metadata) ? item.metadata : {};
-      const analyzed = {
-        version: 1,
-        projectCatalogSignature,
-        description: analysis.description,
-        title: analysis.title,
-        itemCount: analysis.itemCount,
-        itemPreview: analysis.itemPreview,
-        projectDecision: analysis.projectDecision,
-        projectHint: analysis.projectHint,
-        analyzedAt: new Date().toISOString()
+      const shouldAssign = !item.projectId && Boolean(analysis.projectId);
+      const next = {
+        metadata: { ...metadata, analysis: {
+          version: 2, projectCatalogSignature,
+          title: analysis.title, description: analysis.description,
+          itemCount: analysis.itemCount, itemPreview: analysis.itemPreview,
+          projectDecision: item.projectId ? (previous?.projectDecision || "EXISTING") : analysis.projectDecision,
+          projectHint: item.projectId ? (previous?.projectHint || null) : analysis.projectHint,
+          analyzedAt: new Date().toISOString()
+        } }
       };
-      const data = { metadata: { ...metadata, analysis: analyzed } };
-      // Existing manually approved assignments must never be replaced.
-      if (!item.projectId && analysis.projectId) data.projectId = analysis.projectId;
-      if (!item.dueDate && analysis.dueDate) data.dueDate = analysis.dueDate;
-      await prisma.financialDocument.updateMany({
-        where: { id: item.id, userId, source: "KSEF" },
-        data
+      if (shouldAssign) next.projectId = analysis.projectId;
+      if (!item.dueDate && analysis.dueDate) next.dueDate = analysis.dueDate;
+      const updated = await prisma.financialDocument.updateMany({
+        where: { id: item.id, userId, source: "KSEF", projectId: item.projectId || null },
+        data: next
       });
+      if (updated?.count === 1) {
+        projectDescribed += 1;
+        if (shouldAssign) projectAssigned += 1;
+        else if (!item.projectId) projectReview += 1;
+      }
     } catch {
-      // Leave the document available and retry parsing next cycle.
+      projectErrors += 1;
     }
   }
-  return { created, duplicates, xmlFetched, xmlFailed, historicWindow, historicalWindows, historyComplete };
+  for (const item of fetchedDocuments) await classify(item);
+  let scanCursor = null;
+  for (let page = 0; page < 75; page += 1) {
+    const existing = await prisma.financialDocument.findMany({
+      where: { userId, source: "KSEF", rawData: { not: Prisma.DbNull } },
+      select: { id: true, rawData: true, metadata: true, projectId: true, dueDate: true },
+      orderBy: { id: "asc" },
+      ...(scanCursor ? { cursor: { id: scanCursor }, skip: 1 } : {}),
+      take: 40
+    });
+    if (!existing.length) break;
+    for (const item of existing) await classify(item);
+    scanCursor = existing[existing.length - 1].id;
+    if (existing.length < 40) break;
+  }
+  return { created, duplicates, xmlFetched, xmlFailed, historicWindow, historicalWindows, historyComplete,
+    projectAssigned, projectDescribed, projectReview, projectErrors };
 }
 
 module.exports = { syncKsefOwner, nextHistoryWindow };
