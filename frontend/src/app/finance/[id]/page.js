@@ -41,8 +41,29 @@ function parseItems(xml) {
     quantity: field(row, "P_8B"),
     unitNet: field(row, "P_9A"),
     net: field(row, "P_11"),
+    gross: field(row, "P_11A"),
+    vat: field(row, "P_11Vat"),
     vatRate: field(row, "P_12")
   }));
+}
+
+function readPaymentTerms(xml) {
+  if (!xml || typeof window === "undefined" || /<!\\s*(?:DOCTYPE|ENTITY)\\b/i.test(xml)) {
+    return { terms: [], paidAtIssue: false };
+  }
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) return { terms: [], paidAtIssue: false };
+  const all = Array.from(doc.getElementsByTagName("*"));
+  const payment = all.find(node => node.localName === "Platnosc");
+  if (!payment) return { terms: [], paidAtIssue: false };
+  const descendants = Array.from(payment.getElementsByTagName("*"));
+  const terms = descendants.filter(node => node.localName === "TerminPlatnosci")
+    .flatMap(node => Array.from(node.children)
+      .filter(child => child.localName === "Termin" && /^\\d{4}-\\d{2}-\\d{2}$/.test(child.textContent.trim()))
+      .map(child => child.textContent.trim()));
+  const paid = Array.from(payment.children)
+    .find(node => node.localName === "Zaplacono")?.textContent?.trim() === "1";
+  return { terms: [...new Set(terms)], paidAtIssue: paid };
 }
 
 function Info({ label, value }) {
@@ -74,6 +95,7 @@ export default function FinancialDocumentPage() {
   }, [id, refresh]);
 
   const items = useMemo(() => parseItems(record?.rawData?.xml), [record?.rawData?.xml]);
+  const payment = useMemo(() => readPaymentTerms(record?.rawData?.xml), [record?.rawData?.xml]);
 
   function downloadXml() {
     const xml = record?.rawData?.xml;
@@ -119,8 +141,9 @@ export default function FinancialDocumentPage() {
             <Info label="Sprzedawca" value={[record.sellerName, record.sellerNip && "NIP: " + record.sellerNip].filter(Boolean).join(" · ")}/>
             <Info label="Nabywca" value={[record.buyerName, record.buyerNip && "NIP: " + record.buyerNip].filter(Boolean).join(" · ")}/>
             <Info label="Numer KSeF" value={record.ksefNumber}/>
-            <Info label="Termin płatności" value={date(record.dueDate)}/>
+            <Info label="Termin płatności" value={payment.terms.length ? payment.terms.map(date).join(", ") : date(record.dueDate)}/>
           </div>
+          {payment.paidAtIssue && <p className="mt-4 text-xs text-slate-300">Na dokumencie wystawca oznaczył płatność jako dokonaną przed wystawieniem. Nie jest to potwierdzenie bieżącego stanu konta bankowego.</p>}
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[.04] p-5">
             <h2 className="text-xl font-bold">Za co wystawiono fakturę</h2>
             {items.length ? <div className="mt-5 overflow-x-auto">
@@ -128,13 +151,15 @@ export default function FinancialDocumentPage() {
                 <thead className="text-xs uppercase text-slate-400 print:text-black">
                   <tr><th className="p-3">Lp.</th><th className="p-3">Towar / usługa</th>
                     <th className="p-3">Ilość</th><th className="p-3">J.m.</th>
-                    <th className="p-3">Cena netto</th><th className="p-3">Wartość netto</th><th className="p-3">Stawka VAT</th></tr>
+                    <th className="p-3">Cena netto</th><th className="p-3">Wartość netto</th><th className="p-3">VAT pozycji</th><th className="p-3">Wartość brutto</th><th className="p-3">Stawka VAT</th></tr>
                 </thead>
                 <tbody>{items.map((item, index) => <tr key={index} className="border-t border-white/10">
                   <td className="p-3">{item.id}</td><td className="min-w-48 p-3 font-semibold">{item.name}</td>
                   <td className="p-3">{item.quantity || "—"}</td><td className="p-3">{item.unit || "—"}</td>
                   <td className="p-3">{money(item.unitNet, record.currency)}</td>
                   <td className="p-3">{money(item.net, record.currency)}</td>
+                  <td className="p-3">{item.vat || "—"}</td>
+                  <td className="p-3">{money(item.gross, record.currency)}</td>
                   <td className="p-3">{item.vatRate || "—"}</td>
                 </tr>)}</tbody>
               </table>
