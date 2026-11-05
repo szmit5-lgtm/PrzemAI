@@ -33,3 +33,31 @@ test("seller address or invoice number alone cannot cause project assignment",()
 test("rejects dangerous XML declarations",()=>{
  assert.throws(()=>analyzeKsefXml('<!DOCTYPE Faktura><Faktura/>'),/Invalid/);
 });
+
+test("FA3 order descriptions may identify Mielno when invoice lines are generic",()=>{
+ const xml="<Faktura><Fa><FaWiersz><P_7>Materiały instalacyjne</P_7></FaWiersz>"+
+ "<WarunkiTransakcji><Zamowienia><NrZamowienia>Budowa Mielno - 22/26</NrZamowienia></Zamowienia></WarunkiTransakcji></Fa></Faktura>";
+ const out=analyzeKsefXml(xml,[{id:"m",name:"Mielno",status:"ACTIVE"}]);
+ assert.equal(out.projectId,"m");
+ assert.equal(out.projectDecision,"AUTO_ASSIGNED");
+});
+test("FA3 advance order item can identify Zgorzelec",()=>{
+ const xml="<Faktura><Zamowienie><ZamowienieWiersz><P_7Z>Zaliczka za instalację Zgorzelec</P_7Z></ZamowienieWiersz></Zamowienie></Faktura>";
+ const out=analyzeKsefXml(xml,[{id:"z",name:"Zgorzelec",status:"ACTIVE"}]);
+ assert.equal(out.projectId,"z");
+ assert.match(out.description,/Zgorzelec/);
+});
+test("Polish place inflections match projects but seller address does not",()=>{
+ const xml="<Faktura><Fa><FaWiersz><P_7>Roboty hydrauliczne w Zgorzelcu</P_7></FaWiersz></Fa></Faktura>";
+ const out=analyzeKsefXml(xml,[{id:"z",name:"Zgorzelec",status:"ACTIVE"}]);
+ assert.equal(out.projectId,"z");
+ const unrelated="<Faktura><Podmiot1><AdresL1>W Zgorzelcu</AdresL1></Podmiot1><Fa>"+
+ "<FaWiersz><P_7>Materiały budowlane</P_7></FaWiersz></Fa></Faktura>";
+ assert.equal(analyzeKsefXml(unrelated,[{id:"z",name:"Zgorzelec"}]).projectId,null);
+});
+test("a contract referring to both sites must be reviewed instead of guessed",()=>{
+ const xml="<Faktura><Fa><WarunkiTransakcji><Umowy><NrUmowy>Mielno oraz Zgorzelec</NrUmowy></Umowy></WarunkiTransakcji></Fa></Faktura>";
+ const out=analyzeKsefXml(xml,[{id:"m",name:"Mielno"},{id:"z",name:"Zgorzelec"}]);
+ assert.equal(out.projectId,null);
+ assert.equal(out.projectDecision,"AMBIGUOUS");
+});
