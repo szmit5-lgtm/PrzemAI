@@ -82,7 +82,11 @@ async function syncKsefOwner({
         select: { id: true, name: true, aliases: true, status: true, company: true },
         take: 300
       }) : [];
-  const projectCatalogSignature = createHash("sha256").update(JSON.stringify(projects)).digest("hex").slice(0,16);
+  // This pilot's KSeF credentials represent Dekonica only; never match
+  // projects explicitly labeled as another business.
+  const permittedProjects = projects.filter(project => !project.company ||
+    /dekonica/i.test(project.company));
+  const projectCatalogSignature = createHash("sha256").update(JSON.stringify(permittedProjects)).digest("hex").slice(0,16);
   const documents = await prisma.financialDocument.findMany({
     where: { userId, source: "KSEF" },
     select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
@@ -113,7 +117,7 @@ async function syncKsefOwner({
         (item.metadata.analysis.projectDecision === "MANUAL" ||
          item.metadata.analysis.projectCatalogSignature === projectCatalogSignature)) continue;
     try {
-      const analysis = analyzeKsefXml(xml, projects);
+      const analysis = analyzeKsefXml(xml, permittedProjects);
       const metadata = item.metadata && typeof item.metadata === "object" &&
         !Array.isArray(item.metadata) ? item.metadata : {};
       const analyzed = {

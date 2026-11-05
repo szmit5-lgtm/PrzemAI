@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, FileText, Filter, Inbox, RefreshCw, Wallet, ShieldCheck } from "lucide-react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
-import { getFinancialDocuments, getFinanceSummary } from "@/lib/api";
+import { getFinancialDocuments, getFinanceSummary, getProfile } from "@/lib/api";
 import { parseFinanceDashboardResponses } from "@/lib/financeDashboardPayload";
 
 const STATUS_LABELS = {
@@ -85,6 +85,10 @@ export default function FinancePage() {
   const [error, setError] = useState("");
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [ownerId, setOwnerId] = useState("");
+  useEffect(() => {
+    getProfile().then(result => setOwnerId(result?.user?.id || "")).catch(()=>{});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -145,6 +149,12 @@ export default function FinancePage() {
               Odśwież dane
             </button>
           </div>
+          {ownerId && <p className="mt-5 text-xs text-slate-400">
+            ID Twojego konta (potrzebne do bezpiecznego połączenia KSeF):{" "}
+            <button type="button" onClick={() => navigator.clipboard.writeText(ownerId)}
+              className="font-mono text-cyan-200 underline underline-offset-4"
+              title="Skopiuj identyfikator konta">{ownerId}</button>
+          </p>}
           <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard label="Wszystkie dokumenty" value={summary?.total} icon={FileText} description="Łącznie w systemie" />
             <StatCard label="Nowe" value={summary?.new} icon={Inbox} description="Do dalszej weryfikacji" />
@@ -230,6 +240,7 @@ export default function FinancePage() {
                     <th scope="col" className="p-4">Źródło</th>
                     <th scope="col" className="p-4">Dokument</th>
                     <th scope="col" className="p-4">Kontrahent</th>
+                    <th scope="col" className="p-4">Opis z faktury</th>
                     <th scope="col" className="whitespace-nowrap p-4">Netto</th>
                     <th scope="col" className="whitespace-nowrap p-4">VAT (PLN)</th>
                     <th scope="col" className="whitespace-nowrap p-4">Brutto</th>
@@ -248,6 +259,9 @@ export default function FinancePage() {
                           {item.invoiceNumber || item.ksefNumber || "Szczegóły faktury"} <ArrowUpRight size={13} className="inline" />
                         </Link> : (item.invoiceNumber || item.ksefNumber || item.rawData?.filename || "—")}</td>
                       <td className="max-w-48 break-words p-4 text-slate-300">{item.sellerName || item.rawData?.from || "—"}</td>
+                      <td className="max-w-64 break-words p-4 text-slate-300" title={item.metadata?.analysis?.description || ""}>
+                        {item.metadata?.analysis?.description || (item.source === "KSEF" ? "Do analizy" : "—")}
+                      </td>
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.netAmount, item.currency)}</td>
                       <td className="whitespace-nowrap p-4 text-slate-300">{formatMoney(item.vatAmount, "PLN")}</td>
                       <td className="whitespace-nowrap p-4 font-semibold text-white">{formatMoney(item.grossAmount, item.currency)}</td>
