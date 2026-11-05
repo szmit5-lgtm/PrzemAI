@@ -28,7 +28,7 @@ test("blank uploaded document is rejected before calling AI", async (t) => {
 
   await assert.rejects(
     DocumentService.analyze(filePath),
-    /Nie znaleziono tekstu w dokumencie.*OCR/
+    /Nie znaleziono tekstu w dokumencie\./
   );
   assert.equal(aiCalled, false);
 });
