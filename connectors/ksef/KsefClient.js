@@ -40,31 +40,55 @@ class KsefClient {
     if (typeof ksefNumber !== "string" || !/^[A-Z0-9-]{35,36}$/.test(ksefNumber)) {
       throw new Error("Invalid KSeF invoice identifier.");
     }
-    let response;
-    try {
-      response = await this.fetchImpl(this.baseUrl + "/invoices/ksef/" + encodeURIComponent(ksefNumber), {
-        method: "GET",
-        headers: {
-          Authorization: "Bearer " + this.accessToken,
-          Accept: "application/xml",
-          "X-Error-Format": "problem-details"
-        },
-        signal: AbortSignal.timeout(20000)
-      });
-    } catch {
-      throw new Error("KSeF invoice XML network request failed.");
+    const url = this.baseUrl + "/invoices/ksef/" + encodeURIComponent(ksefNumber);
+    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      let response;
+      try {
+        response = await this.fetchImpl(url, {
+          method: "GET",
+          headers: {
+            Authorization: "Bearer " + this.accessToken,
+            Accept: "application/xml",
+            "X-Error-Format": "problem-details"
+          },
+          signal: AbortSignal.timeout(20000)
+        });
+      } catch {
+        if (attempt === this.maxRetries) {
+          throw new Error("KSeF invoice XML network request failed.");
+        }
+        await this.sleepImpl(Math.min(MAX_RETRY_DELAY_MS, 250 * 2 ** attempt));
+        continue;
+      }
+      if (!response.ok) {
+        const retryAfter = response.headers?.get?.("retry-after");
+        const numeric = typeof retryAfter === "string" && /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
+          ? Number(retryAfter.trim()) * 1000 : null;
+        const delay = numeric !== null ? numeric : 250 * 2 ** attempt;
+        if (RETRYABLE_STATUSES.has(response.status) &&
+            attempt < this.maxRetries && delay <= MAX_RETRY_DELAY_MS) {
+          await this.sleepImpl(delay);
+          continue;
+        }
+        throw new Error("KSeF invoice XML HTTP " + response.status + ".");
+      }
+      const contentLength = Number(response.headers?.get?.("content-length"));
+      if (Number.isFinite(contentLength) && contentLength > 2_000_000) {
+        throw new Error("KSeF invoice XML exceeds size limit.");
+      }
+      let xml;
+      try {
+        xml = await response.text();
+      } catch {
+        throw new Error("KSeF invoice XML stream failed.");
+      }
+      if (xml.length > 2_000_000 ||
+          !/^\s*(?:<\?xml[^>]*>\s*)?<(?:(?:[A-Za-z0-9_]+):)?Faktura\b/.test(xml) ||
+          /<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
+        throw new Error("Invalid or oversized KSeF invoice XML.");
+      }
+      return xml;
     }
-    if (!response.ok) throw new Error("KSeF invoice XML HTTP " + response.status + ".");
-    const contentLength = Number(response.headers?.get?.("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > 2_000_000) {
-      throw new Error("KSeF invoice XML exceeds size limit.");
-    }
-    const xml = await response.text();
-    if (xml.length > 2_000_000 || !/^\s*(?:<\?xml[^>]*>\s*)?<(?:(?:[A-Za-z0-9_]+):)?Faktura\b/.test(xml) ||
-        /<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
-      throw new Error("Invalid or oversized KSeF invoice XML.");
-    }
-    return xml;
   }
 
   async queryInvoiceMetadata({
