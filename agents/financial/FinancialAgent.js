@@ -122,6 +122,7 @@ class FinancialAgent {
     let projectDescribed = 0;
     let projectReview = 0;
     let projectErrors = 0;
+    let xmlFailureCodes = {};
     const ksefEligibility = getKsefSyncEligibility(userId);
     let ksefStatus = ksefEligibility.status;
     if (ksefEligibility.allowed) {
@@ -141,6 +142,7 @@ class FinancialAgent {
         projectDescribed = result.projectDescribed || 0;
         projectReview = result.projectReview || 0;
         projectErrors = result.projectErrors || 0;
+        xmlFailureCodes = result.xmlFailureCodes || {};
         ksefStatus = "SYNCED";
       } catch {
         ksefStatus = "ERROR";
@@ -150,7 +152,7 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}, przyczyny błędów XML ${JSON.stringify(xmlFailureCodes)}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -179,7 +181,8 @@ class FinancialAgent {
         projectAssigned,
         projectDescribed,
         projectReview,
-        projectErrors
+        projectErrors,
+        xmlFailureCodes
       }
     };
   }
