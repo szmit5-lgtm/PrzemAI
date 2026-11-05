@@ -107,3 +107,14 @@ test("rejects malformed membership records", async () => {
     }), /access denied/);
   }
 });
+
+test("rejects whitespace-padded membership identifiers", async () => {
+  for (const id of [" m1", "m1 ", "\tm1", "m1\n"]) {
+    const prisma = { organizationMembership: { findFirst: async () => ({
+      id, organizationId: "dekonica", role: "ADMIN"
+    }) } };
+    await assert.rejects(requireKsefOrganizationAccess({
+      prisma, organizationId: "dekonica", userId: "u1"
+    }), /access denied/);
+  }
+});
