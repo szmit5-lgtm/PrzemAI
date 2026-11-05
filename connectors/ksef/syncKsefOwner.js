@@ -12,9 +12,10 @@ const { ensureDekonicaProjects } = require("./ensureDekonicaProjects");
 // complete bidirectional window, so interrupted runs resume safely.
 const DEFAULT_HISTORY_START = "2026-02-01T00:00:00.000Z";
 const WINDOW_DAYS = 60;
-const XML_BATCH = 15;
+const XML_BATCH = 10;
+const XML_GAP_MS = 5000;
 const MAX_HISTORY_WINDOWS = 6;
-const MAX_XML_BATCH = 80;
+const MAX_XML_BATCH = 12;
 
 function positiveInt(value, fallback, max) {
   const number = Number(value);
@@ -131,7 +132,7 @@ async function syncKsefOwner({
     where: { userId, source: "KSEF", rawData: { equals: Prisma.DbNull } },
     select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
     orderBy: [{ issueDate: "asc" }, { id: "asc" }],
-    take: 500
+    take: 3000
   });
 
   const fetchedDocuments = [];
@@ -141,6 +142,12 @@ async function syncKsefOwner({
     if (!item.ksefNumber) continue;
     const state = item.metadata?.ksefXmlRetry;
     if (state?.nextRetryAt && Date.parse(state.nextRetryAt) > nowMs) continue;
+    // KSeF production invoice-download quota: 8/s, 16/min, 64/hour.
+    // A conservative 5-second gap and 10 downloads per run leave room
+    // for metadata, manual runs and official quota adjustments.
+    if (attempted > 0 && Client === KsefClient) {
+      await new Promise(resolve => setTimeout(resolve, XML_GAP_MS));
+    }
     attempted += 1;
     try {
       const xml = await client.getInvoiceXml(item.ksefNumber);
@@ -167,6 +174,8 @@ async function syncKsefOwner({
           attempts, nextRetryAt: new Date(nowMs + xmlRetryDelay(attempts, error)).toISOString()
         } } }
       });
+      // Respect throttling: never hammer KSeF after the first 429.
+      if (code === "HTTP_429") break;
     }
   }
 
