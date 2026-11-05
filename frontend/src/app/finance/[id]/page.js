@@ -48,7 +48,7 @@ function parseItems(xml) {
 }
 
 function readPaymentTerms(xml) {
-  if (!xml || typeof window === "undefined" || /<!\\s*(?:DOCTYPE|ENTITY)\\b/i.test(xml)) {
+  if (!xml || typeof window === "undefined" || /<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
     return { terms: [], paidAtIssue: false };
   }
   const doc = new DOMParser().parseFromString(xml, "application/xml");
@@ -59,7 +59,7 @@ function readPaymentTerms(xml) {
   const descendants = Array.from(payment.getElementsByTagName("*"));
   const terms = descendants.filter(node => node.localName === "TerminPlatnosci")
     .flatMap(node => Array.from(node.children)
-      .filter(child => child.localName === "Termin" && /^\\d{4}-\\d{2}-\\d{2}$/.test(child.textContent.trim()))
+      .filter(child => child.localName === "Termin" && /^\d{4}-\d{2}-\d{2}$/.test(child.textContent.trim()))
       .map(child => child.textContent.trim()));
   const paid = Array.from(payment.children)
     .find(node => node.localName === "Zaplacono")?.textContent?.trim() === "1";
