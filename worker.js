@@ -18,6 +18,7 @@ let stopping = false;
 let cycleNumber = 0;
 let interval;
 let warnedNoUsers = false;
+let ownerBootRunQueued = false;
 
 async function recoverStaleRuns() {
   const cutoff = new Date(Date.now() - STALE_RUN_MS);
@@ -107,6 +108,21 @@ async function cycle() {
         // from running during this cycle.
         console.error("[Worker] Failed to ensure default agents for a user", error.message);
       }
+    }
+
+    // Explicit deployment-only kick-off for the verified production KSeF owner.
+    // This never runs for ordinary users, the staging worker, or disabled KSeF.
+    if (!ownerBootRunQueued && ownerScope &&
+        process.env.KSEF_OWNER_BOOT_RUN === "true" &&
+        process.env.KSEF_SYNC_ENABLED === "true" &&
+        process.env.KSEF_OWNER_USER_ID === ownerScope) {
+      ownerBootRunQueued = true;
+      const queued = await prisma.agent.updateMany({
+        where: { userId: ownerScope, key: "financial",
+          type: "FINANCIAL", enabled: true, NOT: { status: "RUNNING" } },
+        data: { nextRunAt: new Date(), status: "IDLE" }
+      });
+      console.log("[Worker] Verified owner financial analysis queued at startup", queued.count);
     }
 
     const due = stopping ? [] : await prisma.agent.findMany({
