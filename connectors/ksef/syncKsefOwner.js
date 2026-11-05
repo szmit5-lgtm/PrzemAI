@@ -1,6 +1,6 @@
 "use strict";
 
-const { Prisma } = require("@prisma/client");
+const { createHash } = require("node:crypto");
 const { authorizeKsefReadOnly } = require("./KsefReadOnlyFlow");
 const KsefClient = require("./KsefClient");
 const { importKsefMetadata } = require("./importKsefMetadata");
@@ -82,6 +82,7 @@ async function syncKsefOwner({
         select: { id: true, name: true, aliases: true, status: true, company: true },
         take: 300
       }) : [];
+  const projectCatalogSignature = createHash("sha256").update(JSON.stringify(projects)).digest("hex").slice(0,16);
   const documents = await prisma.financialDocument.findMany({
     where: { userId, source: "KSEF" },
     select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
@@ -108,13 +109,16 @@ async function syncKsefOwner({
         continue;
       }
     }
-    if (item.metadata?.analysis?.version === 1) continue;
+    if (item.metadata?.analysis?.version === 1 &&
+        (item.metadata.analysis.projectDecision === "MANUAL" ||
+         item.metadata.analysis.projectCatalogSignature === projectCatalogSignature)) continue;
     try {
       const analysis = analyzeKsefXml(xml, projects);
       const metadata = item.metadata && typeof item.metadata === "object" &&
         !Array.isArray(item.metadata) ? item.metadata : {};
       const analyzed = {
         version: 1,
+        projectCatalogSignature,
         description: analysis.description,
         itemCount: analysis.itemCount,
         itemPreview: analysis.itemPreview,
