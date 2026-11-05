@@ -116,6 +116,8 @@ class FinancialAgent {
     let ksefXmlFetched = 0;
     let ksefXmlFailed = 0;
     let ksefHistoryWindow = null;
+    let ksefHistoryWindows = 0;
+    let ksefHistoryComplete = false;
     const ksefEligibility = getKsefSyncEligibility(userId);
     let ksefStatus = ksefEligibility.status;
     if (ksefEligibility.allowed) {
@@ -129,6 +131,8 @@ class FinancialAgent {
         ksefXmlFetched = result.xmlFetched;
         ksefXmlFailed = result.xmlFailed;
         ksefHistoryWindow = result.historicWindow;
+        ksefHistoryWindows = result.historicalWindows;
+        ksefHistoryComplete = result.historyComplete;
         ksefStatus = "SYNCED";
       } catch {
         ksefStatus = "ERROR";
@@ -138,7 +142,7 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia ${ksefHistoryWindow ? "w toku" : "bez nowego zakresu"}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -161,7 +165,9 @@ class FinancialAgent {
         ksefStatus,
         ksefXmlFetched,
         ksefXmlFailed,
-        ksefHistoryWindow
+        ksefHistoryWindow,
+        ksefHistoryWindows,
+        ksefHistoryComplete
       }
     };
   }
