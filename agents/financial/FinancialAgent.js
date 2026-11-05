@@ -4,8 +4,7 @@ const prisma = require("../../lib/prisma");
 const HomePlMailConnector = require("../../connectors/mail/HomePlMailConnector");
 const mailDocumentId = require("../../lib/mailDocumentId");
 const { canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
-const { fetchKsefInvoiceMetadata } = require("../../connectors/ksef/KsefReadOnlyFlow");
-const { importKsefMetadata } = require("../../connectors/ksef/importKsefMetadata");
+const { syncKsefOwner } = require("../../connectors/ksef/syncKsefOwner");
 const { getKsefSyncEligibility } = require("../../lib/ksefSyncEligibility");
 
 class FinancialAgent {
@@ -114,22 +113,22 @@ class FinancialAgent {
     let ksefImported = 0;
     let ksefDuplicates = 0;
     let ksefFailed = false;
+    let ksefXmlFetched = 0;
+    let ksefXmlFailed = 0;
+    let ksefHistoryWindow = null;
     const ksefEligibility = getKsefSyncEligibility(userId);
     let ksefStatus = ksefEligibility.status;
     if (ksefEligibility.allowed) {
       try {
-        const to = new Date();
-        const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
-        const invoices = await fetchKsefInvoiceMetadata({
-          token: process.env.KSEF_TOKEN,
-          nip: process.env.KSEF_NIP,
-          environment: "production",
-          from: from.toISOString(),
-          to: to.toISOString()
+        const result = await syncKsefOwner({
+          userId, prisma, token: process.env.KSEF_TOKEN,
+          nip: process.env.KSEF_NIP, environment: "production"
         });
-        const imported = await importKsefMetadata({ userId, invoices, prisma });
-        ksefImported = imported.created;
-        ksefDuplicates = imported.duplicates;
+        ksefImported = result.created;
+        ksefDuplicates = result.duplicates;
+        ksefXmlFetched = result.xmlFetched;
+        ksefXmlFailed = result.xmlFailed;
+        ksefHistoryWindow = result.historicWindow;
         ksefStatus = "SYNCED";
       } catch {
         ksefStatus = "ERROR";
@@ -139,7 +138,7 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia ${ksefHistoryWindow ? "w toku" : "bez nowego zakresu"}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -159,7 +158,10 @@ class FinancialAgent {
         ksefImported,
         ksefDuplicates,
         ksefFailed,
-        ksefStatus
+        ksefStatus,
+        ksefXmlFetched,
+        ksefXmlFailed,
+        ksefHistoryWindow
       }
     };
   }

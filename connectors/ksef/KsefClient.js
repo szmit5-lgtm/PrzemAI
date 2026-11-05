@@ -35,6 +35,38 @@ class KsefClient {
     this.fetchImpl = fetchImpl;
   }
 
+  // Return only an official invoice XML; never interpolate an unvalidated identifier.
+  async getInvoiceXml(ksefNumber) {
+    if (typeof ksefNumber !== "string" || !/^[A-Z0-9-]{35,36}$/.test(ksefNumber)) {
+      throw new Error("Invalid KSeF invoice identifier.");
+    }
+    let response;
+    try {
+      response = await this.fetchImpl(this.baseUrl + "/invoices/ksef/" + encodeURIComponent(ksefNumber), {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer " + this.accessToken,
+          Accept: "application/xml",
+          "X-Error-Format": "problem-details"
+        },
+        signal: AbortSignal.timeout(20000)
+      });
+    } catch {
+      throw new Error("KSeF invoice XML network request failed.");
+    }
+    if (!response.ok) throw new Error("KSeF invoice XML HTTP " + response.status + ".");
+    const contentLength = Number(response.headers?.get?.("content-length"));
+    if (Number.isFinite(contentLength) && contentLength > 2_000_000) {
+      throw new Error("KSeF invoice XML exceeds size limit.");
+    }
+    const xml = await response.text();
+    if (xml.length > 2_000_000 || !/^\s*(?:<\?xml[^>]*>\s*)?<(?:(?:[A-Za-z0-9_]+):)?Faktura\b/.test(xml) ||
+        /<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
+      throw new Error("Invalid or oversized KSeF invoice XML.");
+    }
+    return xml;
+  }
+
   async queryInvoiceMetadata({
     subjectType = "Subject2",
     dateType = "PermanentStorage",

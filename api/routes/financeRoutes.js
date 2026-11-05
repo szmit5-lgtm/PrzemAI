@@ -13,6 +13,12 @@ router.get(
 );
 
 router.get(
+    "/documents/:id",
+    verifyToken,
+    (req, res) => controller.one(req, res)
+);
+
+router.get(
     "/summary",
     verifyToken,
     (req, res) =>

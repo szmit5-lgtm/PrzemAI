@@ -46,6 +46,8 @@ class FinanceService {
 
         return items.map(item => ({
             ...item,
+      // Full KSeF XML is available only from the single-document endpoint.
+      rawData: item.source === "KSEF" ? null : item.rawData,
             netAmount:
                 item.netAmount?.toString() || null,
             vatAmount:
@@ -53,6 +55,21 @@ class FinanceService {
             grossAmount:
                 item.grossAmount?.toString() || null
         }));
+    }
+
+    async one(userId, id) {
+        if (typeof id !== "string" || !id.trim() || id.length > 128) return null;
+        const document = await prisma.financialDocument.findFirst({
+            where: { id, userId },
+            include: { project: { select: { id: true, name: true } } }
+        });
+        if (!document) return null;
+        return {
+            ...document,
+            netAmount: document.netAmount?.toString() || null,
+            vatAmount: document.vatAmount?.toString() || null,
+            grossAmount: document.grossAmount?.toString() || null
+        };
     }
 
     async summary(userId) {
@@ -85,11 +102,24 @@ class FinanceService {
             })
         ]);
 
+        const summary = { total, new: newCount, mail: mailCount, ksef: ksefCount };
+        if (typeof prisma.financialDocument.groupBy !== "function") return summary;
+        const rows = await prisma.financialDocument.groupBy({
+            by: ["currency", "direction"],
+            where: { userId, source: "KSEF" },
+            _sum: { netAmount: true, vatAmount: true, grossAmount: true },
+            _count: { _all: true }
+        });
         return {
-            total,
-            new: newCount,
-            mail: mailCount,
-            ksef: ksefCount
+            ...summary,
+            amounts: rows.map(row => ({
+                currency: row.currency,
+                direction: row.direction,
+                count: row._count._all,
+                net: row._sum.netAmount?.toString() || null,
+                vatPLN: row._sum.vatAmount?.toString() || null,
+                gross: row._sum.grossAmount?.toString() || null
+            }))
         };
     }
 }

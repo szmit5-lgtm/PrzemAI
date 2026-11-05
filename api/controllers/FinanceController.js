@@ -26,6 +26,16 @@ class FinanceController {
         }
     }
 
+    async one(req, res) {
+        try {
+            const item = await this.service.one(req.user.id, req.params.id);
+            if (!item) return res.status(404).json({ success: false, error: "Dokument nie istnieje." });
+            return res.json({ success: true, item });
+        } catch {
+            return res.status(500).json({ success: false, error: "Nie udało się pobrać faktury." });
+        }
+    }
+
     async summary(req, res) {
         try {
             const data =
