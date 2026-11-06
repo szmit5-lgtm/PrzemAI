@@ -485,3 +485,28 @@ export async function changeOrganizationTaskStatus(id,taskId,status) {
       body:JSON.stringify({status})
     });
 }
+
+export async function getOrganizationFinanceStatus(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/status");
+}
+export async function linkOrganizationKsef(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/link",{method:"POST"});
+}
+export async function getOrganizationFinanceSummary(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/summary");
+}
+export async function getOrganizationFinanceDocuments(orgId,{offset=0,limit=50}={}){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/documents?"+
+  new URLSearchParams({offset:String(offset),limit:String(limit)}).toString());
+}
+export async function getOrganizationFinanceProjects(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/projects");
+}
+export async function getOrganizationFinanceMembers(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/members");
+}
+export async function changeOrganizationFinancePermission(orgId,membershipId,financeAccess){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/members/"+
+  encodeURIComponent(membershipId),{method:"PATCH",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({financeAccess})});
+}
