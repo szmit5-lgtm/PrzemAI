@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare, Brain, Settings, Bot, Wallet } from "lucide-react";
+import { LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare, Brain, Settings, Bot, Wallet, Handshake } from "lucide-react";
 
 const links = [
   { href: "/", label: "Pulpit", icon: LayoutDashboard },
   { href: "/chat", label: "Asystent AI", icon: MessageSquare },
   { href: "/agents", label: "Agenci", icon: Bot },
+  { href: "/agents/sales", label: "Sprzedaż", icon: Handshake },
   { href: "/finance", label: "Finanse", icon: Wallet },
   { href: "/document", label: "Dokumenty", icon: FileText },
   { href: "/meeting", label: "Spotkania", icon: Mic },
@@ -32,7 +33,7 @@ export default function Navbar({ vertical = false }) {
       )}
       <nav id="przemai-main-navigation" aria-label="Nawigacja główna" className={vertical ? "flex flex-col gap-2" : `${mobileOpen ? "flex" : "hidden"} flex-col gap-2 md:flex md:flex-row md:flex-wrap md:gap-2`}>
       {links.map(({ href, label, icon: Icon }) => {
-        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = href === "/" ? pathname === "/" : (href === "/agents" ? pathname === "/agents" : pathname.startsWith(href));
         return (
           <Link key={href} href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined}
             className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${active

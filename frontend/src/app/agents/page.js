@@ -1,176 +1,102 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import {useEffect,useState} from "react";
 import Link from "next/link";
-import { Activity, ArrowLeft, Bot, Clock3, Mail, Play, Plug, RefreshCw, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
+import {Bot,RefreshCw,Play,Wallet,ArrowUpRight,CheckCircle2,Clock3,ToggleLeft,ToggleRight,ShieldCheck,MessageSquareText} from "lucide-react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
-import { getAgents, runAgent, setAgentEnabled, getIntegrations, setIntegrationEnabled } from "@/lib/api";
-import { parseAgentDashboardResponses, getAgentDashboardSummary, parseAgentToggleResponse, parseAgentRunResponse, getAgentStatusClass, canRunAgent } from "@/lib/agentDashboardPayload";
+import {getAgents,getIntegrations,runAgent,setAgentEnabled} from "@/lib/api";
+import {parseAgentDashboardResponses,parseAgentRunResponse,parseAgentToggleResponse,canRunAgent} from "@/lib/agentDashboardPayload";
 
-function formatDate(value) {
-  if (!value) return "Brak danych";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Brak danych" : date.toLocaleString("pl-PL");
-}
-
-function statusLabel(status) {
-  const labels = {
-    IDLE: "Oczekuje",
-    PLANNED: "Zaplanowany",
-    RUNNING: "W trakcie pracy",
-    ERROR: "Wymaga uwagi",
-    DISABLED: "Wyłączony",
-    SUCCESS: "Sukces",
-    FAILED: "Błąd"
-  };
-  return labels[status] || status || "Nieznany";
-}
-
-export default function AgentsPage() {
-  const [agents, setAgents] = useState([]);
-  const [integrations, setIntegrations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const [agentsResponse, integrationsResponse] = await Promise.all([getAgents(), getIntegrations()]);
-        if (!active) return;
-        const { agents: agentList, integrations: integrationList } = parseAgentDashboardResponses(agentsResponse, integrationsResponse);
-        setAgents(agentList);
-        setIntegrations(integrationList);
-      } catch (err) {
-        if (active) {
-          setError(err?.message || "Nie udało się pobrać danych agentów.");
-          setAgents([]);
-          setIntegrations([]);
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    load();
-    return () => { active = false; };
-  }, [refreshKey]);
-
-  async function act(key, callback, successMessage) {
-    if (pending || loading) return;
-    setPending(key);
-    setError("");
-    setNotice("");
-    try {
-      await callback();
-      setNotice(successMessage);
-      setRefreshKey(value => value + 1);
-    } catch (err) {
-      setError(err?.message || "Operacja nie powiodła się.");
-    } finally {
-      setPending("");
-    }
-  }
-
-  const busy = Boolean(pending) || loading;
-  const summary = getAgentDashboardSummary(agents, integrations, { loading, error });
-
-  return (
-    <main className="min-h-screen bg-[#070e22] px-4 py-6 text-slate-100 sm:px-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.04] px-5 py-4">
-          <Link href="/" className="inline-flex items-center gap-3 text-lg font-black">
-            <ArrowLeft size={18} className="text-cyan-300" aria-hidden="true" /> Przem<span className="-ml-3 text-cyan-300">AI</span>
-          </Link>
-          <UserMenu />
-        </header>
-        <Navbar />
-
-        <section className="mt-8">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200"><Bot size={14} aria-hidden="true" /> AGENT RUNTIME</span>
-              <h1 className="mt-4 text-3xl font-black sm:text-4xl">Agenci i integracje</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Rzeczywiste agenty przypisane do Twojego konta, ich uruchomienia oraz dostępne integracje. Włączenie agenta nie gwarantuje poprawnej konfiguracji zewnętrznej usługi.</p>
-            </div>
-            <button type="button" disabled={busy} onClick={() => setRefreshKey(value => value + 1)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-5 py-3 text-sm font-bold text-cyan-100 hover:bg-cyan-300/20 disabled:opacity-50">
-              <RefreshCw size={17} className={loading ? "animate-spin" : ""} aria-hidden="true" /> Odśwież
-            </button>
-          </div>
-
-          {error && <div role="alert" className="mt-5 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</div>}
-          {notice && !error && <div role="status" className="mt-5 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-4 text-sm text-emerald-200">{notice}</div>}
-          <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Activity className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{summary.agentCount ?? "—"}</p><p className="mt-1 text-sm text-slate-400">Agenci na koncie</p></div>
-            <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Bot className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{summary.enabledAgentCount ?? "—"}</p><p className="mt-1 text-sm text-slate-400">Włączeni</p></div>
-            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[.05] p-5 md:col-span-1"><Plug className="text-cyan-300" size={20} aria-hidden="true" /><p className="mt-3 text-3xl font-bold">{summary.enabledIntegrationCount ?? "—"}</p><p className="mt-1 text-sm text-slate-400">Włączone integracje</p></div>
-          </div>
-        </section>
-
-        <section className="mt-8">
-          <h2 className="text-2xl font-bold">Agenci</h2>
-          <p className="mt-2 text-sm text-slate-400">„Włączony” oznacza gotowość do uruchomienia według harmonogramu, a nie ciągłą aktywność.</p>
-          {loading ? <p role="status" className="mt-6 text-slate-300">Ładowanie agentów…</p> :
-            error ? null : summary.showEmptyAgents ? <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] p-8 text-sm text-slate-300">Brak skonfigurowanych agentów na tym koncie.</div> :
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              {agents.map(agent => (
-                <article key={agent.id} className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#14274c] to-[#0b152c] p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><div className="flex items-center gap-3"><div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot size={23} className="text-cyan-300" /></div><h3 className="text-xl font-bold">{agent.name}</h3></div><p className="mt-3 text-xs text-slate-400">Typ: {agent.type || "—"}</p>{agent.type !== "FINANCIAL" && <p className="mt-2 text-xs text-amber-200">Uruchamianie tego typu agenta jest jeszcze w przygotowaniu.</p>}</div>
-                    <span className={"rounded-full border px-3 py-1 text-xs font-semibold " + getAgentStatusClass(agent.status)}>{statusLabel(agent.status)}</span>
-                  </div>
-                  <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-black/10 p-4 text-xs text-slate-300">
-                    <div><Clock3 size={16} className="mb-2 text-cyan-300" /> Interwał: {agent.intervalMinutes ?? "—"} min</div>
-                    <div>Ostatni przebieg:<br /><span className="text-white">{formatDate(agent.lastRunAt)}</span></div>
-                    <div className="col-span-2">Następny termin: <span className="text-white">{agent.enabled ? formatDate(agent.nextRunAt) : "Wyłączony"}</span></div>
-                  </div>
-                  {agent.runs?.length > 0 && <div className="mt-4 text-xs text-slate-400">Ostatni wynik: <span className="text-slate-200">{statusLabel(agent.runs[0].status)}</span> · {formatDate(agent.runs[0].startedAt)}</div>}
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <button type="button" disabled={busy || !canRunAgent(agent)}
-                      onClick={() => act("run:" + agent.id, () => runAgent(agent.id).then(parseAgentRunResponse), "Agent zakończył pracę. Sprawdź ostatni wynik poniżej.")}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
-                      <Play size={16} /> {agent.type !== "FINANCIAL" ? "W przygotowaniu" : pending === "run:" + agent.id ? "Uruchamianie…" : "Uruchom teraz"}
-                    </button>
-                    <button type="button" disabled={busy || agent.status === "RUNNING"}
-                      onClick={() => act("toggle:" + agent.id, () => setAgentEnabled(agent.id, !agent.enabled).then(response => parseAgentToggleResponse(response, { id: agent.id, enabled: !agent.enabled })), agent.enabled ? "Agent wyłączony." : "Agent włączony.")}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
-                      {agent.enabled ? <ToggleRight size={18} className="text-emerald-300" /> : <ToggleLeft size={18} />} {agent.enabled ? "Wyłącz" : "Włącz"}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>}
-        </section>
-
-        <section className="mt-10">
-          <h2 className="flex items-center gap-2 text-2xl font-bold"><Plug className="text-cyan-300" /> Integracje</h2>
-          <p className="mt-2 text-sm text-slate-400">Włączenie integracji może rozpocząć pobieranie danych z podłączonej usługi.</p>
-          {summary.showEmptyIntegrations && <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] p-8 text-sm text-slate-300">Brak integracji na tym koncie.</div>}
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {!loading && !error && integrations.map(integration => (
-              <article key={integration.id} className="rounded-3xl border border-white/10 bg-white/[.05] p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-3"><Mail size={22} className="text-cyan-300" aria-hidden="true" /><div><h3 className="text-lg font-bold">{integration.name}</h3><p className="mt-1 text-xs text-slate-400">{integration.provider} · {integration.type}</p></div></div>
-                  <span className={"rounded-full border px-3 py-1 text-xs " + (integration.enabled ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-slate-400/20 bg-slate-400/10 text-slate-300")}>{integration.enabled ? "Włączona" : "Wyłączona"}</span>
-                </div>
-                <p className="mt-5 text-sm text-slate-300">Ostatnia synchronizacja: <span className="text-white">{formatDate(integration.lastSyncAt)}</span></p>
-                <button type="button" disabled={busy}
-                  onClick={() => act("integration:" + integration.id, () => setIntegrationEnabled(integration.id, !integration.enabled).then(response => parseAgentToggleResponse(response, { id: integration.id, enabled: !integration.enabled })), integration.enabled ? "Integracja wyłączona." : "Integracja włączona.")}
-                  className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold hover:bg-white/10 disabled:opacity-50">
-                  {integration.enabled ? <ToggleRight size={18} className="text-emerald-300" /> : <ToggleLeft size={18} />} {integration.enabled ? "Wyłącz integrację" : "Włącz integrację"}
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-        <footer className="flex items-center justify-center gap-2 py-10 text-center text-xs text-slate-500"><ShieldCheck size={14} /> PrzemAI · Widoczne są wyłącznie zasoby przypisane do zalogowanego użytkownika</footer>
-      </div>
-    </main>
-  );
+function date(value){if(!value)return "Jeszcze nie uruchamiano";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString("pl-PL");}
+export default function AgentsPage(){
+ const [agents,setAgents]=useState([]),[loading,setLoading]=useState(true);
+ const [pending,setPending]=useState(""),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ const [refresh,setRefresh]=useState(0);
+ useEffect(()=>{
+   let live=true;(async()=>{setLoading(true);setError("");
+     try{const [a,i]=await Promise.all([getAgents(),getIntegrations()]);
+       const value=parseAgentDashboardResponses(a,i);
+       if(live)setAgents(value.agents);
+     }catch(e){if(live)setError(e.message||"Nie udało się pobrać agentów.");}
+     finally{if(live)setLoading(false);}
+   })();return()=>{live=false;};
+ },[refresh]);
+ const change=async(name,action)=>{
+   if(pending)return;setPending(name);setError("");setNotice("");
+   try{await action();setNotice("Zapisano. Stan agentów został odświeżony.");setRefresh(x=>x+1);}
+   catch(e){setError(e.message||"Operacja nie powiodła się.");}
+   finally{setPending("");}
+ };
+ const active=agents.filter(a=>a.enabled).length;
+ return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#070e22] px-3 py-5 text-slate-100 sm:px-6 lg:px-8">
+   <div className="mx-auto w-full max-w-[1540px] min-w-0">
+     <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.04] p-4">
+       <Link href="/" className="text-xl font-black text-white">Przem<span className="text-cyan-300">AI</span></Link><UserMenu/>
+     </header>
+     <Navbar/>
+     <section className="mt-6 min-w-0">
+       <div className="flex flex-wrap items-center justify-between gap-4">
+         <div className="min-w-0">
+           <p className="text-xs font-bold uppercase tracking-[.18em] text-cyan-300">Centrum agentów</p>
+           <h1 className="mt-2 break-words text-3xl font-black sm:text-4xl">Twój zespół PrzemAI</h1>
+           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Każdy agent ma opis zadań, ograniczeń i osobną przestrzeń pracy. Wpisz polecenie, śledź realizację i odbierz wynik. Wysyłanie wiadomości oraz działania poza PrzemAI wymagają dodatkowych integracji i zatwierdzenia.</p>
+         </div>
+         <button type="button" disabled={loading||!!pending} onClick={()=>setRefresh(x=>x+1)}
+           className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50">
+           <RefreshCw size={17} className={loading?"animate-spin":""}/> Odśwież
+         </button>
+       </div>
+       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><Bot className="text-cyan-300"/><p className="mt-2 text-3xl font-black">{loading?"—":agents.length}</p><p className="text-xs text-slate-400">Agenci na koncie</p></div>
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><CheckCircle2 className="text-emerald-300"/><p className="mt-2 text-3xl font-black">{loading?"—":active}</p><p className="text-xs text-slate-400">Włączeni do obsługi</p></div>
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><MessageSquareText className="text-cyan-300"/><p className="mt-2 text-base font-bold">Polecenie → wynik</p><p className="mt-2 text-xs leading-5 text-slate-400">Asystenci przygotowują szkice i analizy. Financial Agent ma dodatkowo integrację KSeF.</p></div>
+       </div>
+     </section>
+     {error&&<p role="alert" className="mt-5 rounded-xl border border-rose-300/30 bg-rose-300/10 p-4 text-sm text-rose-200">{error}</p>}
+     {notice&&<p role="status" className="mt-5 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4 text-sm text-cyan-100">{notice}</p>}
+     {loading?<p className="mt-8 text-slate-300">Pobieranie agentów…</p>:
+       <section className="mt-7 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+         {agents.map(a=><article key={a.id} className={"flex min-w-0 flex-col overflow-hidden rounded-3xl border p-5 sm:p-6 "+(a.key==="sales"?"border-cyan-300/35 bg-gradient-to-br from-[#163455] to-[#0d182e]":"border-white/10 bg-[#101d37]")}>
+           <div className="flex min-w-0 items-start justify-between gap-2">
+             <div className="flex min-w-0 items-center gap-3">
+               <div className="shrink-0 rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot className="text-cyan-300" size={21}/></div>
+               <div className="min-w-0"><h2 className="break-words text-lg font-extrabold">{a.name}</h2>
+                 <p className="mt-1 text-xs text-cyan-200">{a.headline||a.type}</p>
+               </div>
+             </div>
+             <span className="shrink-0 text-[11px] text-slate-400">{a.status==="RUNNING"?"Pracuje":a.enabled?"Włączony":"Wyłączony"}</span>
+           </div>
+           <p className="mt-4 min-w-0 break-words text-sm leading-6 text-slate-200">{a.description||"Opis specjalizacji jest przygotowywany."}</p>
+           <h3 className="mt-5 text-xs font-bold uppercase tracking-wider text-slate-400">Co potrafi</h3>
+           <ul className="mt-2 space-y-1.5">{(a.capabilities||[]).map((cap,i)=><li key={i} className="flex items-start gap-2 text-xs leading-5 text-slate-200"><CheckCircle2 className="mt-0.5 shrink-0 text-cyan-300" size={14}/>{cap}</li>)}</ul>
+           <p className="mt-4 break-words text-xs leading-5 text-slate-400"><strong className="text-slate-300">Granice działania:</strong> {a.limitations||"Brak skonfigurowanych zadań."}</p>
+           <div className="mt-auto border-t border-white/10 pt-5">
+             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+               <Clock3 size={13}/> {a.intervalMinutes} min · {date(a.lastRunAt)}
+             </div>
+             <div className="mt-4 flex flex-wrap gap-2">
+               <Link href={a.key==="financial"?"/finance":"/agents/"+a.key}
+                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-300">
+                 {a.key==="financial"?<Wallet size={16}/>:<MessageSquareText size={16}/>}
+                 {a.key==="financial"?"Centrum finansów":"Zleć zadanie"} <ArrowUpRight size={15}/>
+               </Link>
+               <button type="button" disabled={loading||!!pending||!canRunAgent(a)}
+                 onClick={()=>change("run:"+a.id,()=>runAgent(a.id).then(parseAgentRunResponse))}
+                 title="Uruchom kolejny cykl obsługi zleceń"
+                 className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold hover:bg-white/10 disabled:opacity-40">
+                 <Play size={15}/> Uruchom
+               </button>
+               <button type="button" disabled={loading||!!pending||a.status==="RUNNING"}
+                 aria-label={a.enabled?"Wyłącz agenta":"Włącz agenta"}
+                 onClick={()=>change("toggle:"+a.id,()=>setAgentEnabled(a.id,!a.enabled).then(r=>parseAgentToggleResponse(r,{id:a.id,enabled:!a.enabled})))}
+                 className="inline-flex min-h-11 items-center rounded-xl border border-white/20 px-3 text-sm hover:bg-white/10 disabled:opacity-40">
+                 {a.enabled?<ToggleRight size={19} className="text-emerald-300"/>:<ToggleLeft size={19}/>}
+               </button>
+             </div>
+           </div>
+         </article>)}
+       </section>}
+     <footer className="mt-10 flex items-center gap-2 text-xs text-slate-500"><ShieldCheck size={14}/> Zlecenia i wyniki są przypisane do zalogowanego konta.</footer>
+   </div>
+ </main>;
 }
