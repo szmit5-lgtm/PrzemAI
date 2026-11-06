@@ -51,7 +51,7 @@ export default function LoginPage() {
         <div className="mt-7 flex flex-wrap items-center justify-center gap-4 text-sm text-slate-400">
           <Link href="/preview" className="inline-flex items-center gap-1 text-cyan-300 hover:text-cyan-200">Zobacz podgląd <ArrowRight size={14}/></Link>
           {registrationEnabled && <Link href="/register" className="hover:text-white">Konto indywidualne</Link>}
-          {registrationEnabled && <Link href="/business/register" className="font-semibold text-cyan-200 hover:text-white">Załóż konto dla firmy</Link>}
+          <Link href="/business/register" className="font-semibold text-violet-200 hover:text-white">PrzemAI dla firm</Link>
         </div>
         <div className="mt-7 flex items-center justify-center gap-2 border-t border-white/10 pt-6 text-xs text-slate-500"><ShieldCheck size={14}/><LockKeyhole size={14}/> Dostęp do danych wymaga autoryzacji</div>
       </div>
