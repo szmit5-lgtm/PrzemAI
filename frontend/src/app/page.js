@@ -19,11 +19,6 @@ const money=(value,currency="PLN")=>{
  return Number.isFinite(n)?new Intl.NumberFormat("pl-PL",
   {style:"currency",currency,maximumFractionDigits:0}).format(n):"—";
 };
-const fmtDate=value=>{
- if(!value)return "Brak uruchomienia";
- const d=new Date(value);
- return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pl-PL");
-};
 const readValue=(result,key)=>result.status==="fulfilled"?result.value?.[key]:null;
 function Panel({children,className=""}) {
  return <section className={"min-w-0 overflow-hidden rounded-[22px] border border-white/10 bg-[#111c35]/95 shadow-[0_12px_35px_rgba(0,0,0,.12)] "+className}>{children}</section>;
@@ -61,7 +56,6 @@ export default function HomePage() {
  const [loading,setLoading]=useState(true);
  const [errors,setErrors]=useState(0);
  const [refresh,setRefresh]=useState(0);
- const [compact,setCompact]=useState(false);
  const [companySearch,setCompanySearch]=useState("");
  useEffect(()=>{
   let alive=true;
@@ -160,8 +154,8 @@ export default function HomePage() {
      </div>}
     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
      <Metric label="Faktury z KSeF" value={ready?(finance.ksef??"—"):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
-     <Metric label="Faktury zakupowe PLN" value={ready?money(purchasePLN?.gross||0):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
-     <Metric label="Faktury sprzedażowe PLN" value={ready?money(salesPLN?.gross||0):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
+     <Metric label="Faktury zakupowe PLN" value={ready?(data?.finance?money(purchasePLN?.gross??0):"—"):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
+     <Metric label="Faktury sprzedażowe PLN" value={ready?(data?.finance?money(salesPLN?.gross??0):"—"):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
      <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
     </section>
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#111c35] px-4 py-3 text-xs leading-5 text-slate-400">
