@@ -45,4 +45,27 @@ router.get("/users", async (req,res) => {
   }
 });
 
+
+const ADMIN_EMAIL = "p.szmitkowski@dekonica.com";
+router.patch("/users/:id", async (req,res) => {
+  const id=String(req.params.id||"");
+  const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase():"";
+  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||email.length>254)
+    return res.status(400).json({success:false,error:"Podaj poprawny adres e-mail."});
+  if(email===ADMIN_EMAIL||id===req.user.id)
+    return res.status(403).json({success:false,error:"Nie można edytować konta administratora systemu."});
+  try{
+    const target=await prisma.user.findUnique({where:{id},select:{id:true,role:true,email:true}});
+    if(!target)return res.status(404).json({success:false,error:"Nie znaleziono konta."});
+    if(target.role==="admin"||target.email.toLowerCase()===ADMIN_EMAIL)
+      return res.status(403).json({success:false,error:"Nie można edytować konta administratora."});
+    const updated=await prisma.user.update({where:{id},data:{email},
+      select:{id:true,email:true,role:true,createdAt:true}});
+    return res.json({success:true,data:updated});
+  }catch(error){
+    if(error?.code==="P2002")return res.status(409).json({success:false,error:"Ten adres e-mail jest już zajęty."});
+    return res.status(500).json({success:false,error:"Nie udało się zapisać konta."});
+  }
+});
+
 module.exports = router;
