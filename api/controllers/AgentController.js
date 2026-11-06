@@ -68,6 +68,22 @@ class AgentController {
         }
     }
 
+    async assignments(req,res){
+        try{const data=await this.service.listAssignments(req.user.id,req.params.key);
+          return res.json({success:true,data});
+        }catch(error){return res.status(400).json({success:false,error:error.message});}
+    }
+    async createAssignment(req,res){
+        try{const data=await this.service.createAssignment(req.user.id,req.params.key,req.body||{});
+          return res.status(201).json({success:true,data});
+        }catch(error){return res.status(400).json({success:false,error:error.message});}
+    }
+    async changeAssignmentStage(req,res){
+        try{const data=await this.service.changeAssignmentStage(req.user.id,req.params.key,
+          req.params.taskId,req.body?.stage);
+          return res.json({success:true,data});
+        }catch(error){return res.status(400).json({success:false,error:error.message});}
+    }
     async integrations(req, res) {
         try {
             const data =
