@@ -158,7 +158,7 @@ test("unknown or reserved domain is refused and no DNS or DB creation occurs",as
  for(const hostname of ["przemai.pl","admin.przemai.pl","localhost","127.0.0.1",
    "test.local","abc.vercel.app","https://example.org","api.invalid","bad domain.com"]){
   assert.throws(()=>validateDomain(hostname));
-  await assert.rejects(svc.requestDomain("owner","a",{hostname}),/domena|domeny/i);
+  await assert.rejects(svc.requestDomain("owner","a",{hostname}),/domen/i);
  }
  assert.equal(env.domains.length,0);
 });
