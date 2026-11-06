@@ -112,7 +112,7 @@ export default function HomePage() {
     <div className="mt-5 border-t border-white/10 pt-5">
      <p className="px-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">Przestrzenie firm</p>
      <div className="mt-3 space-y-1">
-      {organizations.slice(0,6).map(o=><Link href="/company/setup" key={o.id}
+      {organizations.slice(0,6).map(o=><Link href={"/company/"+encodeURIComponent(o.id)} key={o.id}
         className="flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-300 hover:bg-white/10">
         <Building2 size={15} className="shrink-0 text-violet-300"/>
         <span className="min-w-0 truncate">{o.displayName||o.name}</span>
@@ -142,7 +142,7 @@ export default function HomePage() {
      <div className="min-w-0 flex-1">
       <p className="text-xs font-bold uppercase tracking-[.17em] text-violet-300">PrzemAI / Pulpit</p>
       <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Dzień dobry <span aria-hidden="true">👋</span></h1>
-      <p className="mt-2 text-sm text-slate-400">Bieżące informacje z Twojego konta, agentów i dokumentów.</p>
+      <p className="mt-2 text-sm text-slate-400">Bieżące informacje z konta osobistego i działających agentów. Przestrzenie firmowe otwieraj osobno.</p>
      </div>
      <button type="button" onClick={()=>setRefresh(v=>v+1)} disabled={loading}
        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50">
@@ -242,19 +242,19 @@ export default function HomePage() {
       <p className="mt-3 text-xs text-slate-500">Asystent nie wysyła wiadomości ani nie wykonuje przelewów bez upoważnienia.</p>
      </Panel>
      <Panel className="p-4 sm:p-5">
-      <SectionTitle href="/company/setup" link="Zarządzaj">Twoje spółki</SectionTitle>
+      <SectionTitle href="/company/setup" link="Panel grupy">Twoje spółki</SectionTitle>
       <label className="mt-3 block text-xs text-slate-400">Filtruj nazwy spółek
        <input value={companySearch} onChange={e=>setCompanySearch(e.target.value)} placeholder="Wpisz nazwę…"
         className="mt-1 block w-full rounded-xl border border-white/15 bg-[#0c1630] p-3 text-sm text-white"/>
       </label>
       <div className="mt-3 space-y-2">
-       {filteredCompanies.slice(0,5).map(o=><Link href="/company/setup" key={o.id}
+       {filteredCompanies.slice(0,5).map(o=><Link href={"/company/"+encodeURIComponent(o.id)} key={o.id}
         className="flex items-center justify-between gap-3 rounded-lg bg-white/[.035] px-3 py-2 text-sm text-slate-300 hover:bg-white/10">
          <span className="min-w-0 truncate">{o.displayName||o.name}</span><ChevronRight size={16}/>
        </Link>)}
        {filteredCompanies.length===0&&<p className="py-3 text-xs text-slate-400">Brak spółek odpowiadających filtrowi.</p>}
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-500">Przełączanie oddzielnych danych spółek zostanie udostępnione po zakończeniu izolacji organizacji; obecne liczby są z konta użytkownika.</p>
+      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Powyższe finanse są nadal danymi konta osobistego — nie skonsolidowaną księgowością spółek.</p>
      </Panel>
     </div>
     <div className="mt-4 flex flex-wrap gap-2">
