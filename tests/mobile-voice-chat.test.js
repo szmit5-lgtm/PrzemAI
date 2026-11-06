@@ -31,3 +31,11 @@ test("mobile assistant exposes large mic and safe-area composer while preserving
  assert.match(ui,/sendChatMessage\(text,activeConversationId\)/);
  assert.match(ui,/speechSynthesis/);
 });
+
+test("one tap enables spoken conversation and starts recognition in same user gesture",async()=>{
+ const ui=await fs.readFile(path.join(__dirname,"../frontend/src/app/chat/page.js"),"utf8");
+ assert.match(ui,/function startVoiceMode\(\)/);
+ assert.match(ui,/voiceModeRef\.current=true;[\s\S]*?toggleMicrophone\(\);/);
+ assert.match(ui,/aria-pressed=\{voiceMode\} onClick=\{startVoiceMode\}/);
+ assert.match(ui,/onClick=\{\(\)=>send\(\)\} disabled=\{busy\|\|listening\|\|!message\.trim\(\)\}/);
+});

@@ -74,6 +74,19 @@ export default function ChatPage(){
    recognitionRef.current=null;
    setListening(false);
  }
+ function startVoiceMode(){
+   if(!voiceSupported||loadingRef.current||loadingConversation)return;
+   if(voiceModeRef.current){
+     toggleVoiceMode();
+     return;
+   }
+   // One real tap both switches to voice replies and opens the microphone.
+   // Keep recognition.start() inside this user gesture for mobile browsers.
+   voiceModeRef.current=true;
+   setVoiceMode(true);
+   setVoiceError("");
+   toggleMicrophone();
+ }
  function toggleVoiceMode(){
    if(listening)cancelListening();
    const next=!voiceModeRef.current;
@@ -234,7 +247,8 @@ export default function ChatPage(){
  }
  function handleKeyDown(event){
    if(event.key==="Enter"&&!event.shiftKey){
-     event.preventDefault();send();
+     event.preventDefault();
+     if(!listening)send();
    }
  }
  const busy=loading||loadingConversation;
@@ -330,7 +344,7 @@ export default function ChatPage(){
      </div>
      <div className="min-w-0 shrink-0 border-t border-white/10 bg-[#101a33] px-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3 sm:px-6 sm:pb-4 sm:pt-4">
       <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
-       <button type="button" aria-pressed={voiceMode} onClick={toggleVoiceMode}
+       <button type="button" aria-pressed={voiceMode} onClick={startVoiceMode}
         disabled={!voiceSupported||busy}
         className={"inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold disabled:opacity-40 sm:flex-none "+(voiceMode
          ?"border-violet-300/40 bg-violet-500/20 text-violet-100"
@@ -365,7 +379,7 @@ export default function ChatPage(){
         placeholder={listening?"Słucham Twojej wypowiedzi…":"Napisz lub dotknij mikrofonu"}
         aria-label="Wiadomość do asystenta"
         className="max-h-32 min-h-14 min-w-0 flex-1 resize-y bg-transparent px-1 py-3 text-base leading-7 text-white outline-none placeholder:text-slate-500 disabled:opacity-50 sm:px-3"/>
-       <button type="button" onClick={()=>send()} disabled={busy||!message.trim()}
+       <button type="button" onClick={()=>send()} disabled={busy||listening||!message.trim()}
         aria-label="Wyślij wiadomość"
         className="inline-flex min-h-14 min-w-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-2 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-40 sm:px-5">
         {loading?<LoaderCircle size={20} className="animate-spin"/>:<Send size={21}/>}
