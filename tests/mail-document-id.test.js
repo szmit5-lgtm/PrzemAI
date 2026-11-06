@@ -56,3 +56,17 @@ test("rejects incomplete identity instead of creating colliding keys", () => {
     /neither/
   );
 });
+
+test("normalizes surrounding Message-ID whitespace without changing attachment identity", () => {
+  assert.equal(
+    mailDocumentId(original),
+    mailDocumentId({ ...original, messageId: "  <invoice-123@example.test> \n" })
+  );
+});
+
+test("Message-ID takes precedence over volatile IMAP UID metadata", () => {
+  assert.equal(
+    mailDocumentId(original),
+    mailDocumentId({ ...original, uid: 999, uidValidity: "999" })
+  );
+});
