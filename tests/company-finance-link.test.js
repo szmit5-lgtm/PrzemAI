@@ -67,7 +67,7 @@ function makeService({env,permission=false,linkPresent=true,ownerActive=true}={}
   const original=Module._load;
   Module._load=function(req,parent,isMain){
     if(parent?.filename===file && req==="../../lib/prisma")return db;
-    if(parent?.filename===file && req==="./OrganizationService")return {OrganizationService:class {}};
+    if(parent?.filename===file && req==="./OrganizationService")return {OrganizationService:class {},OrganizationError:class extends Error {constructor(message,status=400){super(message);this.status=status;}}};
     return original.call(this,req,parent,isMain);
   };
   let Service,ksefDocPredicate;
