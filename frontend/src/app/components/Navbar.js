@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare, Brain, Settings, Bot, Wallet, Handshake, Building2 } from "lucide-react";
+import { LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare, Brain, Settings, Bot, Wallet, Handshake, Building2, ShieldCheck } from "lucide-react";
 
 const links = [
   { href: "/", label: "Pulpit", icon: LayoutDashboard },
@@ -12,6 +12,7 @@ const links = [
   { href: "/agents", label: "Agenci", icon: Bot },
   { href: "/agents/sales", label: "Sprzedaż", icon: Handshake },
   { href: "/company/setup", label: "Spółki", icon: Building2 },
+  { href: "/administracja", label: "Administracja", icon: ShieldCheck },
   { href: "/finance", label: "Finanse", icon: Wallet },
   { href: "/document", label: "Dokumenty", icon: FileText },
   { href: "/meeting", label: "Spotkania", icon: Mic },
@@ -24,7 +25,7 @@ const links = [
 export default function Navbar({ vertical = false }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
+  const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company","/administracja"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
   return (
     <div className={vertical ? "w-full" : "mt-4 mb-6 w-full"}>
       {!vertical && (
