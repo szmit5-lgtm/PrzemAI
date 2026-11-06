@@ -61,5 +61,5 @@ test("history cursor advances only after both directions import successfully", a
   assert.equal(runs.filter(run => run.type === "query").length, 4);
   assert.equal(runs.filter(run => run.type === "cursor").length, 1);
   assert.equal(runs.filter(run => run.type === "xml").length, 2);
-  assert.ok(runs.some(run => run.type === "xml" && run.args.data.metadata?.analysis?.version === 2));
+  assert.ok(runs.some(run => run.type === "xml" && run.args.data.metadata?.analysis?.version === 3));
 });

@@ -61,3 +61,37 @@ test("a contract referring to both sites must be reviewed instead of guessed",()
  assert.equal(out.projectId,null);
  assert.equal(out.projectDecision,"AMBIGUOUS");
 });
+
+test("FA(3) StopkaFaktury contains Unihouse/Zgorzelec and assigns Zgorzelec",()=>{
+ const xml=`<Faktura xmlns="http://example.gov.pl/FA3">
+   <Fa><FaWiersz><P_7>Materiały budowlane</P_7></FaWiersz></Fa>
+   <Stopka><Informacje><StopkaFaktury>Unihouse/Zgorzelec</StopkaFaktury></Informacje></Stopka>
+ </Faktura>`;
+ const out=analyzeKsefXml(xml,[{id:"m",name:"Mielno",status:"ACTIVE"},
+   {id:"z",name:"Zgorzelec",status:"ACTIVE"}]);
+ assert.equal(out.projectId,"z");
+ assert.equal(out.projectDecision,"AUTO_ASSIGNED");
+ assert.equal(out.projectEvidence,"FOOTER");
+});
+test("FA(3) namespace prefixes in footers are supported",()=>{
+ const xml=`<fa:Faktura xmlns:fa="http://example.gov.pl/FA3">
+ <fa:Fa><fa:FaWiersz><fa:P_7>Usługi budowlane</fa:P_7></fa:FaWiersz></fa:Fa>
+ <fa:Stopka><fa:Informacje><fa:StopkaFaktury>Unihouse / Mielno</fa:StopkaFaktury>
+ </fa:Informacje></fa:Stopka></fa:Faktura>`;
+ const out=analyzeKsefXml(xml,[{id:"m",name:"Mielno"}]);
+ assert.equal(out.projectId,"m");
+ assert.equal(out.projectEvidence,"FOOTER");
+});
+test("conflicting footer and invoice line cannot be auto-assigned",()=>{
+ const xml=`<Faktura><Fa><FaWiersz><P_7>Instalacja Zgorzelec</P_7></FaWiersz></Fa>
+ <Stopka><Informacje><StopkaFaktury>Unihouse/Mielno</StopkaFaktury></Informacje></Stopka></Faktura>`;
+ const out=analyzeKsefXml(xml,[{id:"m",name:"Mielno"},{id:"z",name:"Zgorzelec"}]);
+ assert.equal(out.projectId,null);
+ assert.equal(out.projectDecision,"AMBIGUOUS");
+});
+test("supplier address outside stopka cannot be treated as project evidence",()=>{
+ const xml=`<Faktura><Podmiot1><Adres><AdresL1>Unihouse/Zgorzelec</AdresL1>
+ </Adres></Podmiot1><Fa><FaWiersz><P_7>Materiały</P_7></FaWiersz></Fa></Faktura>`;
+ const out=analyzeKsefXml(xml,[{id:"z",name:"Zgorzelec"}]);
+ assert.equal(out.projectId,null);
+});
