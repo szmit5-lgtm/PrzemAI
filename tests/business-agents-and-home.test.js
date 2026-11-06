@@ -79,8 +79,8 @@ test("home dashboard no longer lists static planned agents or invented bank bala
  const file=fs.readFileSync(path.join(__dirname,"../frontend/src/app/page.js"),"utf8");
  for(const key of ["getAgents","getFinanceSummary","getFinanceProjects","getOrganizations",
    "getFinancePeriodReport"])assert.match(file,new RegExp(key));
- assert.doesNotMatch(file,/\\b3\\s*120\\s*000\\s*PLN\\b/);
- assert.doesNotMatch(file,/const agents = \\[/);
+ assert.equal(file.includes("3 120 000 PLN"),false);
+ assert.equal(file.includes("const agents = ["),false);
  assert.match(file,/brak podłączonej bankowości/);
  assert.match(file,/DANE Z SYSTEMU/);
 });
