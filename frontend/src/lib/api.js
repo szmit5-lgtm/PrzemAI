@@ -427,3 +427,61 @@ export async function replyToAgentAssignment(key,id,message) {
       body:JSON.stringify({message})
     });
 }
+
+export async function getOrganization(id) {
+  return request("/api/organizations/"+encodeURIComponent(id));
+}
+export async function updateOrganizationBrand(id,payload) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/branding",{
+    method:"PATCH",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+}
+export async function requestOrganizationDomain(id,hostname) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/domains",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({hostname})
+  });
+}
+export async function getOrganizationDomainInstructions(id,domainId) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/domains/"+encodeURIComponent(domainId));
+}
+export async function verifyOrganizationDomain(id,domainId) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/domains/"+
+    encodeURIComponent(domainId)+"/verify",{method:"POST"});
+}
+export async function getOrganizationMembers(id) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/members");
+}
+export async function inviteOrganizationMember(id,payload) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/invitations",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+}
+export async function getOrganizationInvitations() {
+  return request("/api/organizations/invitations");
+}
+export async function acceptOrganizationInvitation(id) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/invitations/accept",
+    {method:"POST"});
+}
+export async function revokeOrganizationMember(id,membershipId) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/members/"+
+    encodeURIComponent(membershipId),{method:"DELETE"});
+}
+export async function getOrganizationWorkspace(id) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/workspace");
+}
+export async function createOrganizationTask(id,payload) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/workspace/tasks",{
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
+  });
+}
+export async function changeOrganizationTaskStatus(id,taskId,status) {
+  return request("/api/organizations/"+encodeURIComponent(id)+"/workspace/tasks/"+
+    encodeURIComponent(taskId),{
+      method:"PATCH",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({status})
+    });
+}
