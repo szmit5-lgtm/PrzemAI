@@ -50,7 +50,7 @@ const ADMIN_EMAIL = "p.szmitkowski@dekonica.com";
 router.patch("/users/:id", async (req,res) => {
   const id=String(req.params.id||"");
   const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase():"";
-  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||email.length>254)
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)
     return res.status(400).json({success:false,error:"Podaj poprawny adres e-mail."});
   if(email===ADMIN_EMAIL||id===req.user.id)
     return res.status(403).json({success:false,error:"Nie można edytować konta administratora systemu."});
