@@ -392,3 +392,20 @@ export async function registerOrganization(company) {
         body: JSON.stringify(company)
     });
 }
+
+export async function getAgentAssignments(key) {
+  return request("/api/agents/workspace/" + encodeURIComponent(key) + "/assignments");
+}
+export async function createAgentAssignment(key,payload) {
+  return request("/api/agents/workspace/" + encodeURIComponent(key) + "/assignments",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+}
+export async function setAgentAssignmentStage(key,id,stage) {
+  return request("/api/agents/workspace/" + encodeURIComponent(key) +
+    "/assignments/" + encodeURIComponent(id) + "/stage",{
+      method:"PATCH",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({stage})
+    });
+}
