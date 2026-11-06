@@ -88,9 +88,26 @@ class OrganizationService{
     }
     if(Object.prototype.hasOwnProperty.call(input||{},"logoUrl")){
       const logo=String(input.logoUrl||"").trim();
-      if(logo&&(logo.length>500||!/^https:\/\/[a-z0-9][a-z0-9.-]+(?:\/|$)/i.test(logo) ||
-        /[<>"'\s]/.test(logo)))
-        throw new OrganizationError("Podaj bezpieczny adres HTTPS logo lub pozostaw puste.");
+      // Small raster logos can be uploaded directly from the browser.
+      // Store a validated data URL instead of relying on short-lived local files
+      // or private document-sharing links. Limit size to 512 KiB.
+      if (logo.startsWith("data:")) {
+        const match=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(logo);
+        if (!match || logo.length>730000 || match[2].length%4!==0)
+          throw new OrganizationError("Logo musi być plikiem PNG, JPG lub WEBP do 512 KB.");
+        const bytes=Buffer.from(match[2],"base64");
+        if (!bytes.length || bytes.length>512*1024 || bytes.toString("base64")!==match[2])
+          throw new OrganizationError("Nieprawidłowe dane obrazu logo.");
+        const type=match[1];
+        const png=bytes.length>=8&&bytes.subarray(0,8).equals(Buffer.from("89504e470d0a1a0a","hex"));
+        const jpeg=bytes.length>=4&&bytes[0]===255&&bytes[1]===216&&bytes[bytes.length-2]===255&&bytes[bytes.length-1]===217;
+        const webp=bytes.length>=12&&bytes.toString("ascii",0,4)==="RIFF"&&bytes.toString("ascii",8,12)==="WEBP";
+        if (!(type==="png"&&png || type==="jpeg"&&jpeg || type==="webp"&&webp))
+          throw new OrganizationError("Zawartość pliku nie odpowiada formatowi obrazu.");
+      } else if(logo&&(logo.length>500||!/^https:\/\/[a-z0-9][a-z0-9.-]+(?:\/|$)/i.test(logo) ||
+        /[<>"'\s]/.test(logo))) {
+        throw new OrganizationError("Podaj adres HTTPS obrazu albo prześlij plik PNG, JPG lub WEBP.");
+      }
       changes.logoUrl=logo||null;
     }
     if(!Object.keys(changes).length)throw new OrganizationError("Nie podano zmian.");
