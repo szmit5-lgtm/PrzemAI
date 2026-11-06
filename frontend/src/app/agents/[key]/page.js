@@ -5,7 +5,7 @@ import {useParams} from "next/navigation";
 import {ArrowLeft,RefreshCw,Send,Clipboard,CheckCircle2,Clock3,BriefcaseBusiness} from "lucide-react";
 import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
-import {getAgents,getIntegrations,getAgentAssignments,createAgentAssignment,setAgentAssignmentStage} from "@/lib/api";
+import {getAgents,getAgentAssignments,createAgentAssignment,setAgentAssignmentStage,replyToAgentAssignment} from "@/lib/api";
 
 const STAGES=[["NEW","Nowy kontakt"],["QUALIFIED","Zakwalifikowany"],["PROPOSAL","Oferta"],["FOLLOW_UP","Kontakt ponowny"],["WON","Wygrany"],["LOST","Utracony"]];
 function fmt(v){if(!v)return "—";const d=new Date(v);return isNaN(d.getTime())?"—":d.toLocaleString("pl-PL");}
@@ -15,6 +15,18 @@ export default function AgentWorkspace(){
  const [company,setCompany]=useState("Dekonica"),[project,setProject]=useState(""),[stage,setStage]=useState("NEW");
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [refresh,setRefresh]=useState(0);
+ const [replyDrafts,setReplyDrafts]=useState({});
+ const [replyBusy,setReplyBusy]=useState("");
+ const hasPending=tasks.some(t=>t.status==="TODO"||t.status==="IN_PROGRESS");
+ useEffect(()=>{
+   if(!hasPending)return;
+   const timer=setInterval(()=>{
+     getAgentAssignments(key).then(r=>{
+       if(Array.isArray(r?.data))setTasks(r.data);
+     }).catch(()=>{});
+   },10000);
+   return()=>clearInterval(timer);
+ },[hasPending,key]);
  useEffect(()=>{
   let alive=true;setLoading(true);setError("");
   Promise.all([getAgents(),getAgentAssignments(key)]).then(([a,t])=>{
@@ -34,6 +46,19 @@ export default function AgentWorkspace(){
    setRefresh(v=>v+1);
   }catch(e){setError(e.message||"Nie można zlecić zadania.");}
   finally{setBusy(false);}
+ }
+ async function sendReply(event,task){
+  event.preventDefault();
+  const text=(replyDrafts[task.id]||"").trim();
+  if(replyBusy||!text)return;
+  setReplyBusy(task.id);setError("");setNotice("");
+  try{
+    await replyToAgentAssignment(key,task.id,text);
+    setReplyDrafts(previous=>({...previous,[task.id]:""}));
+    setNotice("Odpowiedź przekazana agentowi. Kontynuuje tę samą sprawę.");
+    setRefresh(v=>v+1);
+  }catch(e){setError(e.message||"Nie można wysłać odpowiedzi.");}
+  finally{setReplyBusy("");}
  }
  async function updateStage(id,next){
   setBusy(true);setError("");
@@ -119,14 +144,56 @@ export default function AgentWorkspace(){
                {STAGES.map(([v,l])=><option key={v} value={v}>{l}</option>)}
              </select>
            </label>}
-           {t.metadata?.result&&<div className="mt-4 min-w-0 rounded-xl border border-cyan-400/10 bg-[#0b1830] p-4">
+           {Array.isArray(t.metadata?.conversation)&&t.metadata.conversation.length>0?
+            <div className="mt-4 min-w-0 rounded-xl border border-cyan-400/10 bg-[#0b1830] p-3 sm:p-4">
+             <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-200">Rozmowa z agentem</h4>
+             <div className="mt-3 max-h-[550px] space-y-3 overflow-y-auto pr-1">
+              {t.metadata.conversation.map((m,index)=><div key={index}
+               className={"min-w-0 rounded-xl border p-3 text-sm leading-6 "+(m.role==="user"
+                 ?"ml-3 border-violet-400/20 bg-violet-500/10 text-slate-100"
+                 :"mr-3 border-cyan-400/15 bg-cyan-400/[.045] text-slate-200")}>
+               <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                {m.role==="user"?"Twoja wiadomość":agent.name}
+               </p>
+               <p className="whitespace-pre-wrap break-words">{m.content}</p>
+              </div>)}
+             </div>
+             {t.metadata.result&&<button type="button"
+               onClick={()=>navigator.clipboard.writeText(t.metadata.result)}
+               className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-xs text-slate-300 hover:bg-white/10">
+               <Clipboard size={14}/> Kopiuj ostatni wynik
+              </button>}
+            </div>:
+            t.metadata?.result&&<div className="mt-4 min-w-0 rounded-xl border border-cyan-400/10 bg-[#0b1830] p-4">
              <div className="flex items-center justify-between gap-3">
                <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-200">Wynik agenta</h4>
                <button type="button" onClick={()=>navigator.clipboard.writeText(t.metadata.result)} title="Kopiuj"
                  className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs text-slate-300 hover:bg-white/10"><Clipboard size={15}/> Kopiuj</button>
              </div>
              <p className="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-slate-200">{t.metadata.result}</p>
-           </div>}
+            </div>}
+           {["DONE","ERROR"].includes(t.status) &&
+            <form onSubmit={event=>sendReply(event,t)} className="mt-4 min-w-0 border-t border-white/10 pt-4">
+             <label className="block text-xs font-bold text-cyan-200">Odpowiedz agentowi — kontynuuj tę sprawę
+               <textarea rows={3} maxLength={5000}
+                 value={replyDrafts[t.id]||""}
+                 onChange={event=>setReplyDrafts(prev=>({...prev,[t.id]:event.target.value}))}
+                 placeholder={sales
+                   ?"Wpisz odpowiedzi na pytania agenta, dodatkowe informacje lub poproś o poprawienie oferty…"
+                   :"Odpowiedz na pytanie lub doprecyzuj zlecenie…"}
+                 className="mt-2 block w-full min-w-0 resize-y rounded-xl border border-cyan-300/20 bg-[#111f38] p-3 text-sm leading-6 text-white placeholder:text-slate-500"
+               />
+             </label>
+             <button type="submit" disabled={!!replyBusy||!agent.enabled||!(replyDrafts[t.id]||"").trim()}
+               className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-bold text-white hover:bg-violet-400 disabled:opacity-40 sm:w-auto">
+               <Send size={15}/> {replyBusy===t.id?"Przekazuję…":"Wyślij odpowiedź agentowi"}
+             </button>
+            </form>}
+           {["TODO","IN_PROGRESS"].includes(t.status) &&
+             <p className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/5 p-3 text-xs text-cyan-200">
+               {t.status==="IN_PROGRESS"?"Agent opracowuje kolejną odpowiedź…":
+                 "Odpowiedź jest w kolejce. Wynik pojawi się w tej rozmowie."}
+             </p>}
            {t.metadata?.error&&<p role="alert" className="mt-3 text-xs text-rose-300">{t.metadata.error}</p>}
          </article>)}
         </div>}
