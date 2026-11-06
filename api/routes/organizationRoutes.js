@@ -3,6 +3,8 @@
 const express = require("express");
 const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
+const {OrganizationService,OrganizationError}=require("../services/OrganizationService");
+const service=new OrganizationService();
 
 const router = express.Router();
 
@@ -36,7 +38,7 @@ router.post("/register", async (req, res) => {
   const password = req.body?.password;
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const slug = typeof req.body?.slug === "string" ? req.body.slug.trim().toLowerCase() : "";
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254 ||
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
       typeof password !== "string" || password.length < 8 || password.length > 1024 ||
       name.length < 2 || name.length > 120 ||
       !/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/.test(slug)) {
@@ -65,6 +67,46 @@ router.post("/register", async (req, res) => {
     return res.status(500).json({ success: false, error: "Nie udało się utworzyć konta firmowego." });
   }
 });
+
+
+// All company endpoints validate the logged-in user's membership in the service.
+// An organization ID or browser-selected company is never a security credential.
+const handler=fn=>async(req,res)=>{
+  try{
+    const data=await fn(req);
+    res.json({success:true,data});
+  }catch(error){
+    if(error?.code==="P2002")return res.status(409).json({
+      success:false,error:"Ten adres domeny lub identyfikator jest już zajęty."
+    });
+    const status=error instanceof OrganizationError ? error.status : 500;
+    res.status(status).json({success:false,error:status===500
+      ?"Nie udało się wykonać operacji firmowej.":error.message});
+  }
+};
+router.get("/invitations",verifyToken,handler(req=>service.pendingInvites(req.user.id)));
+router.post("/:id/invitations/accept",verifyToken,
+  handler(req=>service.acceptInvite(req.user.id,req.params.id)));
+router.get("/:id",verifyToken,handler(req=>service.details(req.user.id,req.params.id)));
+router.patch("/:id/branding",verifyToken,
+  handler(req=>service.changeBranding(req.user.id,req.params.id,req.body)));
+router.get("/:id/members",verifyToken,handler(req=>service.members(req.user.id,req.params.id)));
+router.post("/:id/invitations",verifyToken,
+  handler(req=>service.invite(req.user.id,req.params.id,req.body)));
+router.delete("/:id/members/:membershipId",verifyToken,
+  handler(req=>service.revoke(req.user.id,req.params.id,req.params.membershipId)));
+router.post("/:id/domains",verifyToken,
+  handler(req=>service.requestDomain(req.user.id,req.params.id,req.body)));
+router.get("/:id/domains/:domainId",verifyToken,
+  handler(req=>service.domainInstructions(req.user.id,req.params.id,req.params.domainId)));
+router.post("/:id/domains/:domainId/verify",verifyToken,
+  handler(req=>service.verifyDomain(req.user.id,req.params.id,req.params.domainId)));
+router.get("/:id/workspace",verifyToken,handler(req=>service.workspace(req.user.id,req.params.id)));
+router.post("/:id/workspace/tasks",verifyToken,
+  handler(req=>service.createCompanyTask(req.user.id,req.params.id,req.body)));
+router.patch("/:id/workspace/tasks/:taskId",verifyToken,
+  handler(req=>service.setCompanyTaskStatus(req.user.id,req.params.id,req.params.taskId,
+    req.body?.status)));
 
 router.post("/", verifyToken, async (req, res) => {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
