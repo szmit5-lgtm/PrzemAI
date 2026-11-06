@@ -27,6 +27,7 @@ model User {
   projects      Project[]
   financialDocuments FinancialDocument[]
   organizationMemberships OrganizationMembership[]
+  linkedOrganizationFinances OrganizationFinanceLink[]
 }
 
 model History {
@@ -332,6 +333,7 @@ model Organization {
 
   memberships OrganizationMembership[]
   domains     OrganizationDomain[]
+  financeLink OrganizationFinanceLink?
 
   @@index([status])
 }
@@ -341,6 +343,7 @@ model OrganizationMembership {
   organizationId String
   userId         String
   role           String @default("MEMBER")
+  financeAccess  Boolean @default(false)
   status         String @default("ACTIVE")
 
   createdAt DateTime @default(now())
@@ -368,4 +371,22 @@ model OrganizationDomain {
 
   @@index([organizationId])
   @@index([verifiedAt])
+}
+
+
+/// Owner-controlled binding to the existing KSeF pilot. Credentials remain
+/// with the original owner. No private financial document is migrated or shared.
+model OrganizationFinanceLink {
+  id             String @id @default(cuid())
+  organizationId String @unique
+  ownerUserId    String
+  nip            String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([ownerUserId])
+  @@index([nip])
 }
