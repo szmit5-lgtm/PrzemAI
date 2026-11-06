@@ -678,6 +678,10 @@ export default function SettingsPage() {
                                     className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none disabled:bg-[#080e20]"
                                 >
 
+                                    <option value="gpt-6.1-sol">GPT-6.1 Sol — rekomendowany</option>
+                                    <option value="gpt-6.1-terra">GPT-6.1 Terra — szybki</option>
+                                    <option value="gpt-6-astra">GPT-6 Astra — zaawansowany (droższy)</option>
+                                    <option value="gpt-6-luna">GPT-6 Luna — ekonomiczny</option>
                                     <option value="gpt-5.5">
 
                                         GPT-5.5
