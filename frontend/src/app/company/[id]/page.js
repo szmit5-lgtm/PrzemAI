@@ -151,6 +151,18 @@ export default function CompanyWorkspace(){
       <span>Ta przestrzeń posiada własne zadania i dostęp zespołu. Istniejące faktury KSeF, historia, agent finansowy i rozmowy ze starego konta nie są tu jeszcze przeniesione ani współdzielone. Nie traktuj widoku osobistego jako finansów tej firmy.</span>
      </div>
     </section>
+    <Link href={"/company/"+encodeURIComponent(id)+"/finance"}
+      className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/10 p-4 transition hover:bg-violet-400/15">
+      <span className="flex min-w-0 items-center gap-3">
+       <span className="rounded-xl bg-violet-500/20 p-2.5 text-violet-200"><Wallet size={22}/></span>
+       <span className="min-w-0"><strong className="block text-sm sm:text-base">Finanse i KSeF firmy</strong>
+        <span className="mt-1 block text-xs text-slate-300">
+         Powiązanie faktur, inwestycje i uprawnienia finansowe pracowników
+        </span>
+       </span>
+      </span>
+      <span className="text-xs font-bold text-violet-200">Otwórz finanse</span>
+    </Link>
     <div className="mt-5 flex min-w-0 flex-wrap gap-2" role="tablist" aria-label="Zarządzanie firmą">
      {tabs.filter(([key])=>key==="tasks"||(key==="team"||key==="brand")&&isAdmin||key==="domain"&&isOwner)
       .map(([key,label])=><button type="button" key={key} role="tab" aria-selected={tab===key}
