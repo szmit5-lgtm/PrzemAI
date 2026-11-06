@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {getProfile} from "@/lib/api";
 import { Menu, X } from "lucide-react";
 import { LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare, Brain, Settings, Bot, Wallet, Handshake, Building2, ShieldCheck } from "lucide-react";
 
@@ -25,6 +26,14 @@ const links = [
 export default function Navbar({ vertical = false }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showAdministration, setShowAdministration] = useState(false);
+  useEffect(() => {
+    let active = true;
+    getProfile().then(result => {
+      if (active) setShowAdministration(result?.user?.email?.trim().toLowerCase() === "p.szmitkowski@dekonica.com");
+    }).catch(() => { if (active) setShowAdministration(false); });
+    return () => { active = false; };
+  }, []);
   const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company","/administracja"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
   return (
     <div className={vertical ? "w-full" : "mt-4 mb-6 w-full"}>
@@ -34,7 +43,7 @@ export default function Navbar({ vertical = false }) {
         </button>
       )}
       <nav id="przemai-main-navigation" aria-label="Nawigacja główna" className={vertical ? "flex flex-col gap-2" : `${mobileOpen ? "flex" : "hidden"} flex-col gap-2 md:flex md:flex-row md:flex-wrap md:gap-2`}>
-      {links.map(({ href, label, icon: Icon }) => {
+      {links.filter(link => link.href !== "/administracja" || showAdministration).map(({ href, label, icon: Icon }) => {
         const active = href === "/" ? pathname === "/" : (href === "/agents" ? pathname === "/agents" || (pathname.startsWith("/agents/") && pathname !== "/agents/sales") : pathname === href || pathname.startsWith(href + "/"));
         return (
           <Link key={href} href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined}
