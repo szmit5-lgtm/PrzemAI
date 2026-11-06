@@ -5,6 +5,10 @@ const verifyToken = require("../middleware/verifyToken");
 const router = express.Router();
 const controller = new AgentController();
 
+router.get("/workspace/:key/assignments",verifyToken,(req,res)=>controller.assignments(req,res));
+router.post("/workspace/:key/assignments",verifyToken,(req,res)=>controller.createAssignment(req,res));
+router.patch("/workspace/:key/assignments/:taskId/stage",verifyToken,(req,res)=>controller.changeAssignmentStage(req,res));
+
 router.get(
     "/",
     verifyToken,
