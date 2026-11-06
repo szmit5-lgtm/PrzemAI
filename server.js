@@ -15,6 +15,7 @@ const settingsRoutes = require("./api/routes/settingsRoutes");
 const agentRoutes = require("./api/routes/agentRoutes");
 const financeRoutes = require("./api/routes/financeRoutes");
 const organizationRoutes = require("./api/routes/organizationRoutes");
+const adminRoutes = require("./api/routes/adminRoutes");
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/agents", agentRoutes);
 app.use("/api/finance", financeRoutes);
 app.use("/api/organizations", organizationRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.json({
