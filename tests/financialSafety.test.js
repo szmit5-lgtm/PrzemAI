@@ -52,6 +52,13 @@ test("mail attachment identity rejects missing message identity or index", () =>
   assert.throws(() => mailDocumentId(attachment({ integrationId: "" })));
 });
 
+test("mail attachment identity rejects fractional and non-finite indexes", () => {
+  for (const attachmentIndex of [0.5, NaN, Infinity, -Infinity, "0", null, undefined]) {
+    assert.throws(() => mailDocumentId(attachment({ attachmentIndex })), /Invalid mail attachment identity/);
+  }
+  assert.match(mailDocumentId(attachment({ attachmentIndex: 0 })), /^[0-9a-f]{64}$/);
+});
+
 test("shared mailbox access requires an explicit matching internal user ID", () => {
   const owner = "user-owner";
   const env = { DEKONICA_MAIL_OWNER_USER_ID: owner };
