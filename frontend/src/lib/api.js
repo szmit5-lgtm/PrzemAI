@@ -515,3 +515,10 @@ export async function getSystemUsers(cursor=null) {
   const query=cursor?"?cursor="+encodeURIComponent(cursor):"";
   return request("/api/admin/users"+query);
 }
+
+export async function updateSystemUser(id,payload) {
+  return request("/api/admin/users/"+encodeURIComponent(id),{
+    method:"PATCH",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+}
