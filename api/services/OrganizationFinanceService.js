@@ -46,7 +46,12 @@ class OrganizationFinanceService{
        organization:{status:"ACTIVE"}},
      select:{id:true}
    }))?.id);
-   const couldLink=member.role==="OWNER"&&
+   const pilotOrg=await this.db.organization.findUnique({
+     where:{id:organizationId},select:{name:true,slug:true,status:true}
+   });
+   const couldLink=pilotOrg?.status==="ACTIVE"&&
+     /dekonica/i.test((pilotOrg?.name||"")+" "+(pilotOrg?.slug||""))&&
+     member.role==="OWNER"&&
      userId===this.env.KSEF_OWNER_USER_ID&&
      this.env.KSEF_SYNC_ENABLED==="true"&&NIP.test(this.env.KSEF_NIP||"");
    return {

@@ -14,6 +14,8 @@ CREATE TABLE "OrganizationFinanceLink" (
 
 CREATE UNIQUE INDEX "OrganizationFinanceLink_organizationId_key"
   ON "OrganizationFinanceLink"("organizationId");
+CREATE UNIQUE INDEX "OrganizationFinanceLink_ownerUserId_nip_key"
+  ON "OrganizationFinanceLink"("ownerUserId", "nip");
 CREATE INDEX "OrganizationFinanceLink_ownerUserId_idx"
   ON "OrganizationFinanceLink"("ownerUserId");
 CREATE INDEX "OrganizationFinanceLink_nip_idx"

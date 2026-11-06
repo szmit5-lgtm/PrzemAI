@@ -387,6 +387,7 @@ model OrganizationFinanceLink {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   owner        User @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
 
+  @@unique([ownerUserId, nip])
   @@index([ownerUserId])
   @@index([nip])
 }
