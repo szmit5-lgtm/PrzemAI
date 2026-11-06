@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Download, FileText, Printer, RefreshCw } from "lucide-react";
-import { getFinancialDocument, getFinanceProjects, assignFinanceProject } from "@/lib/api";
+import { getFinancialDocument, getFinanceProjects, assignFinanceProject, classifyFinanceExpense } from "@/lib/api";
 
 function money(value, currency = "PLN") {
   if (value === null || value === undefined || value === "") return "—";
@@ -79,6 +79,19 @@ function readInvoiceFooter(xml) {
     .slice(0,3);
 }
 
+const COST_CATEGORIES = [
+  ["FLEET","Samochody i flota"],["RENT","Czynsz i lokale"],
+  ["UTILITIES","Media i energia"],["PAYROLL","Wynagrodzenia"],
+  ["SOFTWARE","Abonamenty / oprogramowanie"],["MATERIALS","Materiały budowlane"],
+  ["SUBCONTRACTORS","Podwykonawcy"],["LOGISTICS","Transport i logistyka"],
+  ["TAXES","Podatki i opłaty"],["GENERAL","Koszty ogólne"],
+  ["OTHER","Pozostałe / do klasyfikacji"]
+];
+const COST_TYPES=[
+  ["FIXED","Koszt stały miesięczny"],["VARIABLE","Koszt zmienny"],
+  ["CAPEX","Inwestycyjny / zakup aktywa"],["ONE_OFF","Jednorazowy"],
+  ["UNCLASSIFIED","Do określenia"]
+];
 function Info({ label, value }) {
   return <div className="rounded-xl border border-white/10 bg-white/[.035] p-4">
     <div className="text-xs font-medium text-slate-400">{label}</div>
@@ -97,6 +110,9 @@ export default function FinancialDocumentPage() {
   const [chosenProject, setChosenProject] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [notice, setNotice] = useState("");
+  const [category,setCategory] = useState("OTHER");
+  const [costType,setCostType] = useState("UNCLASSIFIED");
+  const [savingCost,setSavingCost] = useState(false);
   useEffect(() => {
     getFinanceProjects().then(r=>setProjects(Array.isArray(r.items) ? r.items : [])).catch(()=>{});
   }, []);
@@ -117,6 +133,11 @@ export default function FinancialDocumentPage() {
     return () => { active = false; };
   }, [id, refresh]);
 
+  useEffect(() => {
+    if(!record)return;
+    setCategory(record.costAccounting?.category || "OTHER");
+    setCostType(record.costAccounting?.type || "UNCLASSIFIED");
+  },[record?.id,record?.costAccounting?.category,record?.costAccounting?.type]);
   const items = useMemo(() => parseItems(record?.rawData?.xml), [record?.rawData?.xml]);
   const payment = useMemo(() => readPaymentTerms(record?.rawData?.xml), [record?.rawData?.xml]);
   const footers = useMemo(() => readInvoiceFooter(record?.rawData?.xml), [record?.rawData?.xml]);
@@ -134,6 +155,17 @@ export default function FinancialDocumentPage() {
     } finally {
       setAssigning(false);
     }
+  }
+
+  async function saveCost() {
+    if(!record?.id||savingCost)return;
+    setSavingCost(true);setNotice("");
+    try{
+      await classifyFinanceExpense(record.id,{category,type:costType});
+      setNotice("Kategoria i rodzaj kosztu zostały zapisane.");
+      setRefresh(n=>n+1);
+    }catch(error){setNotice(error.message||"Nie udało się zapisać kategorii.");}
+    finally{setSavingCost(false);}
   }
 
   function downloadXml() {
@@ -217,6 +249,38 @@ export default function FinancialDocumentPage() {
             </div>
             {notice && <p role="status" className="mt-3 text-xs text-cyan-200">{notice}</p>}
           </section>
+          {record.direction === "INCOMING" && record.source === "KSEF" &&
+            <section className="mt-5 min-w-0 rounded-2xl border border-white/10 bg-white/[.04] p-4 sm:p-5 print:hidden">
+              <h2 className="text-xl font-bold">Klasyfikacja kosztu</h2>
+              <p className="mt-2 text-sm text-slate-300">
+                Koszty są niezależne od przypisanej inwestycji. Samochody możesz oznaczyć jako
+                miesięczny koszt stały, np. dla rat leasingu. Zakup samochodu zwykle powinien
+                mieć inną kategorię okresowości.
+              </p>
+              <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
+                <label className="min-w-0 text-sm">Kategoria
+                  <select value={category} onChange={e=>setCategory(e.target.value)}
+                    className="mt-1 block w-full min-w-0 rounded-xl border border-white/20 bg-[#101d3c] p-3 text-white">
+                    {COST_CATEGORIES.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="min-w-0 text-sm">Charakter wydatku
+                  <select value={costType} onChange={e=>setCostType(e.target.value)}
+                    className="mt-1 block w-full min-w-0 rounded-xl border border-white/20 bg-[#101d3c] p-3 text-white">
+                    {COST_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button type="button" disabled={savingCost} onClick={saveCost}
+                  className="min-h-11 rounded-xl bg-cyan-400 px-5 py-2 font-bold text-slate-950 disabled:opacity-50">
+                  {savingCost?"Zapisuję…":"Zapisz kategorię"}
+                </button>
+                <span className="text-xs text-slate-400">
+                  {record.costAccounting?.source === "MANUAL"?"Ustawiono ręcznie":"Sugestia systemu — sprawdź przed zatwierdzeniem"}
+                </span>
+              </div>
+            </section>}
           {footers.length > 0 &&
             <section className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] p-4 sm:p-5">
               <h2 className="text-lg font-bold">Stopka faktury</h2>

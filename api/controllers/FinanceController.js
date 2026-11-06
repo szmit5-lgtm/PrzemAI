@@ -90,6 +90,27 @@ class FinanceController {
         }
     }
 
+    async classifyExpense(req,res) {
+        try {
+            const result=await this.service.classifyExpense(req.user.id,req.params.id,req.body||{});
+            if(!result)return res.status(404).json({success:false,error:"Faktura zakupowa nie istnieje."});
+            return res.json({success:true,data:result});
+        }catch(error){
+            return res.status(400).json({success:false,error:error.message||"Nie można zapisać kategorii."});
+        }
+    }
+
+    async reportPeriods(req,res) {
+        try{
+            const data=await this.service.reportPeriods(req.user.id,req.query.year);
+            return res.json({success:true,data});
+        }catch(error){
+            const bad=error.message==="Nieprawidłowy rok zestawienia.";
+            return res.status(bad?400:500).json({success:false,
+                error:bad?error.message:"Nie udało się obliczyć raportu."});
+        }
+    }
+
     async summary(req, res) {
         try {
             const data =

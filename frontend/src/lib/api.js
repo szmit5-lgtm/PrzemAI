@@ -409,3 +409,13 @@ export async function setAgentAssignmentStage(key,id,stage) {
       body:JSON.stringify({stage})
     });
 }
+
+export async function getFinancePeriodReport(year) {
+  return request("/api/finance/reports/periods?year="+encodeURIComponent(year));
+}
+export async function classifyFinanceExpense(id,payload) {
+  return request("/api/finance/documents/"+encodeURIComponent(id)+"/accounting",{
+    method:"PATCH",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+}
