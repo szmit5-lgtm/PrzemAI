@@ -2,6 +2,7 @@ const prisma = require("../../lib/prisma");
 const AgentRunner = require("../../core/agents/AgentRunner");
 const { isAuthorizedDekonicaUser, canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
 const {catalog,getAgentDefinition}=require("../../lib/agentCatalog");
+const {initialTurns,appendTurn}=require("../../lib/agentConversation");
 
 class AgentService {
     constructor() {
@@ -228,6 +229,46 @@ class AgentService {
           data:{status:"IDLE",nextRunAt:new Date()}
         });
         return task;
+    }
+
+    async replyToAssignment(userId,key,id,payload){
+        const def=getAgentDefinition(key);
+        if(!def||def.mode!=="TASK_DRAFT"||typeof id!=="string"||!id.trim())
+            throw Error("Nieobsługiwany agent lub zlecenie.");
+        const message=typeof payload?.message==="string"?payload.message.trim():"";
+        if(!message||message.length>5000)
+            throw Error("Odpowiedź musi mieć od 1 do 5000 znaków.");
+        const agent=await prisma.agent.findFirst({
+            where:{userId,key,enabled:true},select:{id:true,status:true}
+        });
+        if(!agent)throw Error("Agent jest wyłączony lub niedostępny.");
+        const task=await prisma.task.findFirst({
+            where:{id,userId,source:"AGENT"},select:{
+                id:true,userId:true,status:true,description:true,metadata:true,
+                createdAt:true,updatedAt:true
+            }
+        });
+        if(!task || task.metadata?.agentKey!==key)
+            throw Error("Nie znaleziono zlecenia dla tego agenta.");
+        if(!["DONE","ERROR"].includes(task.status))
+            throw Error("Agent jeszcze pracuje nad poprzednią wiadomością.");
+        // This is an optimistic lock. A second answer or a CRM change made
+        // concurrently must not silently overwrite a conversation turn.
+        const conversation=appendTurn(initialTurns(task),"user",message);
+        const changed=await prisma.task.updateMany({
+            where:{id,userId,source:"AGENT",status:task.status,updatedAt:task.updatedAt,
+                metadata:{path:["agentKey"],equals:key}},
+            data:{status:"TODO",completedAt:null,
+                metadata:{...task.metadata,conversation,resultStatus:"QUEUED",
+                    followUpQueuedAt:new Date().toISOString()}}
+        });
+        if(changed.count!==1)
+            throw Error("Zlecenie zostało zmienione. Odśwież rozmowę i spróbuj ponownie.");
+        await prisma.agent.updateMany({
+            where:{id:agent.id,userId,enabled:true,NOT:{status:"RUNNING"}},
+            data:{status:"IDLE",nextRunAt:new Date()}
+        });
+        return {id,status:"TODO",conversation};
     }
 
     async changeAssignmentStage(userId,key,id,stage){

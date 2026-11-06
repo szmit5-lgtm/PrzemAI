@@ -7,6 +7,7 @@ const controller = new AgentController();
 
 router.get("/workspace/:key/assignments",verifyToken,(req,res)=>controller.assignments(req,res));
 router.post("/workspace/:key/assignments",verifyToken,(req,res)=>controller.createAssignment(req,res));
+router.post("/workspace/:key/assignments/:taskId/replies",verifyToken,(req,res)=>controller.replyToAssignment(req,res));
 router.patch("/workspace/:key/assignments/:taskId/stage",verifyToken,(req,res)=>controller.changeAssignmentStage(req,res));
 
 router.get(
