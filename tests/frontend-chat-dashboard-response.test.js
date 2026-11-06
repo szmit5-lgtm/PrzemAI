@@ -69,6 +69,6 @@ test("chat UI validates all responses and does not mistake load errors for empty
     assert.match(source, /parseChatDetailResponse\(data, id\)/);
     assert.match(source, /parseChatSendResponse\(response\)/);
     assert.match(source, /parseChatArchiveResponse\(response\)/);
-    assert.match(source, /!conversationsError &&/);
-    assert.match(source, /Nie udało się pobrać rozmów/);
+    assert.match(source, /!conversationsError&&conversations.length===0/);
+    assert.match(source, /Nie udało się pobrać listy rozmów/);
 });

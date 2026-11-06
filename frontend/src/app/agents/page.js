@@ -7,6 +7,18 @@ import UserMenu from "../components/UserMenu";
 import {getAgents,getIntegrations,runAgent,setAgentEnabled} from "@/lib/api";
 import {parseAgentDashboardResponses,parseAgentRunResponse,parseAgentToggleResponse,canRunAgent,getAgentStatusClass} from "@/lib/agentDashboardPayload";
 
+const integratedModules=[
+ {key:"general",name:"General",headline:"Asystent ogólny i rozmowy",
+  description:"Funkcja ogólnego asystenta jest dostępna w czacie PrzemAI.",href:"/chat",
+  linkedTo:"Czat PrzemAI"},
+ {key:"ksef",name:"KSeF",headline:"Integracja faktur",
+  description:"Pobieranie i analiza faktur jest obsługiwana przez Financial Agent.",href:"/finance",
+  linkedTo:"Financial Agent"},
+ {key:"personal",name:"Personal Assistant",headline:"Osobista pomoc w pracy",
+  description:"Prowadzenie rozmów i przygotowywanie poleceń jest dostępne w Asystencie AI.",href:"/chat",
+  linkedTo:"Asystent AI"}
+];
+
 function date(value){if(!value)return "Jeszcze nie uruchamiano";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString("pl-PL");}
 export default function AgentsPage(){
  const [agents,setAgents]=useState([]),[loading,setLoading]=useState(true);
@@ -28,10 +40,11 @@ export default function AgentsPage(){
    finally{setPending("");}
  };
  const active=agents.filter(a=>a.enabled).length;
- return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#070e22] px-3 py-5 text-slate-100 sm:px-6 lg:px-8">
+ const totalVisible=agents.length+integratedModules.length;
+ return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] px-3 py-5 text-slate-100 sm:px-6 lg:px-8">
    <div className="mx-auto w-full max-w-[1540px] min-w-0">
      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.04] p-4">
-       <Link href="/" className="text-xl font-black text-white">Przem<span className="text-cyan-300">AI</span></Link><UserMenu/>
+       <Link href="/" className="text-xl font-black text-white">Przem<span className="text-violet-300">AI</span></Link><UserMenu/>
      </header>
      <Navbar/>
      <section className="mt-6 min-w-0">
@@ -47,8 +60,8 @@ export default function AgentsPage(){
          </button>
        </div>
        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><Bot className="text-cyan-300"/><p className="mt-2 text-3xl font-black">{loading?"—":agents.length}</p><p className="text-xs text-slate-400">Agenci na koncie</p></div>
-         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><CheckCircle2 className="text-emerald-300"/><p className="mt-2 text-3xl font-black">{loading?"—":active}</p><p className="text-xs text-slate-400">Włączeni do obsługi</p></div>
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><Bot className="text-cyan-300"/><p className="mt-2 text-3xl font-black">{loading?"—":totalVisible}</p><p className="text-xs text-slate-400">Agentów i modułów w systemie</p></div>
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><CheckCircle2 className="text-emerald-300"/><p className="mt-2 text-3xl font-black">{loading?"—":active}</p><p className="text-xs text-slate-400">Włączone agenty wykonawcze</p></div>
          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><MessageSquareText className="text-cyan-300"/><p className="mt-2 text-base font-bold">Polecenie → wynik</p><p className="mt-2 text-xs leading-5 text-slate-400">Asystenci przygotowują szkice i analizy. Financial Agent ma dodatkowo integrację KSeF.</p></div>
        </div>
      </section>
@@ -61,7 +74,7 @@ export default function AgentsPage(){
              <div className="flex min-w-0 items-center gap-3">
                <div className="shrink-0 rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot className="text-cyan-300" size={21}/></div>
                <div className="min-w-0"><h2 className="break-words text-lg font-extrabold">{a.name}</h2>
-                 <p className="mt-1 text-xs text-cyan-200">{a.headline||a.type}</p>
+                 <p className="mt-1 text-xs text-violet-200">{a.headline||a.type}</p>
                </div>
              </div>
              <span className={"shrink-0 rounded-full border px-2 py-1 text-[11px] "+getAgentStatusClass(a.status)}>{a.status==="RUNNING"?"Pracuje":a.enabled?"Włączony":"Wyłączony"}</span>
@@ -76,7 +89,7 @@ export default function AgentsPage(){
              </div>
              <div className="mt-4 flex flex-wrap gap-2">
                <Link href={a.key==="financial"?"/finance":"/agents/"+a.key}
-                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-cyan-300">
+                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-violet-300">
                  {a.key==="financial"?<Wallet size={16}/>:<MessageSquareText size={16}/>}
                  {a.key==="financial"?"Centrum finansów":"Zleć zadanie"} <ArrowUpRight size={15}/>
                </Link>
@@ -96,6 +109,25 @@ export default function AgentsPage(){
            </div>
          </article>)}
        </section>}
+     <section className="mt-9 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+       <h2 className="text-xl font-bold">Moduły powiązane z agentami</h2>
+       <span className="rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">3 moduły z pierwotnego planu</span>
+      </div>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Te funkcje już działają w ramach innych elementów PrzemAI. Nie tworzymy ich drugi raz jako niezależnych agentów, żeby nie dublować danych i integracji.</p>
+      <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-3">
+       {integratedModules.map(item=><article key={item.key} className="flex min-w-0 flex-col rounded-2xl border border-violet-400/15 bg-[#111c35] p-5">
+        <div className="flex items-start justify-between gap-2"><h3 className="text-base font-bold">{item.name}</h3>
+         <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-200">Zintegrowany</span>
+        </div>
+        <p className="mt-1 text-xs font-semibold text-violet-300">{item.headline}</p>
+        <p className="mt-3 flex-1 text-sm leading-6 text-slate-300">{item.description}</p>
+        <Link href={item.href} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-violet-400/20 bg-violet-400/10 px-4 text-sm font-semibold text-violet-200 hover:bg-violet-400/20">
+         Otwórz: {item.linkedTo} <ArrowUpRight size={15}/>
+        </Link>
+       </article>)}
+      </div>
+     </section>
      <footer className="mt-10 flex items-center gap-2 text-xs text-slate-500"><ShieldCheck size={14}/> Zlecenia i wyniki są przypisane do zalogowanego konta.</footer>
    </div>
  </main>;

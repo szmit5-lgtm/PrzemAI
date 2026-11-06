@@ -90,7 +90,7 @@ export function parseAgentRunResponse(response) {
 // can be safely offered a new manual execution.
 export function canRunAgent(agent) {
   return (agent?.type === "FINANCIAL" || (
-    ["SALES","OFFER","TASK","MAIL","DOCUMENT","MEETING","CONSTRUCTION","COMMUNICATION","EXECUTIVE"].includes(agent?.type) &&
+    ["SALES","OFFER","TASK","MAIL","DOCUMENT","MEETING","CONSTRUCTION","COMMUNICATION","EXECUTIVE","INVESTMENT","RESEARCH","SECRETARY","LEGAL","SHOPPING","TRADING","COMMERCE"].includes(agent?.type) &&
     agent.mode === "TASK_DRAFT"
   )) &&
     agent.enabled === true &&

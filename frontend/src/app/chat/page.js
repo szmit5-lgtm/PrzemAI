@@ -150,8 +150,9 @@ export default function ChatPage(){
    loadingRef.current=true;
    setLoading(true);
    setError("");
+   const temporaryId="temporary-"+Date.now();
    setMessages(current=>[...current,{
-     id:"temporary-"+Date.now(),role:"user",content:text
+     id:temporaryId,role:"user",content:text
    }]);
    setMessage("");
    try{
@@ -165,7 +166,7 @@ export default function ChatPage(){
    }catch(err){
      setError(err?.message||"Nie udało się wysłać wiadomości.");
      setMessage(text);
-     setMessages(current=>current.filter(x=>x.id!=="temporary-"+Date.now()));
+     setMessages(current=>current.filter(x=>x.id!==temporaryId));
    }finally{setLoading(false);loadingRef.current=false;}
  }
  function handleKeyDown(event){

@@ -1,7 +1,7 @@
 const prisma = require("../../lib/prisma");
 const AgentRunner = require("../../core/agents/AgentRunner");
 const { isAuthorizedDekonicaUser, canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
-const {catalog,getAgentDefinition}=require("../../lib/agentCatalog");
+const {catalog,getAgentDefinition,examples}=require("../../lib/agentCatalog");
 const {initialTurns,appendTurn}=require("../../lib/agentConversation");
 
 class AgentService {

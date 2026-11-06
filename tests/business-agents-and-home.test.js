@@ -5,7 +5,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const path=require("node:path");
 const BusinessTaskAgent=require("../agents/business/BusinessTaskAgent");
-const {catalog,getAgentDefinition}=require("../lib/agentCatalog");
+const {catalog,getAgentDefinition,integratedModules,examples}=require("../lib/agentCatalog");
 
 function buildFake(tasks){
  const updates=[], reads=[];
@@ -28,10 +28,16 @@ function buildFake(tasks){
  }};
  return {db,updates,reads};
 }
-test("all ten planned agent keys are distinct, nine are draft processors",()=>{
- assert.equal(catalog.length,10);
+test("all twenty planned positions are accounted for as 17 agents and 3 integrations",()=>{
+ assert.equal(catalog.length,17);
+ assert.equal(integratedModules.length,3);
+ assert.equal(catalog.length+integratedModules.length,20);
  assert.equal(new Set(catalog.map(x=>x.key)).size,10);
- assert.equal(catalog.filter(x=>x.mode==="TASK_DRAFT").length,9);
+ assert.equal(catalog.filter(x=>x.mode==="TASK_DRAFT").length,16);
+ assert.equal(getAgentDefinition("legal").type,"LEGAL");
+ assert.equal(getAgentDefinition("investment").type,"INVESTMENT");
+ assert.equal(getAgentDefinition("commerce").type,"COMMERCE");
+ assert.ok(examples.investment?.length>0);
  assert.equal(getAgentDefinition("financial").mode,"LIVE_FINANCE");
  assert.equal(getAgentDefinition("sales").type,"SALES");
 });
