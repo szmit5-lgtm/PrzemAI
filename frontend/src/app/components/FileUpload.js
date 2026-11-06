@@ -124,14 +124,14 @@ export default function FileUpload({ mode = "document" }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#14274c] to-[#0b152c] p-5 shadow-xl sm:p-10"
+            className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#182448] to-[#0b152c] p-4 shadow-xl sm:p-10"
         >
 
-            <div className="flex items-center justify-between">
+            <div className="flex min-w-0 flex-wrap items-center justify-between">
 
                 <div>
 
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-200">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/10 px-4 py-2 text-xs font-bold text-violet-200">
 
                         <Sparkles size={16} />
 
@@ -191,15 +191,15 @@ export default function FileUpload({ mode = "document" }) {
 
                 className={`mt-7 cursor-pointer rounded-2xl border-2 border-dashed p-6 transition-all duration-300 sm:p-12 ${
                     dragging
-                        ? "border-cyan-300 bg-cyan-300/10"
-                        : "border-white/20 bg-white/[.04] hover:border-cyan-400/50 hover:bg-white/[.07]"
+                        ? "border-violet-300 bg-violet-300/10"
+                        : "border-white/20 bg-white/[.04] hover:border-violet-400/50 hover:bg-white/[.07]"
                 }`}
 
             >
 
                 <div className="flex flex-col items-center">
 
-                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-200">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-violet-400/25 bg-violet-400/10 text-violet-200">
 
                         <UploadCloud size={42} />
 
@@ -219,7 +219,7 @@ export default function FileUpload({ mode = "document" }) {
 
                     <button
                         type="button"
-                        className="mt-7 flex items-center gap-3 rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-300"
+                        className="mt-7 flex items-center gap-3 rounded-xl bg-violet-400 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-violet-300"
                     >
 
                         <ArrowUp size={20} />
@@ -249,9 +249,9 @@ export default function FileUpload({ mode = "document" }) {
 
                 <div className="mt-7 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.06] p-5">
 
-                    <div className="flex items-center gap-5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-4">
 
-                        <div className="rounded-xl bg-cyan-400/10 p-3 text-cyan-200">
+                        <div className="rounded-xl bg-violet-400/10 p-3 text-violet-200">
 
                             {file.type.startsWith("audio")
 
@@ -287,7 +287,7 @@ export default function FileUpload({ mode = "document" }) {
 
                         onClick={analyze}
 
-                        className="rounded-xl bg-cyan-400 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-300 disabled:opacity-50"
+                        className="rounded-xl bg-violet-400 px-6 py-3 font-bold text-slate-950 hover:bg-violet-300 disabled:opacity-50"
 
                     >
 

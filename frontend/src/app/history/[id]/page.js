@@ -55,9 +55,9 @@ export default function HistoryDetailsPage() {
 
     return (
 
-        <main className="min-h-screen bg-slate-100">
+        <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] text-slate-100">
 
-            <div className="mx-auto max-w-7xl p-8">
+            <div className="mx-auto w-full min-w-0 max-w-7xl px-3 py-5 sm:px-6 lg:px-8">
 
                 <UserMenu />
 
@@ -65,7 +65,7 @@ export default function HistoryDetailsPage() {
 
                 {loading && (
 
-                    <div className="rounded-3xl bg-white p-16 shadow-sm">
+                    <div className="rounded-3xl border border-white/10 bg-[#111c35] p-8 shadow-sm sm:p-16">
 
                         Ładowanie...
 
@@ -77,7 +77,7 @@ export default function HistoryDetailsPage() {
 
                     <>
 
-                        <div className="rounded-3xl bg-white p-10 shadow-sm">
+                        <div className="rounded-3xl border border-white/10 bg-[#111c35] p-5 shadow-sm sm:p-10">
 
                             <div className="flex items-center justify-between">
 
@@ -89,7 +89,7 @@ export default function HistoryDetailsPage() {
 
                                     </h1>
 
-                                    <p className="mt-2 text-slate-500">
+                                    <p className="mt-2 text-slate-400">
 
                                         {item.type}
 
@@ -99,7 +99,7 @@ export default function HistoryDetailsPage() {
 
                                 <button
                                     onClick={() => router.push("/history")}
-                                    className="rounded-xl border px-5 py-3 hover:bg-slate-50"
+                                    className="rounded-xl border border-white/20 px-5 py-3 hover:bg-white/10"
                                 >
 
                                     Powrót
@@ -110,7 +110,7 @@ export default function HistoryDetailsPage() {
 
                         </div>
 
-                        <div className="mt-6 rounded-3xl bg-white p-10 shadow-sm">
+                        <div className="mt-6 rounded-3xl border border-white/10 bg-[#111c35] p-5 shadow-sm sm:p-10">
 
                             <h2 className="mb-6 text-2xl font-bold">
 
@@ -118,7 +118,7 @@ export default function HistoryDetailsPage() {
 
                             </h2>
 
-                            <pre className="overflow-auto rounded-2xl bg-slate-50 p-6 text-sm leading-7">
+                            <pre className="max-w-full overflow-auto rounded-2xl bg-[#0a162b] p-4 text-sm leading-7 text-slate-200 sm:p-6">
 
 {JSON.stringify(item.report, null, 2)}
 

@@ -11,7 +11,8 @@ const frontendBuild = process.env.NEXT_PUBLIC_PRZEMAI_BUILD || "lokalna";
 export default function UserMenu() {
   const [user, setUser] = useState(null);
   const [taskCount, setTaskCount] = useState(null);
-  const dark = usePathname() === "/";
+  const pathname=usePathname();
+  const dark=pathname==="/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history"].some(prefix=>pathname===prefix||pathname.startsWith(prefix+"/"));
 
   useEffect(() => {
     let active = true;
@@ -29,7 +30,7 @@ export default function UserMenu() {
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-2 text-sm ${dark ? "text-slate-200" : "text-slate-700"}`}>
       {user && <span className="inline-flex min-w-0 items-center gap-2" title={user.email}>
-        <UserCircle2 size={20} className={dark ? "text-cyan-300" : "text-blue-600"} />
+        <UserCircle2 size={20} className={dark ? "text-violet-300" : "text-blue-600"} />
         <span className="max-w-40 truncate sm:max-w-56">{user.email}</span>
       </span>}
       {taskCount !== null && <Link href="/tasks" aria-label={`Zadania: ${taskCount}`} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 ${dark ? "bg-white/10" : "bg-slate-100"}`}><CheckSquare size={15}/>{taskCount}</Link>}

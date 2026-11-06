@@ -90,15 +90,15 @@ export default function HistoryPage() {
 
     return (
 
-        <main className="min-h-screen bg-slate-100">
+        <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] text-slate-100">
 
-            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
+            <div className="mx-auto w-full min-w-0 max-w-7xl px-3 py-5 sm:px-6 lg:px-8">
 
                 <UserMenu />
 
                 <Navbar />
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-10">
+                <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#111c35] p-4 shadow-lg sm:p-8">
 
                     <div className="flex flex-wrap items-center justify-between gap-4">
 
@@ -110,7 +110,7 @@ export default function HistoryPage() {
 
                             </h1>
 
-                            <p className="mt-2 text-slate-500">
+                            <p className="mt-2 text-slate-400">
 
                                 Przeglądaj wcześniejsze analizy dokumentów i spotkań.
 
@@ -118,7 +118,7 @@ export default function HistoryPage() {
 
                         </div>
 
-                        <div role="status" aria-label="Liczba zapisanych analiz" className="rounded-xl bg-slate-100 px-4 py-2 font-semibold">
+                        <div role="status" aria-label="Liczba zapisanych analiz" className="rounded-xl bg-violet-500/10 px-4 py-2 font-semibold text-violet-200">
 
                             {loading || loadError ? "—" : items.length}
 
@@ -126,11 +126,11 @@ export default function HistoryPage() {
 
                     </div>
 
-                    {error && <p role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</p>}
+                    {error && <p role="alert" className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">{error}</p>}
 
                     {loading && (
 
-                        <div className="mt-10 text-slate-600">
+                        <div className="mt-10 text-slate-300">
 
                             Ładowanie...
 
@@ -140,13 +140,13 @@ export default function HistoryPage() {
 
                     {!loading && loadError && (
 
-                        <div className="mt-10 text-slate-600">Historia analiz jest chwilowo niedostępna. <button type="button" onClick={loadHistory} className="font-semibold text-blue-700 underline">Spróbuj ponownie</button></div>
+                        <div className="mt-10 text-slate-300">Historia analiz jest chwilowo niedostępna. <button type="button" onClick={loadHistory} className="font-semibold text-violet-300 underline">Spróbuj ponownie</button></div>
 
                     )}
 
                     {!loading && !loadError && items.length === 0 && (
 
-                        <div className="mt-10 rounded-2xl border-2 border-dashed p-8 text-center sm:p-16">
+                        <div className="mt-10 rounded-2xl border-2 border-dashed border-white/15 p-8 text-center sm:p-16">
 
                             <div className="text-6xl">
 
@@ -165,12 +165,12 @@ export default function HistoryPage() {
                     )}
 
                     {!loading && !loadError && items.length > 0 && (
-                        <label className="mt-7 block text-sm font-medium text-slate-700">Szukaj w historii
-                            <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nazwa dokumentu lub rodzaj analizy" className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+                        <label className="mt-7 block text-sm font-medium text-slate-200">Szukaj w historii
+                            <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Nazwa dokumentu lub rodzaj analizy" className="mt-2 block w-full min-w-0 rounded-xl border border-white/20 bg-[#0b152b] px-4 py-3 text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/15" />
                         </label>
                     )}
 
-                    {!loading && !loadError && items.length > 0 && visibleItems.length === 0 && <p role="status" className="mt-6 rounded-xl bg-slate-50 p-5 text-slate-600">Brak wyników dla podanej frazy.</p>}
+                    {!loading && !loadError && items.length > 0 && visibleItems.length === 0 && <p role="status" className="mt-6 rounded-xl bg-white/5 p-5 text-slate-300">Brak wyników dla podanej frazy.</p>}
 
                     {!loading && !loadError && visibleItems.length > 0 && (
 
@@ -180,7 +180,7 @@ export default function HistoryPage() {
 
                                 <div
                                     key={item.id}
-                                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+                                    className="flex min-w-0 flex-col gap-4 rounded-2xl border border-white/10 bg-[#15233e] p-4 transition hover:bg-white/[.05] sm:flex-row sm:items-center sm:justify-between sm:p-6"
                                 >
 
                                     <div>
@@ -191,7 +191,7 @@ export default function HistoryPage() {
 
                                         </h2>
 
-                                        <p className="mt-1 text-slate-500">
+                                        <p className="mt-1 text-slate-400">
 
                                             {item.type}
 
@@ -209,7 +209,7 @@ export default function HistoryPage() {
 
                                         <Link
                                             href={`/history/${item.id}`}
-                                            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700"
+                                            className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-500"
                                         >
 
                                             Otwórz
@@ -221,7 +221,7 @@ export default function HistoryPage() {
                                             disabled={pendingId !== null}
                                             aria-label={`Usuń analizę: ${item.title}`}
                                             onClick={() => remove(item.id)}
-                                            className="rounded-xl border border-red-300 px-5 py-3 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                            className="rounded-xl border border-rose-400/25 px-5 py-3 text-sm text-rose-200 hover:bg-rose-400/10 disabled:opacity-50"
                                         >
 
                                             Usuń

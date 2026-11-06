@@ -110,53 +110,53 @@ export default function TasksPage() {
   const visibleTasks = tasks.filter(task => taskFilter === "ALL" || (taskFilter === "DONE" ? task.status === "DONE" : task.status !== "DONE"));
 
   return (
-    <main className="min-h-screen bg-[#070e22] px-4 py-6 text-slate-100 sm:px-8">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] px-3 py-5 text-slate-100 sm:px-8">
+      <div className="mx-auto w-full min-w-0 max-w-7xl">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.04] px-5 py-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-black"><ArrowLeft size={18} className="text-cyan-300" /> Przem<span className="-ml-2 text-cyan-300">AI</span></Link>
+          <Link href="/" className="inline-flex items-center gap-2 text-lg font-black"><ArrowLeft size={18} className="text-violet-300" /> Przem<span className="-ml-2 text-violet-300">AI</span></Link>
           <UserMenu />
         </header>
         <Navbar />
         <div className="mt-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200"><ListTodo size={14} /> TASK MANAGER</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1 text-xs font-bold text-violet-200"><ListTodo size={14} /> TASK MANAGER</span>
             <h1 className="mt-4 text-3xl font-black sm:text-4xl">Moje zadania</h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">Zaplanuj pracę, ustal priorytet i oznaczaj ukończone zadania.</p>
           </div>
-          <button type="button" onClick={loadTasks} disabled={loading || busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-5 py-3 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/20 disabled:opacity-50"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> Odśwież</button>
+          <button type="button" onClick={loadTasks} disabled={loading || busy} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-violet-300/30 bg-violet-300/10 px-5 py-3 text-sm font-bold text-violet-100 transition hover:bg-violet-300/20 disabled:opacity-50"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> Odśwież</button>
         </div>
         {error && <p role="alert" className="mt-6 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</p>}
         {notice && !error && <p role="status" className="mt-6 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-200">{notice}</p>}
         <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><ListTodo size={20} className="text-cyan-300" /><p className="mt-3 text-3xl font-bold">{loading || loadError ? "—" : tasks.length}</p><p className="mt-1 text-sm text-slate-400">Wszystkie</p></div>
-          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Clock3 size={20} className="text-cyan-300" /><p className="mt-3 text-3xl font-bold">{loading || loadError ? "—" : openCount}</p><p className="mt-1 text-sm text-slate-400">Do zrobienia</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><ListTodo size={20} className="text-violet-300" /><p className="mt-3 text-3xl font-bold">{loading || loadError ? "—" : tasks.length}</p><p className="mt-1 text-sm text-slate-400">Wszystkie</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/[.05] p-5"><Clock3 size={20} className="text-violet-300" /><p className="mt-3 text-3xl font-bold">{loading || loadError ? "—" : openCount}</p><p className="mt-1 text-sm text-slate-400">Do zrobienia</p></div>
           <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[.05] p-5 md:col-span-1"><CheckCircle2 size={20} className="text-emerald-300" /><p className="mt-3 text-3xl font-bold">{loading || loadError ? "—" : completedCount}</p><p className="mt-1 text-sm text-slate-400">Wykonane</p></div>
         </div>
         <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(300px,0.85fr)_minmax(0,1.4fr)]">
-          <section className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-[#14264b] to-[#0c1730] p-6 sm:p-7">
-            <h2 className="flex items-center gap-2 text-xl font-bold"><Plus size={21} className="text-cyan-300" /> Nowe zadanie</h2>
+          <section className="rounded-3xl border border-violet-400/15 bg-gradient-to-br from-[#14264b] to-[#0c1730] p-6 sm:p-7">
+            <h2 className="flex items-center gap-2 text-xl font-bold"><Plus size={21} className="text-violet-300" /> Nowe zadanie</h2>
             <form onSubmit={submit} className="mt-6 space-y-4">
               <label className="block text-sm font-semibold text-slate-200">Tytuł
-                <input value={form.title} onChange={event => setForm(current => ({ ...current, title: event.target.value }))} required maxLength={250} placeholder="Co trzeba zrobić?" className="mt-2 block w-full rounded-xl border border-white/15 bg-slate-950/50 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400" />
+                <input value={form.title} onChange={event => setForm(current => ({ ...current, title: event.target.value }))} required maxLength={250} placeholder="Co trzeba zrobić?" className="mt-2 block w-full rounded-xl border border-white/15 bg-slate-950/50 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-violet-400" />
               </label>
               <label className="block text-sm font-semibold text-slate-200">Opis
-                <textarea rows={4} value={form.description} onChange={event => setForm(current => ({ ...current, description: event.target.value }))} placeholder="Szczegóły (opcjonalnie)" className="mt-2 block w-full resize-y rounded-xl border border-white/15 bg-slate-950/50 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400" />
+                <textarea rows={4} value={form.description} onChange={event => setForm(current => ({ ...current, description: event.target.value }))} placeholder="Szczegóły (opcjonalnie)" className="mt-2 block w-full resize-y rounded-xl border border-white/15 bg-slate-950/50 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-violet-400" />
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-semibold text-slate-200">Priorytet
-                  <select value={form.priority} onChange={event => setForm(current => ({ ...current, priority: event.target.value }))} className="mt-2 block min-h-12 w-full rounded-xl border border-white/15 bg-[#101d3c] px-3 py-2 text-white outline-none focus:border-cyan-400"><option value="LOW">Niski</option><option value="MEDIUM">Średni</option><option value="HIGH">Wysoki</option></select>
+                  <select value={form.priority} onChange={event => setForm(current => ({ ...current, priority: event.target.value }))} className="mt-2 block min-h-12 w-full rounded-xl border border-white/15 bg-[#101d3c] px-3 py-2 text-white outline-none focus:border-violet-400"><option value="LOW">Niski</option><option value="MEDIUM">Średni</option><option value="HIGH">Wysoki</option></select>
                 </label>
                 <label className="block text-sm font-semibold text-slate-200">Termin
-                  <input type="date" value={form.dueDate} onChange={event => setForm(current => ({ ...current, dueDate: event.target.value }))} className="mt-2 block min-h-12 w-full rounded-xl border border-white/15 bg-[#101d3c] px-3 py-2 text-white outline-none focus:border-cyan-400" />
+                  <input type="date" value={form.dueDate} onChange={event => setForm(current => ({ ...current, dueDate: event.target.value }))} className="mt-2 block min-h-12 w-full rounded-xl border border-white/15 bg-[#101d3c] px-3 py-2 text-white outline-none focus:border-violet-400" />
                 </label>
               </div>
-              <button type="submit" disabled={saving || !form.title.trim()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"><Plus size={19} />{saving ? "Zapisywanie…" : "Dodaj zadanie"}</button>
+              <button type="submit" disabled={saving || !form.title.trim()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-400 px-5 py-3 font-bold text-slate-950 transition hover:bg-violet-300 disabled:opacity-50"><Plus size={19} />{saving ? "Zapisywanie…" : "Dodaj zadanie"}</button>
             </form>
           </section>
           <section aria-labelledby="tasks-list-title" className="min-w-0 rounded-3xl border border-white/10 bg-white/[.045] p-5 sm:p-7">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2><div role="group" aria-label="Filtr zadań" className="flex flex-wrap gap-2">{[["OPEN", "Do zrobienia"], ["DONE", "Wykonane"], ["ALL", "Wszystkie"]].map(([value, label]) => <button key={value} type="button" aria-pressed={taskFilter === value} onClick={() => setTaskFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${taskFilter === value ? "bg-cyan-400 text-slate-950" : "border border-white/15 text-slate-200 hover:bg-white/10"}`}>{label}</button>)}</div></div>
-            {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : loadError ? <p className="mt-7 text-sm text-slate-300">Lista zadań jest chwilowo niedostępna. <button type="button" onClick={loadTasks} className="font-semibold text-cyan-300 underline">Spróbuj ponownie</button></p> : visibleTasks.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center"><CheckCircle2 size={36} className="mx-auto text-cyan-300" /><p className="mt-4 text-lg font-bold">Brak zadań w wybranym widoku</p><p className="mt-2 text-sm text-slate-400">Zmień filtr albo dodaj nowe zadanie.</p></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2><div role="group" aria-label="Filtr zadań" className="flex flex-wrap gap-2">{[["OPEN", "Do zrobienia"], ["DONE", "Wykonane"], ["ALL", "Wszystkie"]].map(([value, label]) => <button key={value} type="button" aria-pressed={taskFilter === value} onClick={() => setTaskFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${taskFilter === value ? "bg-violet-400 text-slate-950" : "border border-white/15 text-slate-200 hover:bg-white/10"}`}>{label}</button>)}</div></div>
+            {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : loadError ? <p className="mt-7 text-sm text-slate-300">Lista zadań jest chwilowo niedostępna. <button type="button" onClick={loadTasks} className="font-semibold text-violet-300 underline">Spróbuj ponownie</button></p> : visibleTasks.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center"><CheckCircle2 size={36} className="mx-auto text-violet-300" /><p className="mt-4 text-lg font-bold">Brak zadań w wybranym widoku</p><p className="mt-2 text-sm text-slate-400">Zmień filtr albo dodaj nowe zadanie.</p></div>
             ) : (
               <div className="mt-6 space-y-3">
                 {visibleTasks.map(task => (
@@ -168,7 +168,7 @@ export default function TasksPage() {
                         <div className="mt-4 flex flex-wrap gap-2 text-xs">
                           <span className={`rounded-lg border px-2.5 py-1 font-semibold ${priorityColors[task.priority] || priorityColors.MEDIUM}`}>{priorityLabels[task.priority] || task.priority || "—"}</span>
                           <span className="rounded-lg border border-white/10 bg-white/[.05] px-2.5 py-1 text-slate-300">{displayDate(task.dueDate)}</span>
-                          <span className={`rounded-lg border px-2.5 py-1 ${task.status === "DONE" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-cyan-400/25 bg-cyan-400/10 text-cyan-200"}`}>{task.status === "DONE" ? "Wykonane" : "Do zrobienia"}</span>
+                          <span className={`rounded-lg border px-2.5 py-1 ${task.status === "DONE" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-violet-400/25 bg-violet-400/10 text-violet-200"}`}>{task.status === "DONE" ? "Wykonane" : "Do zrobienia"}</span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">

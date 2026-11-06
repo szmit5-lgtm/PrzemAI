@@ -23,7 +23,7 @@ const links = [
 export default function Navbar({ vertical = false }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const dark = pathname === "/" || ["/finance", "/agents", "/tasks"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
+  const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
   return (
     <div className={vertical ? "w-full" : "mt-4 mb-6 w-full"}>
       {!vertical && (
@@ -33,13 +33,13 @@ export default function Navbar({ vertical = false }) {
       )}
       <nav id="przemai-main-navigation" aria-label="Nawigacja główna" className={vertical ? "flex flex-col gap-2" : `${mobileOpen ? "flex" : "hidden"} flex-col gap-2 md:flex md:flex-row md:flex-wrap md:gap-2`}>
       {links.map(({ href, label, icon: Icon }) => {
-        const active = href === "/" ? pathname === "/" : (href === "/agents" ? pathname === "/agents" : pathname.startsWith(href));
+        const active = href === "/" ? pathname === "/" : (href === "/agents" ? pathname === "/agents" || (pathname.startsWith("/agents/") && pathname !== "/agents/sales") : pathname === href || pathname.startsWith(href + "/"));
         return (
           <Link key={href} href={href} onClick={() => setMobileOpen(false)} aria-current={active ? "page" : undefined}
             className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${active
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+              ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
               : dark
-                ? "border border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40 hover:bg-white/10"
+                ? "border border-white/10 bg-white/5 text-slate-200 hover:border-violet-400/40 hover:bg-white/10"
                 : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"}`}>
             <Icon size={16} aria-hidden="true" />{label}
           </Link>
