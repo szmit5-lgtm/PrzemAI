@@ -100,7 +100,7 @@ test("agent status styling reserves green for explicitly successful runs", async
   const pageSource = await fs.readFile(
     path.join(__dirname, "../frontend/src/app/agents/page.js"), "utf8"
   );
-  assert.match(pageSource, /getAgentStatusClass\(agent\.status\)/);
+  assert.match(pageSource, /getAgentStatusClass\(a\.status\)/);
   assert.doesNotMatch(pageSource, /function statusClass\(/);
 });
 

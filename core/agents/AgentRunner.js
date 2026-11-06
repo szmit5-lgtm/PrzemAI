@@ -2,7 +2,6 @@
 
 const prisma = require("../../lib/prisma");
 const FinancialAgent = require("../../agents/financial/FinancialAgent");
-const {getAgentDefinition}=require("../../lib/agentCatalog");
 
 const HEARTBEAT_MS = 60 * 1000;
 // Keep nextRunAt within a practical range even if stored configuration is corrupted.
@@ -37,6 +36,7 @@ class AgentRunner {
       if(agent.type==="FINANCIAL"){
         result=await new FinancialAgent().run({userId:agent.userId});
       }else{
+        const {getAgentDefinition}=require("../../lib/agentCatalog");
         const def=getAgentDefinition(agent.key);
         if(!def||def.type!==agent.type||def.mode!=="TASK_DRAFT")
           throw Error("Nieobsługiwany typ agenta.");

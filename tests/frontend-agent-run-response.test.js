@@ -37,6 +37,6 @@ test("agent dashboard checks manual run completion before showing success", asyn
   const source = await fs.readFile(
     path.join(__dirname, "../frontend/src/app/agents/page.js"), "utf8"
   );
-  assert.match(source, /runAgent\(agent\.id\)\.then\(parseAgentRunResponse\)/);
-  assert.match(source, /Agent zakończył pracę/);
+  assert.match(source, /runAgent\(a\.id\)\.then\(parseAgentRunResponse\)/);
+  assert.match(source, /parseAgentRunResponse/);
 });

@@ -89,7 +89,10 @@ export function parseAgentRunResponse(response) {
 // Fail closed on missing or unrecognized states; only idle and failed agents
 // can be safely offered a new manual execution.
 export function canRunAgent(agent) {
-  return ["FINANCIAL","SALES","OFFER","TASK","MAIL","DOCUMENT","MEETING","CONSTRUCTION","COMMUNICATION","EXECUTIVE"].includes(agent?.type) &&
+  return (agent?.type === "FINANCIAL" || (
+    ["SALES","OFFER","TASK","MAIL","DOCUMENT","MEETING","CONSTRUCTION","COMMUNICATION","EXECUTIVE"].includes(agent?.type) &&
+    agent.mode === "TASK_DRAFT"
+  )) &&
     agent.enabled === true &&
     (agent.status === "IDLE" || agent.status === "ERROR");
 }

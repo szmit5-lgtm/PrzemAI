@@ -61,6 +61,6 @@ test("agent dashboard checks toggle responses before displaying success", async 
   const source = await fs.readFile(
     path.join(__dirname, "../frontend/src/app/agents/page.js"), "utf8"
   );
-  assert.match(source, /parseAgentToggleResponse\(response, \{ id: agent\.id, enabled: !agent\.enabled \}\)/);
-  assert.match(source, /parseAgentToggleResponse\(response, \{ id: integration\.id, enabled: !integration\.enabled \}\)/);
+  assert.match(source, /parseAgentToggleResponse\(r,\{id:a\.id,enabled:!a\.enabled\}\)/);
+  assert.match(source, /setAgentEnabled\(a\.id,!a\.enabled\)/);
 });

@@ -5,7 +5,7 @@ import {Bot,RefreshCw,Play,Wallet,ArrowUpRight,CheckCircle2,Clock3,ToggleLeft,To
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import {getAgents,getIntegrations,runAgent,setAgentEnabled} from "@/lib/api";
-import {parseAgentDashboardResponses,parseAgentRunResponse,parseAgentToggleResponse,canRunAgent} from "@/lib/agentDashboardPayload";
+import {parseAgentDashboardResponses,parseAgentRunResponse,parseAgentToggleResponse,canRunAgent,getAgentStatusClass} from "@/lib/agentDashboardPayload";
 
 function date(value){if(!value)return "Jeszcze nie uruchamiano";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString("pl-PL");}
 export default function AgentsPage(){
@@ -64,7 +64,7 @@ export default function AgentsPage(){
                  <p className="mt-1 text-xs text-cyan-200">{a.headline||a.type}</p>
                </div>
              </div>
-             <span className="shrink-0 text-[11px] text-slate-400">{a.status==="RUNNING"?"Pracuje":a.enabled?"Włączony":"Wyłączony"}</span>
+             <span className={"shrink-0 rounded-full border px-2 py-1 text-[11px] "+getAgentStatusClass(a.status)}>{a.status==="RUNNING"?"Pracuje":a.enabled?"Włączony":"Wyłączony"}</span>
            </div>
            <p className="mt-4 min-w-0 break-words text-sm leading-6 text-slate-200">{a.description||"Opis specjalizacji jest przygotowywany."}</p>
            <h3 className="mt-5 text-xs font-bold uppercase tracking-wider text-slate-400">Co potrafi</h3>
