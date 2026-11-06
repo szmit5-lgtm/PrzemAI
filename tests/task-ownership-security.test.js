@@ -42,7 +42,7 @@ test("task update scopes database write to authenticated owner", async () => {
     title: "Updated", priority: "HIGH", dueDate: ""
   });
   assert.equal(result.title, "Updated");
-  assert.deepEqual(writes[0].where, { id: "task-1", userId: "owner-1" });
+  assert.deepEqual(writes[0].where, { id: "task-1", userId: "owner-1", source: { not: "COMPANY" } });
   assert.deepEqual(writes[0].data, {
     title: "Updated", priority: "HIGH", dueDate: null
   });
@@ -72,7 +72,7 @@ test("task delete uses owner-scoped atomic predicate", async () => {
   writes.length = 0;
   await TaskService.remove("task-2", "owner-2");
   assert.deepEqual(writes[0], {
-    operation: "delete", where: { id: "task-2", userId: "owner-2" }
+    operation: "delete", where: { id: "task-2", userId: "owner-2", source: { not: "COMPANY" } }
   });
 });
 
@@ -81,7 +81,14 @@ test("task completion still updates status and completion timestamp", async () =
   const completedAt = new Date();
   await TaskService.complete("task-3", "owner-3");
   // Complete delegates to update with a timestamp created internally.
-  assert.deepEqual(writes[0].where, { id: "task-3", userId: "owner-3" });
+  assert.deepEqual(writes[0].where, { id: "task-3", userId: "owner-3", source: { not: "COMPANY" } });
   assert.equal(writes[0].data.status, "DONE");
   assert.ok(writes[0].data.completedAt instanceof Date);
+});
+
+test("personal task endpoints always reject company-scoped task rows", async () => {
+  writes.length=0;
+  await TaskService.update("company-task","owner",{title:"Hijack"});
+  await TaskService.remove("company-task","owner");
+  assert.ok(writes.every(call=>call.where.source?.not==="COMPANY"));
 });

@@ -64,7 +64,8 @@ class TaskService {
             where: {
 
                 id,
-                userId
+                userId,
+                source: { not: "COMPANY" }
 
             }
 
@@ -98,7 +99,7 @@ class TaskService {
         // Scope the write itself to the owner, not only a preceding read.
         // This also removes the read/write authorization race.
         return prisma.task.update({
-            where: { id, userId },
+            where: { id, userId, source: { not: "COMPANY" } },
             data: changes
         });
 
