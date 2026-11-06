@@ -27,6 +27,9 @@ app.use(
   })
 );
 
+// Allow small inline raster logos for authenticated company branding while keeping
+// the default JSON size limit for other API endpoints.
+app.use("/api/organizations", express.json({ limit: "800kb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
