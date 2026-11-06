@@ -36,6 +36,8 @@ class AgentRunner {
       if(agent.type==="FINANCIAL"){
         result=await new FinancialAgent().run({userId:agent.userId});
       }else{
+        if(typeof agent.key!=="string" || !agent.key.trim())
+          throw Error("Nieobsługiwany typ agenta.");
         const {getAgentDefinition}=require("../../lib/agentCatalog");
         const def=getAgentDefinition(agent.key);
         if(!def||def.type!==agent.type||def.mode!=="TASK_DRAFT")
