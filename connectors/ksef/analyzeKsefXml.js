@@ -32,6 +32,16 @@ function meaningfulAlias(value) {
   const s = tokens(value);
   return s.length >= 6 && s.split(" ").length <= 6 && !["budowa","roboty","instalacje","materialy","uslugi","inwestycja","dekonica"].includes(s);
 }
+function aliasesMatchFooter(project, footerEvidence) {
+  if (!footerEvidence) return false;
+  const projectName = tokens(String(project.name || ""));
+  const inflections = projectName === "mielno" ? ["mielnie"] :
+    projectName === "zgorzelec" ? ["zgorzelcu","zgorzelca"] : [];
+  const aliases = [project.name, ...inflections,
+    ...(Array.isArray(project.aliases) ? project.aliases : [])];
+  return aliases.some(alias=>typeof alias === "string" && meaningfulAlias(alias) &&
+    wholeMatch(footerEvidence, tokens(alias)));
+}
 function analyzeKsefXml(xml,projects=[]) {
   if (typeof xml !== "string" || xml.length > MAX_XML || UNTRUSTED_ENTITY.test(xml) ||
       !/^\s*(?:<\?xml[^>]*>\s*)?<(?:[A-Za-z][\w.-]*:)?Faktura\b/.test(xml)) {
@@ -64,8 +74,16 @@ function analyzeKsefXml(xml,projects=[]) {
   // name the worksite even if the product lines are generic.
   const orders = elements(xml,"NrZamowienia",100).map(clean).filter(Boolean);
   const contracts = elements(xml,"NrUmowy",100).map(clean).filter(Boolean);
+  // FA(3): Stopka/Informacje/StopkaFaktury may contain the investment
+  // reference, e.g. "Unihouse/Zgorzelec". Never inspect unrelated
+  // seller/buyer addresses as evidence of the project.
+  const footerSections = elements(xml, "Stopka", 1);
+  const footerText = footerSections.flatMap(section =>
+    elements(section, "Informacje", 3).flatMap(info =>
+      elements(info, "StopkaFaktury", 1).map(clean))).filter(Boolean);
+  const footerEvidence = tokens(footerText.join(" "));
   const evidence = tokens([...regularItems.slice(0,250),...orderItems,
-    ...extra,...orders,...contracts].join(" "));
+    ...extra,...orders,...contracts,...footerText].join(" "));
   const matches = [];
   for (const project of projects.slice(0,300)) {
     if (project.status && project.status !== "ACTIVE") continue;
@@ -87,7 +105,8 @@ function analyzeKsefXml(xml,projects=[]) {
     dueDate: isValidDue ? dueDate : null,
     projectId: unique?.id || null,
     projectDecision: unique ? "AUTO_ASSIGNED" : matches.length > 1 ? "AMBIGUOUS" : "REVIEW_REQUIRED",
-    projectHint: unique?.name || null
+    projectHint: unique?.name || null,
+    projectEvidence: unique && aliasesMatchFooter(unique, footerEvidence) ? "FOOTER" : unique ? "CONTENT" : null
   };
 }
 
