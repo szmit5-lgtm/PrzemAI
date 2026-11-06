@@ -59,5 +59,5 @@ test("already imported KSeF XML is assigned across pages without changing manual
   assert.equal(writes.find(x=>x.where.id==="011").data.projectId,undefined);
   assert.equal(writes.find(x=>x.where.id==="011").data.metadata.analysis.projectDecision,"AMBIGUOUS");
   assert.equal(writes.find(x=>x.where.id==="013").data.projectId,"z");
-  assert.ok(writes.every(x=>x.data.metadata.analysis.version===2));
+  assert.ok(writes.every(x=>x.data.metadata.analysis.version===3));
 });
