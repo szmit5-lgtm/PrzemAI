@@ -510,3 +510,8 @@ export async function changeOrganizationFinancePermission(orgId,membershipId,fin
   encodeURIComponent(membershipId),{method:"PATCH",
     headers:{"Content-Type":"application/json"},body:JSON.stringify({financeAccess})});
 }
+
+export async function getSystemUsers(cursor=null) {
+  const query=cursor?"?cursor="+encodeURIComponent(cursor):"";
+  return request("/api/admin/users"+query);
+}
