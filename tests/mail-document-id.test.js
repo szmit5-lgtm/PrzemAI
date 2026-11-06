@@ -70,3 +70,17 @@ test("Message-ID takes precedence over volatile IMAP UID metadata", () => {
     mailDocumentId({ ...original, uid: 999, uidValidity: "999" })
   );
 });
+
+test("different attachment filenames remain distinct within one message", () => {
+  assert.notEqual(
+    mailDocumentId(original),
+    mailDocumentId({ ...original, filename: "receipt.pdf" })
+  );
+});
+
+test("missing Message-ID and undefined UID are rejected", () => {
+  assert.throws(
+    () => mailDocumentId({ ...original, messageId: "  ", uid: undefined }),
+    /neither Message-ID nor UID/
+  );
+});
