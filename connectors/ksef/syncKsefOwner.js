@@ -194,7 +194,7 @@ async function syncKsefOwner({
     if (typeof xml !== "string" || !xml) return;
     const previous = item.metadata?.analysis;
     if (previous?.projectDecision === "MANUAL") return;
-    if (previous?.version === 2 &&
+    if (previous?.version === 3 &&
         previous.projectCatalogSignature === projectCatalogSignature) return;
     try {
       const analysis = analyzeKsefXml(xml, permittedProjects);
@@ -203,11 +203,12 @@ async function syncKsefOwner({
       const shouldAssign = !item.projectId && Boolean(analysis.projectId);
       const next = {
         metadata: { ...metadata, analysis: {
-          version: 2, projectCatalogSignature,
+          version: 3, projectCatalogSignature,
           title: analysis.title, description: analysis.description,
           itemCount: analysis.itemCount, itemPreview: analysis.itemPreview,
           projectDecision: item.projectId ? (previous?.projectDecision || "EXISTING") : analysis.projectDecision,
           projectHint: item.projectId ? (previous?.projectHint || null) : analysis.projectHint,
+          projectEvidence: item.projectId ? (previous?.projectEvidence || null) : analysis.projectEvidence,
           analyzedAt: new Date().toISOString()
         } }
       };
