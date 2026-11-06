@@ -9,6 +9,7 @@ import {getProfile,getOrganizations,getSystemUsers} from "@/lib/api";
 export default function Administracja(){
  const [companies,setCompanies]=useState([]);
  const [isSystemAdmin,setSystemAdmin]=useState(false);
+ const [authorized,setAuthorized]=useState(false);
  const [users,setUsers]=useState([]);
  const [cursor,setCursor]=useState(null);
  const [loading,setLoading]=useState(true);
@@ -17,7 +18,12 @@ export default function Administracja(){
  const [refresh,setRefresh]=useState(0);
  useEffect(()=>{
   let active=true;setLoading(true);setError("");
-  Promise.all([getProfile(),getOrganizations()]).then(async ([profile,orgs])=>{
+  getProfile().then(async profile=>{
+   if(!active)return;
+   const allowed=profile?.user?.email?.trim().toLowerCase()==="p.szmitkowski@dekonica.com";
+   setAuthorized(allowed);
+   if(!allowed)return;
+   const orgs=await getOrganizations();
    if(!active)return;
    const administrator=profile?.user?.role==="admin";
    setSystemAdmin(administrator);
@@ -56,7 +62,8 @@ export default function Administracja(){
    </div>
    {error&&<p role="alert" className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4">{error}</p>}
    {loading&&<p className="mt-5 text-slate-400">Ładuję uprawnienia…</p>}
-   {!loading&&<section className="mt-6 rounded-3xl border border-white/10 bg-[#111c35] p-5">
+   {!loading&&!authorized&&<p role="alert" className="mt-6 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4">Brak dostępu do administracji. Ten panel jest przeznaczony wyłącznie dla wskazanego konta Dekonica.</p>}
+   {!loading&&authorized&&<section className="mt-6 rounded-3xl border border-white/10 bg-[#111c35] p-5">
     <h2 className="flex items-center gap-2 text-xl font-bold"><Building2 className="text-violet-300"/> Administracja firm</h2>
     <p className="mt-2 text-sm text-slate-300">Otwórz firmę i wybierz „Zespół”, aby zobaczyć obecnych pracowników, zaproszenia i odebrać dostęp. Finansami i KSeF zarządzasz osobno w panelu finansowym firmy.</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -70,7 +77,7 @@ export default function Administracja(){
      {!companies.length&&<p className="text-sm text-slate-400">Nie masz obecnie roli administratora w żadnej firmie.</p>}
     </div>
    </section>}
-   {!loading&&isSystemAdmin&&<section className="mt-5 rounded-3xl border border-white/10 bg-[#111c35] p-5">
+   {!loading&&authorized&&isSystemAdmin&&<section className="mt-5 rounded-3xl border border-white/10 bg-[#111c35] p-5">
     <h2 className="flex items-center gap-2 text-xl font-bold"><Users className="text-violet-300"/> Użytkownicy PrzemAI</h2>
     <p className="mt-2 text-xs text-slate-400">Widok wyłącznie dla administratora systemu. Utworzenie konta nie przyznaje dostępu do żadnej firmy ani KSeF.</p>
     <div className="mt-4 space-y-2">
@@ -82,7 +89,7 @@ export default function Administracja(){
     </div>
     {cursor&&<button disabled={busy} onClick={more} className="mt-4 min-h-11 rounded-xl border border-white/20 px-4 text-sm disabled:opacity-40">Pokaż kolejne konta</button>}
    </section>}
-   {!loading&&!isSystemAdmin&&<p className="mt-5 flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={17}/> Rejestr wszystkich kont PrzemAI jest dostępny tylko dla zweryfikowanego administratora systemu.</p>}
+   {!loading&&authorized&&!isSystemAdmin&&<p className="mt-5 flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={17}/> Rejestr wszystkich kont PrzemAI jest dostępny tylko dla zweryfikowanego administratora systemu.</p>}
   </div>
  </main>;
 }
