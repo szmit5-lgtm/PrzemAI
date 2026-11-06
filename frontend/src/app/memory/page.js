@@ -435,15 +435,15 @@ export default function MemoryPage() {
 
     return (
 
-        <main className="min-h-screen bg-slate-100">
+        <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] text-slate-100">
 
-            <div className="mx-auto max-w-7xl p-8">
+            <div className="mx-auto w-full min-w-0 max-w-7xl px-3 py-5 sm:px-6 lg:px-8">
 
                 <UserMenu />
 
                 <Navbar />
 
-                <div className="rounded-3xl border bg-white p-8 shadow-sm">
+                <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#111c35] p-4 shadow-sm sm:p-8">
 
                     <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
@@ -451,7 +451,7 @@ export default function MemoryPage() {
 
                             <div className="flex items-center gap-3">
 
-                                <Brain className="text-slate-700" />
+                                <Brain className="text-slate-200" />
 
                                 <h1 className="text-3xl font-bold">
 
@@ -461,7 +461,7 @@ export default function MemoryPage() {
 
                             </div>
 
-                            <p className="mt-3 text-slate-500">
+                            <p className="mt-3 text-slate-400">
 
                                 Trwała wiedza zapamiętana przez PrzemAI
                                 oraz informacje dodane ręcznie.
@@ -475,7 +475,7 @@ export default function MemoryPage() {
                             <button
                                 onClick={loadMemories}
                                 disabled={loading}
-                                className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-medium hover:bg-slate-50 disabled:opacity-50"
+                                className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-medium hover:bg-[#111c35]/[.045] disabled:opacity-50"
                             >
 
                                 <RefreshCw
@@ -493,7 +493,7 @@ export default function MemoryPage() {
 
                             <button
                                 onClick={openCreateForm}
-                                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
+                                className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 font-medium text-white hover:bg-violet-500"
                             >
 
                                 <Plus size={18} />
@@ -510,7 +510,7 @@ export default function MemoryPage() {
 
                         <form
                             onSubmit={handleSave}
-                            className="mt-8 rounded-2xl border bg-slate-50 p-6"
+                            className="mt-8 rounded-2xl border bg-[#111c35]/[.045] p-6"
                         >
 
                             <div className="flex items-center justify-between">
@@ -526,7 +526,7 @@ export default function MemoryPage() {
                                 <button
                                     type="button"
                                     onClick={closeForm}
-                                    className="rounded-lg p-2 text-slate-500 hover:bg-slate-200"
+                                    className="rounded-lg p-2 text-slate-400 hover:bg-white/10"
                                 >
 
                                     <X size={18} />
@@ -553,7 +553,7 @@ export default function MemoryPage() {
                                                 event.target.value
                                             )
                                         }
-                                        className="w-full rounded-xl border bg-white px-4 py-3 outline-none"
+                                        className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none"
                                     >
 
                                         {MEMORY_TYPES.map(
@@ -591,7 +591,7 @@ export default function MemoryPage() {
                                                 event.target.value
                                             )
                                         }
-                                        className="w-full rounded-xl border bg-white px-4 py-3 outline-none"
+                                        className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none"
                                     >
 
                                         <option value="1">
@@ -637,7 +637,7 @@ export default function MemoryPage() {
                                         )
                                     }
                                     placeholder="Np. Klient ABC"
-                                    className="w-full rounded-xl border bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100"
+                                    className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none focus:ring-2 focus:ring-violet-400/10"
                                 />
 
                             </div>
@@ -660,7 +660,7 @@ export default function MemoryPage() {
                                     }
                                     placeholder="Informacja, którą PrzemAI ma pamiętać..."
                                     rows={5}
-                                    className="w-full resize-none rounded-xl border bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100"
+                                    className="w-full resize-none rounded-xl border bg-[#111c35] px-4 py-3 outline-none focus:ring-2 focus:ring-violet-400/10"
                                 />
 
                             </div>
@@ -682,7 +682,7 @@ export default function MemoryPage() {
                                         )
                                     }
                                     placeholder="Np. ABC, Microsoft 365, klient"
-                                    className="w-full rounded-xl border bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100"
+                                    className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none focus:ring-2 focus:ring-violet-400/10"
                                 />
 
                                 <p className="mt-2 text-xs text-slate-400">
@@ -698,7 +698,7 @@ export default function MemoryPage() {
                                 <button
                                     type="button"
                                     onClick={closeForm}
-                                    className="rounded-xl border px-5 py-3 font-medium hover:bg-white"
+                                    className="rounded-xl border px-5 py-3 font-medium hover:bg-[#111c35]"
                                 >
 
                                     Anuluj
@@ -708,7 +708,7 @@ export default function MemoryPage() {
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                    className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-medium text-white hover:bg-violet-500 disabled:opacity-50"
                                 >
 
                                     <Save size={18} />
@@ -742,7 +742,7 @@ export default function MemoryPage() {
                                     )
                                 }
                                 placeholder="Szukaj w pamięci..."
-                                className="w-full rounded-xl border bg-white py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-slate-200"
+                                className="w-full rounded-xl border bg-[#111c35] py-3 pl-11 pr-4 outline-none focus:ring-2 focus:ring-slate-200"
                             />
 
                         </div>
@@ -754,7 +754,7 @@ export default function MemoryPage() {
                                     event.target.value
                                 )
                             }
-                            className="rounded-xl border bg-white px-4 py-3 outline-none"
+                            className="rounded-xl border bg-[#111c35] px-4 py-3 outline-none"
                         >
 
                             <option value="ALL">
@@ -782,7 +782,7 @@ export default function MemoryPage() {
 
                     {(error || (!loading && loadError)) && (
 
-                        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+                        <div className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
 
                             {error || loadError}
 
@@ -794,7 +794,7 @@ export default function MemoryPage() {
 
                         {loading ? (
 
-                            <div className="rounded-2xl border p-10 text-center text-slate-500">
+                            <div className="rounded-2xl border p-10 text-center text-slate-400">
 
                                 Ładowanie pamięci...
 
@@ -802,7 +802,7 @@ export default function MemoryPage() {
 
                         ) : !loading && loadError ? null : !loadError && filteredMemories.length === 0 ? (
 
-                            <div className="rounded-2xl border p-10 text-center text-slate-500">
+                            <div className="rounded-2xl border p-10 text-center text-slate-400">
 
                                 Brak zapisanych wspomnień.
 
@@ -817,14 +817,14 @@ export default function MemoryPage() {
 
                                         <div
                                             key={memory.id}
-                                            className="rounded-2xl border bg-white p-6"
+                                            className="rounded-2xl border bg-[#111c35] p-6"
                                         >
 
                                             <div className="flex items-start justify-between gap-4">
 
                                                 <div className="flex min-w-0 items-start gap-3">
 
-                                                    <div className="rounded-xl bg-slate-100 p-2 text-slate-700">
+                                                    <div className="rounded-xl bg-[#080e20] p-2 text-slate-200">
 
                                                         {getTypeIcon(
                                                             memory.type
@@ -859,7 +859,7 @@ export default function MemoryPage() {
                                                             )
                                                         }
                                                         title="Edytuj"
-                                                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
+                                                        className="rounded-lg p-2 text-slate-400 hover:bg-[#080e20] hover:text-violet-300"
                                                     >
 
                                                         <Pencil size={18} />
@@ -877,7 +877,7 @@ export default function MemoryPage() {
                                                             memory.id
                                                         }
                                                         title="Archiwizuj"
-                                                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-red-600 disabled:opacity-50"
+                                                        className="rounded-lg p-2 text-slate-400 hover:bg-[#080e20] hover:text-red-600 disabled:opacity-50"
                                                     >
 
                                                         <Archive size={18} />
@@ -888,7 +888,7 @@ export default function MemoryPage() {
 
                                             </div>
 
-                                            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                                            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-300">
 
                                                 {memory.content}
 
@@ -906,7 +906,7 @@ export default function MemoryPage() {
 
                                                                 <span
                                                                     key={tag}
-                                                                    className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600"
+                                                                    className="rounded-full bg-[#080e20] px-3 py-1 text-xs text-slate-300"
                                                                 >
 
                                                                     {tag}
@@ -926,7 +926,7 @@ export default function MemoryPage() {
 
                                                     Źródło:{" "}
 
-                                                    <span className="font-medium text-slate-600">
+                                                    <span className="font-medium text-slate-300">
 
                                                         {memory.source}
 
@@ -938,7 +938,7 @@ export default function MemoryPage() {
 
                                                     Ważność:{" "}
 
-                                                    <span className="font-medium text-slate-600">
+                                                    <span className="font-medium text-slate-300">
 
                                                         {memory.importance}/5
 
@@ -950,7 +950,7 @@ export default function MemoryPage() {
 
                                                     Aktualizacja:{" "}
 
-                                                    <span className="font-medium text-slate-600">
+                                                    <span className="font-medium text-slate-300">
 
                                                         {formatDate(
                                                             memory.updatedAt

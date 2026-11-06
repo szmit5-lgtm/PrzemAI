@@ -23,7 +23,7 @@ const links = [
 export default function Navbar({ vertical = false }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
+  const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
   return (
     <div className={vertical ? "w-full" : "mt-4 mb-6 w-full"}>
       {!vertical && (

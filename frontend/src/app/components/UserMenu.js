@@ -12,7 +12,7 @@ export default function UserMenu() {
   const [user, setUser] = useState(null);
   const [taskCount, setTaskCount] = useState(null);
   const pathname=usePathname();
-  const dark=pathname==="/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history"].some(prefix=>pathname===prefix||pathname.startsWith(prefix+"/"));
+  const dark=pathname==="/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company"].some(prefix=>pathname===prefix||pathname.startsWith(prefix+"/"));
 
   useEffect(() => {
     let active = true;

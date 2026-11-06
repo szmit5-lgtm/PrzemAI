@@ -251,15 +251,15 @@ export default function SettingsPage() {
 
     return (
 
-        <main className="min-h-screen bg-slate-100">
+        <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] text-slate-100">
 
-            <div className="mx-auto max-w-7xl p-8">
+            <div className="mx-auto w-full min-w-0 max-w-7xl px-3 py-5 sm:px-6 lg:px-8">
 
                 <UserMenu />
 
                 <Navbar />
 
-                <div className="rounded-3xl border bg-white p-8 shadow-sm">
+                <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#111c35] p-4 shadow-sm sm:p-8">
 
                     <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
@@ -271,7 +271,7 @@ export default function SettingsPage() {
 
                             </h1>
 
-                            <p className="mt-3 text-slate-500">
+                            <p className="mt-3 text-slate-400">
 
                                 Zarządzaj kontem oraz konfiguracją PrzemAI.
 
@@ -284,7 +284,7 @@ export default function SettingsPage() {
                             <button
                                 onClick={loadData}
                                 disabled={loading || saving}
-                                className="flex items-center gap-2 rounded-xl border px-4 py-3 font-medium hover:bg-slate-50 disabled:opacity-50"
+                                className="flex items-center gap-2 rounded-xl border px-4 py-3 font-medium hover:bg-[#111c35]/[.045] disabled:opacity-50"
                             >
 
                                 <RefreshCw
@@ -303,7 +303,7 @@ export default function SettingsPage() {
                             <button
                                 onClick={handleSave}
                                 disabled={loading || saving}
-                                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-medium text-white hover:bg-violet-500 disabled:opacity-50"
                             >
 
                                 <Save size={18} />
@@ -320,7 +320,7 @@ export default function SettingsPage() {
 
                     {error && (
 
-                        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+                        <div className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
 
                             {error}
 
@@ -330,7 +330,7 @@ export default function SettingsPage() {
 
                     {success && (
 
-                        <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+                        <div className="mt-6 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-200">
 
                             {success}
 
@@ -344,7 +344,7 @@ export default function SettingsPage() {
 
                             <div className="flex items-center gap-3">
 
-                                <div className="rounded-xl bg-slate-100 p-3">
+                                <div className="rounded-xl bg-[#080e20] p-3">
 
                                     <User size={22} />
 
@@ -358,7 +358,7 @@ export default function SettingsPage() {
 
                                     </h2>
 
-                                    <p className="text-sm text-slate-500">
+                                    <p className="text-sm text-slate-400">
 
                                         Dane aktualnie zalogowanego użytkownika.
 
@@ -389,7 +389,7 @@ export default function SettingsPage() {
                                                 ? "Ładowanie..."
                                                 : "Brak danych"
                                         }
-                                        className="w-full rounded-xl border bg-slate-100 px-4 py-3 text-slate-600"
+                                        className="w-full rounded-xl border bg-[#080e20] px-4 py-3 text-slate-300"
                                     />
 
                                 </div>
@@ -413,7 +413,7 @@ export default function SettingsPage() {
                                                 ? "Ładowanie..."
                                                 : "Brak danych"
                                         }
-                                        className="w-full rounded-xl border bg-slate-100 px-4 py-3 text-slate-600"
+                                        className="w-full rounded-xl border bg-[#080e20] px-4 py-3 text-slate-300"
                                     />
 
                                 </div>
@@ -426,7 +426,7 @@ export default function SettingsPage() {
 
                             <div className="flex items-center gap-3">
 
-                                <div className="rounded-xl bg-slate-100 p-3">
+                                <div className="rounded-xl bg-[#080e20] p-3">
 
                                     <Bot size={22} />
 
@@ -440,7 +440,7 @@ export default function SettingsPage() {
 
                                     </h2>
 
-                                    <p className="text-sm text-slate-500">
+                                    <p className="text-sm text-slate-400">
 
                                         Konfiguracja funkcji AI zapisywana w bazie.
 
@@ -499,7 +499,7 @@ export default function SettingsPage() {
 
                             <div className="flex items-center gap-3">
 
-                                <div className="rounded-xl bg-slate-100 p-3">
+                                <div className="rounded-xl bg-[#080e20] p-3">
 
                                     <KeyRound size={22} />
 
@@ -513,7 +513,7 @@ export default function SettingsPage() {
 
                                     </h2>
 
-                                    <p className="text-sm text-slate-500">
+                                    <p className="text-sm text-slate-400">
 
                                         Zmień hasło do swojego konta PrzemAI.
 
@@ -571,7 +571,7 @@ export default function SettingsPage() {
                                             !current
                                         )
                                     }
-                                    className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800"
+                                    className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100"
                                 >
 
                                     {showPasswords
@@ -586,7 +586,7 @@ export default function SettingsPage() {
 
                                 {passwordError && (
 
-                                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                                    <div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">
 
                                         {passwordError}
 
@@ -596,7 +596,7 @@ export default function SettingsPage() {
 
                                 {passwordSuccess && (
 
-                                    <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                                    <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
 
                                         {passwordSuccess}
 
@@ -626,7 +626,7 @@ export default function SettingsPage() {
 
                             <div className="flex items-center gap-3">
 
-                                <div className="rounded-xl bg-slate-100 p-3">
+                                <div className="rounded-xl bg-[#080e20] p-3">
 
                                     <Bot size={22} />
 
@@ -640,7 +640,7 @@ export default function SettingsPage() {
 
                                     </h2>
 
-                                    <p className="text-sm text-slate-500">
+                                    <p className="text-sm text-slate-400">
 
                                         Model zapisany dla użytkownika.
 
@@ -675,7 +675,7 @@ export default function SettingsPage() {
                                         setSuccess("");
 
                                     }}
-                                    className="w-full rounded-xl border bg-white px-4 py-3 outline-none disabled:bg-slate-100"
+                                    className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none disabled:bg-[#080e20]"
                                 >
 
                                     <option value="gpt-5.5">
@@ -694,7 +694,7 @@ export default function SettingsPage() {
 
                             <div className="flex items-center gap-3">
 
-                                <div className="rounded-xl bg-slate-100 p-3">
+                                <div className="rounded-xl bg-[#080e20] p-3">
 
                                     <Shield size={22} />
 
@@ -708,7 +708,7 @@ export default function SettingsPage() {
 
                                     </h2>
 
-                                    <p className="text-sm text-slate-500">
+                                    <p className="text-sm text-slate-400">
 
                                         Zewnętrzne usługi i klucze API.
 
@@ -782,7 +782,7 @@ function PasswordInput({
                     )
                 }
                 autoComplete="new-password"
-                className="w-full rounded-xl border bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-xl border bg-[#111c35] px-4 py-3 outline-none focus:ring-2 focus:ring-violet-400/10"
             />
 
         </div>
@@ -806,12 +806,12 @@ function SettingToggle({
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className="flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left hover:bg-[#111c35]/[.045] disabled:cursor-not-allowed disabled:opacity-50"
         >
 
             <div className="flex items-start gap-3">
 
-                <div className="mt-0.5 text-slate-500">
+                <div className="mt-0.5 text-slate-400">
 
                     {icon}
 
@@ -825,7 +825,7 @@ function SettingToggle({
 
                     </div>
 
-                    <div className="mt-1 text-sm text-slate-500">
+                    <div className="mt-1 text-sm text-slate-400">
 
                         {description}
 
@@ -838,13 +838,13 @@ function SettingToggle({
             <div
                 className={`relative h-6 w-11 shrink-0 rounded-full transition ${
                     enabled
-                        ? "bg-blue-600"
+                        ? "bg-violet-600"
                         : "bg-slate-300"
                 }`}
             >
 
                 <div
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-[#111c35] transition ${
                         enabled
                             ? "left-6"
                             : "left-1"
@@ -880,8 +880,8 @@ function IntegrationRow({
             <span
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                     active
-                        ? "bg-green-100 text-green-700"
-                        : "bg-slate-100 text-slate-500"
+                        ? "bg-green-100 text-emerald-200"
+                        : "bg-[#080e20] text-slate-400"
                 }`}
             >
 
