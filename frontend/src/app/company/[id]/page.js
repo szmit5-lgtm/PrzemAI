@@ -37,6 +37,8 @@ export default function CompanyWorkspace(){
  const [priority,setPriority]=useState("MEDIUM");
  const [displayName,setDisplayName]=useState("");
  const [logoUrl,setLogoUrl]=useState("");
+ const [logoUploadError,setLogoUploadError]=useState("");
+ const [logoReading,setLogoReading]=useState(false);
  const [accentColor,setAccentColor]=useState("#8b5cf6");
  const [memberEmail,setMemberEmail]=useState("");
  const [memberRole,setMemberRole]=useState("MEMBER");
@@ -84,8 +86,35 @@ export default function CompanyWorkspace(){
    setTitle("");setDescription("");setDueDate("");setPriority("MEDIUM");
   },"Zadanie zostało dodane do tej firmy.");
  }
+ function selectLogoFile(event){
+  const file=event.target.files?.[0];
+  event.target.value="";
+  if(!file)return;
+  if(!["image/png","image/jpeg","image/webp"].includes(file.type)){
+   setLogoUploadError("Wybierz obraz PNG, JPG lub WEBP.");
+   return;
+  }
+  if(file.size<1||file.size>512*1024){
+   setLogoUploadError("Logo może mieć maksymalnie 512 KB. Zmniejsz obraz przed przesłaniem.");
+   return;
+  }
+  setLogoReading(true);setLogoUploadError("");
+  const reader=new FileReader();
+  reader.onload=()=>{
+   const value=reader.result;
+   if(typeof value==="string" && /^data:image\/(png|jpeg|webp);base64,/.test(value)){
+    setLogoUrl(value);
+   }else{
+    setLogoUploadError("Nie udało się odczytać obrazu.");
+   }
+   setLogoReading(false);
+  };
+  reader.onerror=()=>{setLogoReading(false);setLogoUploadError("Nie udało się odczytać pliku.");};
+  reader.readAsDataURL(file);
+ }
  function saveBrand(e){
   e.preventDefault();
+  if(logoReading)return;
   mutate(()=>updateOrganizationBrand(id,{displayName,logoUrl,accentColor}),
     "Wygląd i nazwa firmy zostały zapisane.");
  }
@@ -259,9 +288,28 @@ export default function CompanyWorkspace(){
       <input required minLength={2} maxLength={120} value={displayName} onChange={e=>setDisplayName(e.target.value)}
        className="mt-2 w-full min-w-0 rounded-xl border border-white/20 bg-[#0a162d] p-3 text-white"/>
      </label>
-     <label className="block text-sm">Logo firmy — link HTTPS
-      <input type="url" value={logoUrl} onChange={e=>setLogoUrl(e.target.value)}
+     <div className="rounded-2xl border border-violet-300/20 bg-[#172642] p-4">
+      <p className="text-sm font-semibold">Logo firmy</p>
+      <p className="mt-1 text-xs leading-5 text-slate-300">Wybierz obraz z komputera lub telefonu (PNG, JPG lub WEBP, do 512 KB). Po wybraniu kliknij „Zapisz wygląd firmy”.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+       {logoUrl?<img alt="Podgląd logo firmy" src={logoUrl} className="h-20 w-20 rounded-xl bg-white object-contain p-2"/>:
+        <span className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/20"><Building2 className="text-violet-200"/></span>}
+       <div className="flex-1 space-y-2">
+        <input type="file" accept="image/png,image/jpeg,image/webp" onChange={selectLogoFile}
+          aria-label="Wybierz logo firmy z urządzenia"
+          className="block w-full max-w-sm text-xs text-slate-200 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-violet-500 file:px-4 file:py-3 file:font-bold file:text-white"/>
+        {logoUrl&&<button type="button" onClick={()=>{setLogoUrl("");setLogoUploadError("");}}
+          className="min-h-10 rounded-lg border border-white/20 px-3 text-xs text-slate-200">Usuń logo</button>}
+       </div>
+      </div>
+      {logoUploadError&&<p role="alert" className="mt-3 text-sm text-rose-200">{logoUploadError}</p>}
+      {logoReading&&<p role="status" className="mt-3 text-xs text-slate-300">Odczytuję logo…</p>}
+     </div>
+     <label className="block text-sm">Lub wklej bezpośredni adres HTTPS obrazka
+      <input type="url" value={logoUrl.startsWith("data:")?"":logoUrl}
+       onChange={e=>{setLogoUrl(e.target.value);setLogoUploadError("");}}
        placeholder="https://twojafirma.pl/logo.png" className="mt-2 w-full min-w-0 rounded-xl border border-white/20 bg-[#0a162d] p-3 text-white"/>
+      <span className="mt-1 block text-xs text-slate-400">Link do podglądu pliku w chmurze nie jest bezpośrednim adresem obrazka.</span>
      </label>
      <label className="block text-sm">Kolor identyfikacji
       <div className="mt-2 flex items-center gap-3">
@@ -270,7 +318,7 @@ export default function CompanyWorkspace(){
        <span className="text-sm text-slate-400">{accentColor}</span>
       </div>
      </label>
-     <button disabled={busy} className="min-h-12 rounded-xl bg-violet-500 px-6 font-bold text-white disabled:opacity-40">Zapisz wygląd firmy</button>
+     <button disabled={busy||logoReading||!!logoUploadError} className="min-h-12 rounded-xl bg-violet-500 px-6 font-bold text-white disabled:opacity-40">Zapisz wygląd firmy</button>
     </form>}
     {tab==="domain"&&isOwner&&<div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
      <form onSubmit={requestDomain} className="min-w-0 space-y-4 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
