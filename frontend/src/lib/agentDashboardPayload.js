@@ -84,12 +84,12 @@ export function parseAgentRunResponse(response) {
   return result;
 }
 
-// The current server-side AgentRunner implements only FINANCIAL. Do not offer
-// a manual run for planned types: enabling an agent is not proof of support.
+// The runner supports Financial plus nine text-only business assignment processors.
+// An external connector is never implied by an agent being enabled.
 // Fail closed on missing or unrecognized states; only idle and failed agents
 // can be safely offered a new manual execution.
 export function canRunAgent(agent) {
-  return agent?.type === "FINANCIAL" &&
+  return ["FINANCIAL","SALES","OFFER","TASK","MAIL","DOCUMENT","MEETING","CONSTRUCTION","COMMUNICATION","EXECUTIVE"].includes(agent?.type) &&
     agent.enabled === true &&
     (agent.status === "IDLE" || agent.status === "ERROR");
 }
