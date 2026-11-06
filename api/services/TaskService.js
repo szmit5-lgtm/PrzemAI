@@ -28,6 +28,7 @@ class TaskService {
             where: {
 
                 userId,
+                source: { not: "COMPANY" },
 
                 ...(status ? { status } : {})
 
@@ -120,7 +121,7 @@ class TaskService {
 
         // Authorization belongs in the DELETE predicate as well.
         return prisma.task.delete({
-            where: { id, userId }
+            where: { id, userId, source: { not: "COMPANY" } }
         });
 
     }
