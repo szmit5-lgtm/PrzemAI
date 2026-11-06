@@ -65,10 +65,10 @@ test("chat UI validates all responses and does not mistake load errors for empty
     const source = await fs.readFile(
         path.join(__dirname, "../frontend/src/app/chat/page.js"), "utf8"
     );
-    assert.match(source, /setConversations\(parseChatListResponse\(data\)\)/);
-    assert.match(source, /parseChatDetailResponse\(data, id\)/);
-    assert.match(source, /parseChatSendResponse\(response\)/);
-    assert.match(source, /parseChatArchiveResponse\(response\)/);
+    assert.match(source, /parseChatListResponse\(await getConversations\(\)\)/);
+    assert.match(source, /parseChatDetailResponse\(await getConversation\(id\),id\)/);
+    assert.match(source, /parseChatSendResponse\(await sendChatMessage\(text,activeConversationId\)\)/);
+    assert.match(source, /parseChatArchiveResponse\(await deleteConversation\(id\)\)/);
     assert.match(source, /!conversationsError&&conversations.length===0/);
     assert.match(source, /Nie udało się pobrać listy rozmów/);
 });

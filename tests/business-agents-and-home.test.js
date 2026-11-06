@@ -32,7 +32,7 @@ test("all twenty planned positions are accounted for as 17 agents and 3 integrat
  assert.equal(catalog.length,17);
  assert.equal(integratedModules.length,3);
  assert.equal(catalog.length+integratedModules.length,20);
- assert.equal(new Set(catalog.map(x=>x.key)).size,10);
+ assert.equal(new Set(catalog.map(x=>x.key)).size,17);
  assert.equal(catalog.filter(x=>x.mode==="TASK_DRAFT").length,16);
  assert.equal(getAgentDefinition("legal").type,"LEGAL");
  assert.equal(getAgentDefinition("investment").type,"INVESTMENT");
