@@ -1,10 +1,10 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
-import {Building2,ShieldCheck,Users,RefreshCw} from "lucide-react";
+import {Building2,ShieldCheck,Users,RefreshCw,Pencil,Save,X} from "lucide-react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
-import {getProfile,getOrganizations,getSystemUsers} from "@/lib/api";
+import {getProfile,getOrganizations,getSystemUsers,updateSystemUser} from "@/lib/api";
 
 export default function Administracja(){
  const [companies,setCompanies]=useState([]);
@@ -16,6 +16,9 @@ export default function Administracja(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [refresh,setRefresh]=useState(0);
+ const [editing,setEditing]=useState(null);
+ const [editEmail,setEditEmail]=useState("");
+ const [saving,setSaving]=useState(false);
  useEffect(()=>{
   let active=true;setLoading(true);setError("");
   getProfile().then(async profile=>{
@@ -37,6 +40,17 @@ export default function Administracja(){
   .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[refresh]);
+ async function saveEdit(){
+  if(!editing||saving)return;
+  if(!window.confirm("Zapisać nowy adres e-mail użytkownika? Zmiana może wymagać ponownego zalogowania."))return;
+  setSaving(true);setError("");
+  try {
+   const result=await updateSystemUser(editing,{email:editEmail.trim()});
+   setUsers(items=>items.map(u=>u.id===editing?{...u,...result.data}:u));
+   setEditing(null);
+  }catch(e){setError(e.message||"Nie udało się zapisać zmian.");}
+  finally{setSaving(false);}
+ }
  async function more(){
   if(!cursor||busy)return;
   setBusy(true);setError("");
@@ -82,7 +96,19 @@ export default function Administracja(){
     <p className="mt-2 text-xs text-slate-400">Widok wyłącznie dla administratora systemu. Utworzenie konta nie przyznaje dostępu do żadnej firmy ani KSeF.</p>
     <div className="mt-4 space-y-2">
      {users.map(u=><div key={u.id} className="rounded-xl border border-white/10 bg-[#192844] p-3">
-      <p className="break-all font-semibold">{u.email}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+       <p className="break-all font-semibold">{u.email}</p>
+       {u.role!=="admin"&&u.email?.trim().toLowerCase()!=="p.szmitkowski@dekonica.com"&&<button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 px-3 text-sm hover:bg-white/10" onClick={()=>{setEditing(u.id);setEditEmail(u.email);setError("");}}><Pencil size={15}/> Edytuj</button>}
+      </div>
+      {editing===u.id&&<div className="mt-3 space-y-2 rounded-xl border border-violet-400/30 bg-[#111c35] p-3">
+       <label className="block text-xs text-slate-300" htmlFor={"email-"+u.id}>Adres e-mail konta</label>
+       <input id={"email-"+u.id} type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)} maxLength={254} autoComplete="off" className="min-h-11 w-full rounded-lg border border-white/20 bg-[#080e20] px-3 text-sm text-white" />
+       <p className="text-xs text-slate-400">Zmiana adresu logowania. Uprawnienia firm, KSeF i hasło pozostają bez zmian.</p>
+       <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={saving||!editEmail.trim()||editEmail.trim().toLowerCase()===u.email} onClick={saveEdit} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-bold disabled:opacity-50"><Save size={16}/>{saving?"Zapisuję…":"Zapisz"}</button>
+        <button type="button" disabled={saving} onClick={()=>setEditing(null)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm"><X size={16}/> Anuluj</button>
+       </div>
+      </div>}
       <p className="mt-1 text-xs text-slate-400">Konto od {new Date(u.createdAt).toLocaleDateString("pl-PL")} · {u.role==="admin"?"Admin systemu":"Użytkownik"}</p>
       <p className="mt-1 text-xs text-slate-400">{u.organizationMemberships?.map(m=>(m.organization?.name||"Firma")+" ("+(m.status==="ACTIVE"?"aktywny":"zaproszony")+")").join(", ")||"Bez przypisanej firmy"}</p>
      </div>)}
