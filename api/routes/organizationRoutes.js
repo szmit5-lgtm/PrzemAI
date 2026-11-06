@@ -5,6 +5,8 @@ const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
 const {OrganizationService,OrganizationError}=require("../services/OrganizationService");
 const service=new OrganizationService();
+const {OrganizationFinanceService}=require("../services/OrganizationFinanceService");
+const financeService=new OrganizationFinanceService();
 
 const router = express.Router();
 
@@ -87,6 +89,22 @@ const handler=fn=>async(req,res)=>{
 router.get("/invitations",verifyToken,handler(req=>service.pendingInvites(req.user.id)));
 router.post("/:id/invitations/accept",verifyToken,
   handler(req=>service.acceptInvite(req.user.id,req.params.id)));
+router.get("/:id/finance/status",verifyToken,
+  handler(req=>financeService.linkStatus(req.user.id,req.params.id)));
+router.post("/:id/finance/link",verifyToken,
+  handler(req=>financeService.linkPilot(req.user.id,req.params.id)));
+router.get("/:id/finance/summary",verifyToken,
+  handler(req=>financeService.summary(req.user.id,req.params.id)));
+router.get("/:id/finance/documents",verifyToken,
+  handler(req=>financeService.documents(req.user.id,req.params.id,req.query)));
+router.get("/:id/finance/projects",verifyToken,
+  handler(req=>financeService.projects(req.user.id,req.params.id)));
+router.get("/:id/finance/members",verifyToken,
+  handler(req=>financeService.members(req.user.id,req.params.id)));
+router.patch("/:id/finance/members/:membershipId",verifyToken,
+  handler(req=>financeService.setPermission(req.user.id,req.params.id,
+    req.params.membershipId,req.body?.financeAccess)));
+
 router.get("/:id",verifyToken,handler(req=>service.details(req.user.id,req.params.id)));
 router.patch("/:id/branding",verifyToken,
   handler(req=>service.changeBranding(req.user.id,req.params.id,req.body)));
