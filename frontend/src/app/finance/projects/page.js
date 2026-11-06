@@ -38,12 +38,12 @@ export default function FinanceProjectsPage() {
     finally { setPending(false); }
   }
 
-  return <main className="min-h-screen bg-[#070e22] p-5 text-slate-100 sm:p-9">
-    <div className="mx-auto max-w-4xl">
+  return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#070e22] px-3 py-5 text-slate-100 sm:px-6 lg:px-9">
+    <div className="mx-auto w-full min-w-0 max-w-4xl">
       <Link href="/finance" className="inline-flex items-center gap-2 text-sm text-cyan-300">
         <ArrowLeft size={17}/> Centrum finansów
       </Link>
-      <h1 className="mt-8 text-3xl font-black">Inwestycje i przypisywanie faktur</h1>
+      <h1 className="mt-8 break-words text-2xl font-black sm:text-3xl">Inwestycje i przypisywanie faktur</h1>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
         Wpisz nazwy i znane alternatywne określenia inwestycji. Agent przypisze fakturę
         automatycznie wyłącznie przy jednoznacznym dopasowaniu treści pozycji lub opisu.
@@ -76,9 +76,9 @@ export default function FinanceProjectsPage() {
           <button onClick={load} aria-label="Odśwież inwestycje"><RefreshCw size={18}/></button>
         </div>
         {projects.length ? <div className="mt-4 space-y-3">{projects.map(project=>
-          <div key={project.id} className="rounded-xl border border-white/10 p-4">
+          <div key={project.id} className="min-w-0 overflow-hidden rounded-xl border border-white/10 p-4">
             <p className="font-bold">{project.name}</p>
-            <p className="mt-1 text-xs text-slate-400">{project.company || "Bez spółki"}
+            <p className="mt-1 break-words text-xs text-slate-400">{project.company || "Bez spółki"}
               {project.aliases?.length ? " · " + project.aliases.join(", ") : ""}
             </p>
           </div>)}</div>

@@ -66,6 +66,19 @@ function readPaymentTerms(xml) {
   return { terms: [...new Set(terms)], paidAtIssue: paid };
 }
 
+function readInvoiceFooter(xml) {
+  if (!xml || typeof window === "undefined" || /<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) return [];
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) return [];
+  const stopka = Array.from(doc.getElementsByTagName("*")).find(node => node.localName === "Stopka");
+  if (!stopka) return [];
+  return Array.from(stopka.getElementsByTagName("*"))
+    .filter(node => node.localName === "StopkaFaktury")
+    .map(node => node.textContent?.trim().slice(0,3500))
+    .filter(Boolean)
+    .slice(0,3);
+}
+
 function Info({ label, value }) {
   return <div className="rounded-xl border border-white/10 bg-white/[.035] p-4">
     <div className="text-xs font-medium text-slate-400">{label}</div>
@@ -106,6 +119,7 @@ export default function FinancialDocumentPage() {
 
   const items = useMemo(() => parseItems(record?.rawData?.xml), [record?.rawData?.xml]);
   const payment = useMemo(() => readPaymentTerms(record?.rawData?.xml), [record?.rawData?.xml]);
+  const footers = useMemo(() => readInvoiceFooter(record?.rawData?.xml), [record?.rawData?.xml]);
 
   async function saveProject() {
     if (!record?.id || assigning) return;
@@ -136,8 +150,8 @@ export default function FinancialDocumentPage() {
     URL.revokeObjectURL(url);
   }
 
-  return <main className="min-h-screen bg-[#070e22] px-4 py-6 text-slate-100 sm:px-8 print:bg-white print:text-black">
-    <div className="mx-auto max-w-6xl">
+  return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#070e22] px-3 py-5 text-slate-100 sm:px-6 lg:px-8 print:bg-white print:text-black">
+    <div className="mx-auto w-full min-w-0 max-w-7xl">
       <header className="flex flex-wrap items-center justify-between gap-4 print:hidden">
         <Link href="/finance" className="inline-flex items-center gap-2 text-sm font-bold text-cyan-200 hover:text-cyan-100">
           <ArrowLeft size={17} /> Powrót do Centrum finansów
@@ -151,8 +165,8 @@ export default function FinancialDocumentPage() {
       {loading ? <p className="mt-12 text-slate-300">Pobieranie faktury…</p> :
         error ? <p role="alert" className="mt-12 text-rose-300">{error}</p> :
         record ? <>
-          <div className="mt-8 flex items-center gap-3"><FileText className="text-cyan-300 print:text-black" size={27}/>
-            <div><div className="text-sm uppercase tracking-widest text-cyan-300 print:text-black">Faktura KSeF</div>
+          <div className="mt-8 flex min-w-0 items-center gap-3"><FileText className="text-cyan-300 print:text-black" size={27}/>
+            <div className="min-w-0"><div className="text-sm uppercase tracking-widest text-cyan-300 print:text-black">Faktura KSeF</div>
               <h1 className="mt-1 break-all text-2xl font-black sm:text-3xl">{record.displayTitle || record.invoiceNumber || record.ksefNumber || "Dokument"}</h1>
             </div>
           </div>
@@ -174,6 +188,10 @@ export default function FinancialDocumentPage() {
             <p className="mt-3 text-sm text-slate-200">
               {record.metadata?.analysis?.description || "Agent przygotuje opis na podstawie pozycji faktury podczas najbliższej synchronizacji."}
             </p>
+            {record.metadata?.analysis?.projectEvidence === "FOOTER" && record.projectId &&
+              <p className="mt-2 text-xs font-semibold text-cyan-200">
+                Inwestycja rozpoznana automatycznie ze stopki faktury.
+              </p>}
             <p className="mt-2 text-xs text-slate-400">
               {record.metadata?.analysis?.projectDecision === "AUTO_ASSIGNED"
                 ? "Projekt rozpoznany automatycznie na podstawie opisu pozycji."
@@ -184,7 +202,7 @@ export default function FinancialDocumentPage() {
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <label className="text-sm">Projekt
                 <select value={chosenProject} onChange={e=>setChosenProject(e.target.value)}
-                  className="mt-1 block min-w-56 rounded-xl border border-white/20 bg-[#101d3c] px-4 py-3">
+                  className="mt-1 block w-full min-w-0 max-w-full rounded-xl border border-white/20 bg-[#101d3c] px-4 py-3 sm:min-w-56">
                   <option value="">Nieprzypisany</option>
                   {projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}
                 </select>
@@ -199,10 +217,18 @@ export default function FinancialDocumentPage() {
             </div>
             {notice && <p role="status" className="mt-3 text-xs text-cyan-200">{notice}</p>}
           </section>
-          <section className="mt-8 rounded-2xl border border-white/10 bg-white/[.04] p-5">
+          {footers.length > 0 &&
+            <section className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] p-4 sm:p-5">
+              <h2 className="text-lg font-bold">Stopka faktury</h2>
+              {footers.map((footer, index) =>
+                <p key={index} className="mt-3 whitespace-pre-wrap break-words text-sm text-slate-300">
+                  {footer}
+                </p>)}
+            </section>}
+          <section className="mt-8 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] p-4 sm:p-5">
             <h2 className="text-xl font-bold">Za co wystawiono fakturę</h2>
-            {items.length ? <div className="mt-5 overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+            {items.length ? <div className="mt-5 max-w-full overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="text-xs uppercase text-slate-400 print:text-black">
                   <tr><th className="p-3">Lp.</th><th className="p-3">Towar / usługa</th>
                     <th className="p-3">Ilość</th><th className="p-3">J.m.</th>
