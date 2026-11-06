@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const { financialDocumentLabel } = require("../../lib/financialDocumentLabel");
+const {financeClass,validateFinanceClass,summarizePeriods} = require("../../lib/financeClassification");
 
 class FinanceService {
     async list(userId, options = {}) {
@@ -51,6 +52,7 @@ class FinanceService {
       rawData: item.source === "KSEF" ? null : item.rawData,
       displayTitle: item.source === "KSEF" ? financialDocumentLabel(item) : null,
       descriptionReady: item.source === "KSEF" && !!item.metadata?.analysis?.description,
+      costAccounting:financeClass(item),
             netAmount:
                 item.netAmount?.toString() || null,
             vatAmount:
@@ -70,6 +72,7 @@ class FinanceService {
         return {
             ...document,
             displayTitle: document.source === "KSEF" ? financialDocumentLabel(document) : null,
+            costAccounting:financeClass(document),
             netAmount: document.netAmount?.toString() || null,
             vatAmount: document.vatAmount?.toString() || null,
             grossAmount: document.grossAmount?.toString() || null
@@ -163,6 +166,49 @@ class FinanceService {
             }
         });
         return { id, projectId, project };
+    }
+
+    async classifyExpense(userId,id,value) {
+        if(typeof id!=="string"||id.length<1||id.length>128)throw Error("Nieprawidłowa faktura.");
+        const classification=validateFinanceClass(value);
+        const document=await prisma.financialDocument.findFirst({
+            where:{id,userId,source:"KSEF",direction:"INCOMING"},
+            select:{id:true,metadata:true}
+        });
+        if(!document) return null;
+        const metadata=document.metadata&&typeof document.metadata==="object"&&!Array.isArray(document.metadata)
+            ?document.metadata:{};
+        const updated=await prisma.financialDocument.updateMany({
+            where:{id,userId,source:"KSEF",direction:"INCOMING"},
+            data:{metadata:{...metadata,costAccounting:{...classification,source:"MANUAL",
+                classifiedAt:new Date().toISOString()}}}
+        });
+        return updated.count ?{id,...classification}:null;
+    }
+
+    async reportPeriods(userId,yearInput){
+        const year=yearInput===undefined?new Date().getUTCFullYear():Number(yearInput);
+        if(!Number.isSafeInteger(year)||year<2020||year>2100)
+            throw Error("Nieprawidłowy rok zestawienia.");
+        const start=new Date(Date.UTC(year,0,1));
+        const end=new Date(Date.UTC(year+1,0,1));
+        const docs=[];
+        const pageSize=500;
+        for(let page=0;page<100;page++){
+            const items=await prisma.financialDocument.findMany({
+                where:{userId,source:"KSEF",issueDate:{gte:start,lt:end}},
+                select:{id:true,issueDate:true,source:true,direction:true,currency:true,
+                    grossAmount:true,invoiceNumber:true,sellerName:true,metadata:true},
+                orderBy:{id:"asc"},take:pageSize,
+                ...(page ? {cursor:{id:docs[docs.length-1].id},skip:1}: {})
+            });
+            docs.push(...items);
+            if(items.length<pageSize)break;
+            if(page===99)throw Error("Za dużo dokumentów do tego zestawienia.");
+        }
+        return {year,source:"KSEF_INVOICES",cashFlowAvailable:false,
+            explanation:"Zestawienie jest według daty wystawienia i kwot brutto faktur. Nie oznacza wpływów i wypływów z kont bankowych.",
+            rows:summarizePeriods(docs,year)};
     }
 
     async summary(userId) {
