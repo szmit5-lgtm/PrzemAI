@@ -92,7 +92,7 @@ class OrganizationService{
       // Store a validated data URL instead of relying on short-lived local files
       // or private document-sharing links. Limit size to 512 KiB.
       if (logo.startsWith("data:")) {
-        const match=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(logo);
+        const match=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+\/]+={0,2})$/.exec(logo);
         if (!match || logo.length>730000 || match[2].length%4!==0)
           throw new OrganizationError("Logo musi być plikiem PNG, JPG lub WEBP do 512 KB.");
         const bytes=Buffer.from(match[2],"base64");
