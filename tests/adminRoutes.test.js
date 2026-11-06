@@ -72,3 +72,49 @@ test("admin edit: duplicate email returns conflict",async()=>{
  const result=await invoke(setup(db),{email:"used@example.com"});
  assert.equal(result.status,409);
 });
+
+test("admin edit: non-admin user cannot edit another account",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"user",email:"p.szmitkowski@dekonica.com"}),
+  updateMany:async()=>{writes++;}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,403);
+ assert.equal(writes,0);
+});
+test("admin edit: administrator with wrong email cannot edit",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"other@example.com"}),
+  updateMany:async()=>{writes++;}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,403);
+ assert.equal(writes,0);
+});
+test("admin edit: missing target returns 404 without writing",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}:null,
+  updateMany:async()=>{writes++;}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,404);
+ assert.equal(writes,0);
+});
+test("admin edit: own account is protected",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  updateMany:async()=>{writes++;}
+ }};
+ const routes=setup(db);
+ const req={user:{id:"owner"},params:{id:"owner"},body:{email:"new@example.com"}};
+ let status=200;
+ const res={status(n){status=n;return this;},json(){return this;}};
+ await routes["PATCH /users/:id"](req,res);
+ assert.equal(status,403);
+ assert.equal(writes,0);
+});
