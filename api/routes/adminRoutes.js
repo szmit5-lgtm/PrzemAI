@@ -11,9 +11,9 @@ router.use(async (req,res,next) => {
   try {
     const user = await prisma.user.findUnique({
       where:{id:req.user.id},
-      select:{id:true,role:true}
+      select:{id:true,role:true,email:true}
     });
-    if (!user || user.role !== "admin")
+    if (!user || user.role !== "admin" || user.email?.trim().toLowerCase() !== "p.szmitkowski@dekonica.com")
       return res.status(403).json({success:false,error:"Brak uprawnień administratora systemu."});
     next();
   } catch {
