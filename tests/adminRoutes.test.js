@@ -408,3 +408,31 @@ test("admin edit: changing to protected email is case-insensitively denied",asyn
  assert.equal(result.status,403);
  assert.equal(writes,0);
 });
+
+test("admin edit: role injection cannot promote a regular user",async()=>{
+ let update;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"old@example.com"},
+  updateMany:async args=>{update=args;return {count:1};}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com",role:"admin",organizationId:"other-company",isAdmin:true});
+ assert.equal(result.status,200);
+ assert.deepEqual(update.data,{email:"new@example.com"});
+ assert.equal(result.body.data.role,"user");
+ assert.equal(update.where.role.not,"admin");
+});
+
+test("admin edit: non-string email is rejected before database write",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ for(const email of [null,42,{},["new@example.com"]]){
+  const result=await invoke(setup(db),{email});
+  assert.equal(result.status,400);
+ }
+ assert.equal(writes,0);
+});
