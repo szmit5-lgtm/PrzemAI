@@ -328,3 +328,30 @@ test("admin authorization: database outage fails closed without reaching routes"
  assert.equal(body.success,false);
  assert.doesNotMatch(JSON.stringify(body),/postgres:|sensitive-connection/);
 });
+
+test("admin authorization: deleted account cannot access user management",async()=>{
+ let passed=false,queries=0;
+ const db={user:{
+  findUnique:async()=>null,
+  findMany:async()=>{queries++;return [];}
+ }};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes.middleware[1]({user:{id:"deleted-owner"}},res,()=>{passed=true;});
+ assert.equal(status,403);
+ assert.equal(passed,false);
+ assert.equal(queries,0);
+ assert.equal(body.success,false);
+});
+
+test("admin authorization: missing database role cannot grant access",async()=>{
+ let passed=false;
+ const db={user:{findUnique:async()=>({id:"owner",email:"p.szmitkowski@dekonica.com"})}};
+ const routes=setup(db);
+ let status=200;
+ const res={status(n){status=n;return this;},json(){return this;}};
+ await routes.middleware[1]({user:{id:"owner"}},res,()=>{passed=true;});
+ assert.equal(status,403);
+ assert.equal(passed,false);
+});
