@@ -386,3 +386,25 @@ test("admin edit: missing request body is rejected without database write",async
  assert.equal(result.status,400);
  assert.equal(writes,0);
 });
+
+test("admin edit: oversized email is rejected without database write",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  updateMany:async()=>{writes++;}
+ }};
+ const result=await invoke(setup(db),{email:"a".repeat(250)+"@example.com"});
+ assert.equal(result.status,400);
+ assert.equal(writes,0);
+});
+
+test("admin edit: changing to protected email is case-insensitively denied",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  updateMany:async()=>{writes++;}
+ }};
+ const result=await invoke(setup(db),{email:" P.SZMITKOWSKI@DEKONICA.COM "});
+ assert.equal(result.status,403);
+ assert.equal(writes,0);
+});
