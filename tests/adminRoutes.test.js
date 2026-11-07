@@ -118,3 +118,50 @@ test("admin edit: own account is protected",async()=>{
  assert.equal(status,403);
  assert.equal(writes,0);
 });
+
+test("admin list: paginates 50 accounts without exposing passwords",async()=>{
+ let query;
+ const rows=Array.from({length:51},(_,i)=>({id:"u"+i,email:"u"+i+"@example.com",role:"user",createdAt:new Date("2026-01-01"),organizationMemberships:[]}));
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  findMany:async args=>{query=args;return rows;}
+ }};
+ const routes=setup(db);
+ const req={user:{id:"owner"},query:{}};
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes["GET /users"](req,res);
+ assert.equal(status,200);
+ assert.equal(body.data.items.length,50);
+ assert.equal(body.data.nextCursor,"u49");
+ assert.equal(query.take,51);
+ assert.equal(query.select.password,undefined);
+ assert.equal(query.select.email,true);
+});
+
+test("admin list: cursor requests skip the previous row",async()=>{
+ let query;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  findMany:async args=>{query=args;return [];}
+ }};
+ const routes=setup(db);
+ let body;
+ await routes["GET /users"]({user:{id:"owner"},query:{cursor:"u49"}},{json(v){body=v;return this;},status(){return this;}});
+ assert.deepEqual(query.cursor,{id:"u49"});
+ assert.equal(query.skip,1);
+ assert.equal(body.data.nextCursor,null);
+});
+
+test("admin edit: administrator target cannot be changed",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"admin",email:"another-admin@example.com"},
+  updateMany:async()=>{writes++;}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,403);
+ assert.equal(writes,0);
+});
