@@ -278,3 +278,18 @@ test("admin edit: stale form cannot overwrite a changed email",async()=>{
  assert.equal(result.status,409);
  assert.equal(writes,0);
 });
+
+test("admin edit: missing original email cannot bypass stale-form protection",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"old@example.com"},
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ for(const expectedEmail of [null,42,"", "wrong@example.com"]){
+  const result=await invoke(setup(db),{email:"new@example.com",expectedEmail});
+  assert.equal(result.status,409);
+ }
+ assert.equal(writes,0);
+});
