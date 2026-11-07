@@ -355,3 +355,34 @@ test("admin authorization: missing database role cannot grant access",async()=>{
  assert.equal(status,403);
  assert.equal(passed,false);
 });
+
+test("admin list: organization membership query excludes inactive and sensitive fields",async()=>{
+ let query;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  findMany:async args=>{query=args;return [];}
+ }};
+ const routes=setup(db);
+ let body;
+ await routes["GET /users"]({user:{id:"owner"},query:{}},{json(v){body=v;return this;},status(){return this;}});
+ assert.equal(body.success,true);
+ assert.deepEqual(query.select.organizationMemberships.where.status.in,["ACTIVE","PENDING"]);
+ assert.deepEqual(query.select.organizationMemberships.select.organization.select,{id:true,name:true});
+ assert.deepEqual(query.select.organizationMemberships.select.role,true);
+ assert.deepEqual(query.select.organizationMemberships.select.status,true);
+ assert.equal(query.select.organizationMemberships.select.organization.select.ksefToken,undefined);
+ assert.equal(query.select.organizationMemberships.select.organization.select.bankAccount,undefined);
+ assert.equal(query.select.password,undefined);
+});
+
+test("admin edit: missing request body is rejected without database write",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  updateMany:async()=>{writes++;}
+ }};
+ const routes=setup(db);
+ const result=await invoke(routes,{email:undefined});
+ assert.equal(result.status,400);
+ assert.equal(writes,0);
+});
