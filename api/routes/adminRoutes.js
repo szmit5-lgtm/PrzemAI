@@ -24,8 +24,9 @@ router.use(async (req,res,next) => {
 router.get("/users", async (req,res) => {
   try {
     const limit = 50;
-    const cursor = typeof req.query.cursor === "string" && req.query.cursor.length < 100
-      ? req.query.cursor : null;
+    if(req.query.cursor !== undefined && (typeof req.query.cursor !== "string" || !req.query.cursor.trim() || req.query.cursor.length >= 100))
+      return res.status(400).json({success:false,error:"Nieprawidłowy kursor listy użytkowników."});
+    const cursor = req.query.cursor || null;
     const rows = await prisma.user.findMany({
       ...(cursor ? {cursor:{id:cursor},skip:1} : {}),
       take:limit+1,
