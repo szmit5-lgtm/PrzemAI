@@ -293,3 +293,24 @@ test("admin edit: missing original email cannot bypass stale-form protection",as
  }
  assert.equal(writes,0);
 });
+
+test("admin edit: successful write returns updated account without a second database read",async()=>{
+ let targetReads=0,writes=0;
+ const createdAt=new Date("2026-01-02T00:00:00Z");
+ const db={user:{
+  findUnique:async({where})=>{
+   if(where.id==="owner")return {id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"};
+   targetReads++;
+   if(targetReads>1)throw new Error("database read failed after committed write");
+   return {id:"target",role:"user",email:"old@example.com",createdAt};
+  },
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,200);
+ assert.equal(result.body.success,true);
+ assert.equal(result.body.data.email,"new@example.com");
+ assert.equal(result.body.data.createdAt,createdAt);
+ assert.equal(writes,1);
+ assert.equal(targetReads,1);
+});
