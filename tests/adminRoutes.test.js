@@ -314,3 +314,17 @@ test("admin edit: successful write returns updated account without a second data
  assert.equal(writes,1);
  assert.equal(targetReads,1);
 });
+
+
+test("admin authorization: database outage fails closed without reaching routes",async()=>{
+ let passed=false;
+ const db={user:{findUnique:async()=>{throw new Error("postgres://sensitive-connection");}}};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes.middleware[1]({user:{id:"owner"}},res,()=>{passed=true;});
+ assert.equal(status,500);
+ assert.equal(passed,false);
+ assert.equal(body.success,false);
+ assert.doesNotMatch(JSON.stringify(body),/postgres:|sensitive-connection/);
+});
