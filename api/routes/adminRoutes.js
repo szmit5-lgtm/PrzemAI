@@ -56,7 +56,7 @@ router.patch("/users/:id", async (req,res) => {
   if(email===ADMIN_EMAIL||id===req.user.id)
     return res.status(403).json({success:false,error:"Nie można edytować konta administratora systemu."});
   try{
-    const target=await prisma.user.findUnique({where:{id},select:{id:true,role:true,email:true}});
+    const target=await prisma.user.findUnique({where:{id},select:{id:true,role:true,email:true,createdAt:true}});
     if(!target)return res.status(404).json({success:false,error:"Nie znaleziono konta."});
     if(target.role==="admin"||target.email.toLowerCase()===ADMIN_EMAIL)
       return res.status(403).json({success:false,error:"Nie można edytować konta administratora."});
@@ -64,8 +64,8 @@ router.patch("/users/:id", async (req,res) => {
       return res.status(409).json({success:false,error:"Dane konta zmieniły się od otwarcia formularza. Odśwież listę."});
     const result=await prisma.user.updateMany({where:{id,role:{not:"admin"},email:target.email},data:{email}});
     if(result.count!==1)return res.status(409).json({success:false,error:"Konto zostało zmienione. Odśwież listę."});
-    const updated=await prisma.user.findUnique({where:{id},select:{id:true,email:true,role:true,createdAt:true}});
-    return res.json({success:true,data:updated});
+    // The conditional write succeeded; avoid a second DB read that could fail after commit.
+    return res.json({success:true,data:{id:target.id,email,role:target.role,createdAt:target.createdAt}});
   }catch(error){
     if(error?.code==="P2002")return res.status(409).json({success:false,error:"Ten adres e-mail jest już zajęty."});
     return res.status(500).json({success:false,error:"Nie udało się zapisać konta."});
