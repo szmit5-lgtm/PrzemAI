@@ -205,3 +205,20 @@ test("admin list: verified owner passes authorization middleware",async()=>{
  await routes.middleware[1]({user:{id:"owner"}},res,()=>{passed=true;});
  assert.equal(passed,true);
 });
+
+test("admin list: malformed cursor is rejected before querying database",async()=>{
+ let queries=0;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  findMany:async()=>{queries++;return [];}
+ }};
+ const routes=setup(db);
+ for(const cursor of ["", " ".repeat(3), "x".repeat(100), ["a","b"]]){
+  let status=200,body;
+  const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+  await routes["GET /users"]({user:{id:"owner"},query:{cursor}},res);
+  assert.equal(status,400);
+  assert.equal(body.success,false);
+ }
+ assert.equal(queries,0);
+});
