@@ -222,3 +222,31 @@ test("admin list: malformed cursor is rejected before querying database",async()
  }
  assert.equal(queries,0);
 });
+
+
+test("admin list: database failure returns generic error without leaking details",async()=>{
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}),
+  findMany:async()=>{throw new Error("DATABASE_URL=private-secret");}
+ }};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes["GET /users"]({user:{id:"owner"},query:{}},res);
+ assert.equal(status,500);
+ assert.equal(body.success,false);
+ assert.doesNotMatch(JSON.stringify(body),/DATABASE_URL|private-secret/);
+});
+
+test("admin edit: database failure does not disclose internal details",async()=>{
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"old@example.com"},
+  updateMany:async()=>{throw new Error("postgres://private-secret");}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,500);
+ assert.equal(result.body.success,false);
+ assert.doesNotMatch(JSON.stringify(result.body),/postgres:|private-secret/);
+});
