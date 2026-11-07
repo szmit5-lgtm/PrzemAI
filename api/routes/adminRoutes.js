@@ -58,10 +58,10 @@ router.patch("/users/:id", async (req,res) => {
   try{
     const target=await prisma.user.findUnique({where:{id},select:{id:true,role:true,email:true}});
     if(!target)return res.status(404).json({success:false,error:"Nie znaleziono konta."});
-    if(typeof req.body?.expectedEmail !== "string" || req.body.expectedEmail.trim().toLowerCase() !== target.email.toLowerCase())
-      return res.status(409).json({success:false,error:"Dane konta zmieniły się od otwarcia formularza. Odśwież listę."});
     if(target.role==="admin"||target.email.toLowerCase()===ADMIN_EMAIL)
       return res.status(403).json({success:false,error:"Nie można edytować konta administratora."});
+    if(typeof req.body?.expectedEmail !== "string" || req.body.expectedEmail.trim().toLowerCase() !== target.email.toLowerCase())
+      return res.status(409).json({success:false,error:"Dane konta zmieniły się od otwarcia formularza. Odśwież listę."});
     const result=await prisma.user.updateMany({where:{id,role:{not:"admin"},email:target.email},data:{email}});
     if(result.count!==1)return res.status(409).json({success:false,error:"Konto zostało zmienione. Odśwież listę."});
     const updated=await prisma.user.findUnique({where:{id},select:{id:true,email:true,role:true,createdAt:true}});
