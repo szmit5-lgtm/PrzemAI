@@ -18,6 +18,7 @@ export default function Administracja(){
  const [refresh,setRefresh]=useState(0);
  const [editing,setEditing]=useState(null);
  const [editEmail,setEditEmail]=useState("");
+ const [originalEmail,setOriginalEmail]=useState("");
  const [saving,setSaving]=useState(false);
  useEffect(()=>{
   let active=true;setLoading(true);setError("");
@@ -45,7 +46,7 @@ export default function Administracja(){
   if(!window.confirm("Zapisać nowy adres e-mail użytkownika? Zmiana może wymagać ponownego zalogowania."))return;
   setSaving(true);setError("");
   try {
-   const result=await updateSystemUser(editing,{email:editEmail.trim()});
+   const result=await updateSystemUser(editing,{email:editEmail.trim(),expectedEmail:originalEmail});
    setUsers(items=>items.map(u=>u.id===editing?{...u,...result.data}:u));
    setEditing(null);
   }catch(e){setError(e.message||"Nie udało się zapisać zmian.");}
@@ -98,7 +99,7 @@ export default function Administracja(){
      {users.map(u=><div key={u.id} className="rounded-xl border border-white/10 bg-[#192844] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
        <p className="break-all font-semibold">{u.email}</p>
-       {u.role!=="admin"&&u.email?.trim().toLowerCase()!=="p.szmitkowski@dekonica.com"&&<button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 px-3 text-sm hover:bg-white/10" onClick={()=>{setEditing(u.id);setEditEmail(u.email);setError("");}}><Pencil size={15}/> Edytuj</button>}
+       {u.role!=="admin"&&u.email?.trim().toLowerCase()!=="p.szmitkowski@dekonica.com"&&<button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 px-3 text-sm hover:bg-white/10" onClick={()=>{setEditing(u.id);setEditEmail(u.email);setOriginalEmail(u.email);setError("");}}><Pencil size={15}/> Edytuj</button>}
       </div>
       {editing===u.id&&<div className="mt-3 space-y-2 rounded-xl border border-violet-400/30 bg-[#111c35] p-3">
        <label className="block text-xs text-slate-300" htmlFor={"email-"+u.id}>Adres e-mail konta</label>
