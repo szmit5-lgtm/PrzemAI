@@ -165,3 +165,43 @@ test("admin edit: administrator target cannot be changed",async()=>{
  assert.equal(result.status,403);
  assert.equal(writes,0);
 });
+
+test("admin list: non-admin cannot pass authorization middleware",async()=>{
+ let queried=false;
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"user",email:"p.szmitkowski@dekonica.com"}),
+  findMany:async()=>{queried=true;return [];}
+ }};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ let passed=false;
+ await routes.middleware[1]({user:{id:"owner"}},res,()=>{passed=true;});
+ assert.equal(status,403);
+ assert.equal(passed,false);
+ assert.equal(queried,false);
+ assert.equal(body.success,false);
+});
+
+test("admin list: administrator with different email is denied",async()=>{
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:"other@example.com"})
+ }};
+ const routes=setup(db);
+ let status=200,passed=false;
+ const res={status(n){status=n;return this;},json(){return this;}};
+ await routes.middleware[1]({user:{id:"owner"}},res,()=>{passed=true;});
+ assert.equal(status,403);
+ assert.equal(passed,false);
+});
+
+test("admin list: verified owner passes authorization middleware",async()=>{
+ const db={user:{
+  findUnique:async()=>({id:"owner",role:"admin",email:" P.Szmitkowski@Dekonica.com "})
+ }};
+ const routes=setup(db);
+ let passed=false;
+ const res={status(){throw new Error("Unexpected rejection");},json(){throw new Error("Unexpected rejection");}};
+ await routes.middleware[1]({user:{id:"owner"}},res,()=>{passed=true;});
+ assert.equal(passed,true);
+});
