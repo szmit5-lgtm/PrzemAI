@@ -42,7 +42,7 @@ test("admin edit: valid email normalized, no privilege change",async()=>{
  assert.equal(result.status,200);
  assert.equal(updated.data.email,"new@example.com");
  assert.equal(updated.where.role.not,"admin");
- assert.equal(updated.where.email.not,"p.szmitkowski@dekonica.com");
+ assert.equal(updated.where.email,"old@example.com");
  assert.equal(updated.data.role,undefined);
 });
 test("admin edit: invalid email rejected without write",async()=>{
@@ -249,4 +249,18 @@ test("admin edit: database failure does not disclose internal details",async()=>
  assert.equal(result.status,500);
  assert.equal(result.body.success,false);
  assert.doesNotMatch(JSON.stringify(result.body),/postgres:|private-secret/);
+});
+
+test("admin edit: stale concurrent email change is rejected",async()=>{
+ let filter;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"old@example.com"},
+  updateMany:async args=>{filter=args.where;return {count:0};}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com"});
+ assert.equal(result.status,409);
+ assert.equal(filter.email,"old@example.com");
+ assert.equal(filter.role.not,"admin");
 });
