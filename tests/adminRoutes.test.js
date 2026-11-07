@@ -23,7 +23,7 @@ function setup(db) {
  return routes;
 }
 async function invoke(routes,payload,dbUser={id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}) {
- const req={user:{id:"owner"},params:{id:"target"},body:payload};
+ const req={user:{id:"owner"},params:{id:"target"},body:{expectedEmail:"old@example.com",...payload}};
  let status=200,body;
  const res={status(n){status=n;return this;},json(value){body=value;return this;}};
  const middleware=routes.middleware[1];
@@ -111,7 +111,7 @@ test("admin edit: own account is protected",async()=>{
   updateMany:async()=>{writes++;}
  }};
  const routes=setup(db);
- const req={user:{id:"owner"},params:{id:"owner"},body:{email:"new@example.com"}};
+ const req={user:{id:"owner"},params:{id:"owner"},body:{email:"new@example.com",expectedEmail:"old@example.com"}};
  let status=200;
  const res={status(n){status=n;return this;},json(){return this;}};
  await routes["PATCH /users/:id"](req,res);
@@ -263,4 +263,18 @@ test("admin edit: stale concurrent email change is rejected",async()=>{
  assert.equal(result.status,409);
  assert.equal(filter.email,"old@example.com");
  assert.equal(filter.role.not,"admin");
+});
+
+
+test("admin edit: stale form cannot overwrite a changed email",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"changed@example.com"},
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ const result=await invoke(setup(db),{email:"new@example.com",expectedEmail:"old@example.com"});
+ assert.equal(result.status,409);
+ assert.equal(writes,0);
 });
