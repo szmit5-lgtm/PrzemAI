@@ -503,3 +503,33 @@ test("admin list: normalized cursor of 100 characters is rejected",async()=>{
  assert.equal(body.success,false);
  assert.equal(queries,0);
 });
+
+test("admin edit: unchanged email succeeds without a database write",async()=>{
+ let writes=0;
+ const createdAt=new Date("2026-01-02T00:00:00Z");
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"old@example.com",createdAt},
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ const result=await invoke(setup(db),{email:" OLD@EXAMPLE.COM "});
+ assert.equal(result.status,200);
+ assert.equal(result.body.success,true);
+ assert.equal(result.body.data.email,"old@example.com");
+ assert.equal(result.body.data.createdAt,createdAt);
+ assert.equal(writes,0);
+});
+
+test("admin edit: unchanged email still requires matching expectedEmail",async()=>{
+ let writes=0;
+ const db={user:{
+  findUnique:async({where})=>where.id==="owner"
+   ?{id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"}
+   :{id:"target",role:"user",email:"old@example.com"},
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ const result=await invoke(setup(db),{email:"old@example.com",expectedEmail:"stale@example.com"});
+ assert.equal(result.status,409);
+ assert.equal(writes,0);
+});
