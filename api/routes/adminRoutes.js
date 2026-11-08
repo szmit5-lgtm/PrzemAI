@@ -64,7 +64,9 @@ router.patch("/users/:id", async (req,res) => {
       return res.status(403).json({success:false,error:"Nie można edytować konta administratora."});
     if(typeof req.body?.expectedEmail !== "string" || req.body.expectedEmail.trim().toLowerCase() !== target.email.toLowerCase())
       return res.status(409).json({success:false,error:"Dane konta zmieniły się od otwarcia formularza. Odśwież listę."});
-    // An unchanged email is a successful no-op; avoid unnecessary database writes.\n    if(email===target.email) return res.json({success:true,data:{id:target.id,email,role:target.role,createdAt:target.createdAt}});\n    const result=await prisma.user.updateMany({where:{id,role:{not:"admin"},email:target.email},data:{email}});
+    // An unchanged email is a successful no-op; avoid unnecessary database writes.
+    if(email===target.email) return res.json({success:true,data:{id:target.id,email,role:target.role,createdAt:target.createdAt}});
+    const result=await prisma.user.updateMany({where:{id,role:{not:"admin"},email:target.email},data:{email}});
     if(result.count!==1)return res.status(409).json({success:false,error:"Konto zostało zmienione. Odśwież listę."});
     // The conditional write succeeded; avoid a second DB read that could fail after commit.
     return res.json({success:true,data:{id:target.id,email,role:target.role,createdAt:target.createdAt}});
