@@ -8,6 +8,10 @@ const calls = [];
 let nextDocuments = null;
 const fakePrisma = {
   financialDocument: {
+    async findFirst(options) {
+      calls.push({ method: "findFirst", options });
+      return null;
+    },
     async findMany(options) {
       calls.push({ method: "findMany", options });
       return nextDocuments || [{ id: "doc-1", grossAmount: { toString: () => "123.45" }, netAmount: null, vatAmount: null }];
@@ -104,4 +108,23 @@ test("finance list never exposes full KSeF XML in a paginated response", async (
   } finally {
     nextDocuments = null;
   }
+});
+
+
+test("finance detail lookup validates IDs and scopes reads to the signed-in user", async () => {
+  calls.length = 0;
+  const service = new FinanceService();
+  for (const id of [null, "", "   ", "x".repeat(129), 42]) {
+    assert.equal(await service.one("user-5", id), null);
+  }
+  assert.equal(calls.length, 0, "invalid document IDs must not query the database");
+
+  assert.equal(await service.one("user-5", "doc-123"), null);
+  assert.deepEqual(calls, [{
+    method: "findFirst",
+    options: {
+      where: { id: "doc-123", userId: "user-5" },
+      include: { project: { select: { id: true, name: true } } }
+    }
+  }]);
 });
