@@ -8,6 +8,8 @@ const router = express.Router();
 // Only a privileged DB role can enumerate unrelated registered accounts.
 router.use(verifyToken);
 router.use(async (req,res,next) => {
+  // Missing authentication context is a client authorization failure, not a DB outage.
+  if (!req.user?.id) return res.status(401).json({success:false,error:"Wymagane logowanie."});
   try {
     const user = await prisma.user.findUnique({
       where:{id:req.user.id},
