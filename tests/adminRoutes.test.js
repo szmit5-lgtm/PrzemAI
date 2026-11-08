@@ -436,3 +436,16 @@ test("admin edit: non-string email is rejected before database write",async()=>{
  }
  assert.equal(writes,0);
 });
+
+test("admin list: trims pagination cursor before database lookup",async()=>{
+ let query;
+ const db={user:{findMany:async args=>{query=args;return [];}}};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes["GET /users"]({user:{id:"owner"},query:{cursor:"  u49  "}},res);
+ assert.equal(status,200);
+ assert.equal(body.success,true);
+ assert.deepEqual(query.cursor,{id:"u49"});
+ assert.equal(query.skip,1);
+});
