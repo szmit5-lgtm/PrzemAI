@@ -128,3 +128,26 @@ test("finance detail lookup validates IDs and scopes reads to the signed-in user
     }
   }]);
 });
+
+
+test("finance list ignores caller-supplied tenant and unapproved query fields", async () => {
+  calls.length = 0;
+  await new FinanceService().list("authorized-user", {
+    userId: "another-user",
+    where: { userId: "another-user" },
+    include: { rawData: true },
+    orderBy: { createdAt: "asc" },
+    limit: 25,
+    offset: 0
+  });
+  const query = calls.find(call => call.method === "findMany").options;
+  assert.deepEqual(query.where, { userId: "authorized-user" });
+  assert.deepEqual(query.include, { project: { select: { id: true, name: true } } });
+  assert.deepEqual(query.orderBy, [
+    { issueDate: "desc" },
+    { createdAt: "desc" },
+    { id: "desc" }
+  ]);
+  assert.equal(query.take, 25);
+  assert.equal(query.skip, 0);
+});
