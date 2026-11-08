@@ -149,3 +149,16 @@ test("API exposes finance only through authentication and organization routes",a
  assert.match(routes,/router\.get\("\/:id\/finance\/documents",verifyToken/);
  assert.match(routes,/router\.patch\("\/:id\/finance\/members\/:membershipId",verifyToken/);
 });
+
+test("finance access rechecks the database even if membership helper returns a stale grant",async()=>{
+ const {svc,db}=makeService({permission:false});
+ const original=svc.orgService.membership.bind(svc.orgService);
+ svc.orgService.membership=async (...args)=>({
+   ...(await original(...args)),financeAccess:true
+ });
+ let documentReads=0;
+ const read=db.financialDocument.findMany.bind(db.financialDocument);
+ db.financialDocument.findMany=async (...args)=>{documentReads++;return read(...args);};
+ await assert.rejects(svc.documents("member","dek"),/Nie masz dostępu/);
+ assert.equal(documentReads,0);
+});
