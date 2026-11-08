@@ -459,8 +459,23 @@ test("admin authorization: missing authenticated user fails closed",async()=>{
  let status=200,body;
  const res={status(n){status=n;return this;},json(v){body=v;return this;}};
  await routes.middleware[1]({},res,()=>{passed=true;});
- assert.equal(status,500);
+ assert.equal(status,401);
  assert.equal(passed,false);
  assert.equal(queries,0);
  assert.equal(body.success,false);
+});
+
+test("admin authorization: empty authenticated identity returns 401 without querying database",async()=>{
+ let queries=0,passed=false;
+ const db={user:{findUnique:async()=>{queries++;return {id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"};}}};
+ const routes=setup(db);
+ for(const user of [null,{}, {id:""}]){
+  let status=200,body;
+  const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+  await routes.middleware[1]({user},res,()=>{passed=true;});
+  assert.equal(status,401);
+  assert.equal(body.success,false);
+ }
+ assert.equal(queries,0);
+ assert.equal(passed,false);
 });
