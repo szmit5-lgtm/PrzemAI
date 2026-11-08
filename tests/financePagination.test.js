@@ -5,11 +5,12 @@ const assert = require("node:assert/strict");
 const Module = require("node:module");
 
 const calls = [];
+let nextDocuments = null;
 const fakePrisma = {
   financialDocument: {
     async findMany(options) {
       calls.push({ method: "findMany", options });
-      return [{ id: "doc-1", grossAmount: { toString: () => "123.45" }, netAmount: null, vatAmount: null }];
+      return nextDocuments || [{ id: "doc-1", grossAmount: { toString: () => "123.45" }, netAmount: null, vatAmount: null }];
     },
     async count(options) {
       calls.push({ method: "count", options });
@@ -86,3 +87,21 @@ test("finance list normalizes fractional limits before querying Prisma", async (
   assert.equal(Number.isInteger(query.take), true);
 });
 
+
+test("finance list never exposes full KSeF XML in a paginated response", async () => {
+  nextDocuments = [{
+    id: "ksef-1", source: "KSEF", direction: "INCOMING",
+    invoiceNumber: "FV/1", sellerName: "Dostawca",
+    rawData: { xml: "<Invoice>private invoice content</Invoice>" },
+    metadata: {}, grossAmount: null, netAmount: null, vatAmount: null
+  }];
+  try {
+    const items = await new FinanceService().list("user-1");
+    assert.equal(items.length, 1);
+    assert.equal(items[0].rawData, null);
+    assert.equal(items[0].displayTitle, "Zakup · Dostawca · FV/1");
+    assert.equal(JSON.stringify(items).includes("private invoice content"), false);
+  } finally {
+    nextDocuments = null;
+  }
+});
