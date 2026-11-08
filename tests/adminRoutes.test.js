@@ -479,3 +479,27 @@ test("admin authorization: empty authenticated identity returns 401 without quer
  assert.equal(queries,0);
  assert.equal(passed,false);
 });
+
+test("admin list: cursor length is checked after trimming whitespace",async()=>{
+ let query;
+ const db={user:{findMany:async args=>{query=args;return [];}}};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes["GET /users"]({user:{id:"owner"},query:{cursor:" ".repeat(70)+"u49"+" ".repeat(70)}},res);
+ assert.equal(status,200);
+ assert.equal(body.success,true);
+ assert.deepEqual(query.cursor,{id:"u49"});
+});
+
+test("admin list: normalized cursor of 100 characters is rejected",async()=>{
+ let queries=0;
+ const db={user:{findMany:async()=>{queries++;return [];}}};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes["GET /users"]({user:{id:"owner"},query:{cursor:"  "+"x".repeat(100)+"  "}},res);
+ assert.equal(status,400);
+ assert.equal(body.success,false);
+ assert.equal(queries,0);
+});
