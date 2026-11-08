@@ -449,3 +449,18 @@ test("admin list: trims pagination cursor before database lookup",async()=>{
  assert.deepEqual(query.cursor,{id:"u49"});
  assert.equal(query.skip,1);
 });
+
+test("admin authorization: missing authenticated user fails closed",async()=>{
+ let passed=false,queries=0;
+ const db={user:{
+  findUnique:async()=>{queries++;return {id:"owner",role:"admin",email:"p.szmitkowski@dekonica.com"};}
+ }};
+ const routes=setup(db);
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes.middleware[1]({},res,()=>{passed=true;});
+ assert.equal(status,500);
+ assert.equal(passed,false);
+ assert.equal(queries,0);
+ assert.equal(body.success,false);
+});
