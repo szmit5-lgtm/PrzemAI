@@ -18,12 +18,12 @@ class OrganizationFinanceService{
   this.orgService=orgService||new OrganizationService({db});
  }
  async accessible(userId,organizationId){
-   const member=await this.orgService.membership(userId,organizationId);
+   await this.orgService.membership(userId,organizationId);
    const link=await this.db.organizationFinanceLink.findUnique({
      where:{organizationId},select:{id:true,organizationId:true,ownerUserId:true,nip:true}
    });
    if(!link)throw new OrganizationError("KSeF nie został jeszcze połączony z tą firmą.",404);
-   if(link.ownerUserId!==userId && member.financeAccess!==true){
+   if(link.ownerUserId!==userId){
      // Re-read permission from the membership row. Do not infer access from
      // company administrator or membership role.
      const permitted=await this.db.organizationMembership.findFirst({
