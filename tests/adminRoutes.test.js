@@ -541,3 +541,21 @@ test("admin route source: no escaped newline can comment out conditional writes"
  assert.match(source,/\n\s*if\(email===target\.email\) return res\.json/);
  assert.match(source,/\n\s*const result=await prisma\.user\.updateMany/);
 });
+
+test("admin edit: missing or blank user ID is rejected without querying database",async()=>{
+ let reads=0,writes=0;
+ const db={user:{
+  findUnique:async()=>{reads++;return null;},
+  updateMany:async()=>{writes++;return {count:1};}
+ }};
+ const routes=setup(db);
+ for(const id of [undefined,null,"","  ",42]){
+  let status=200,body;
+  const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+  await routes["PATCH /users/:id"]({user:{id:"owner"},params:{id},body:{email:"new@example.com"}},res);
+  assert.equal(status,400);
+  assert.equal(body.success,false);
+ }
+ assert.equal(reads,0);
+ assert.equal(writes,0);
+});
