@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -31,7 +31,7 @@ const prisma = {
 
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-  if (parent?.filename?.endsWith("/api/services/AgentService.js")) {
+  if (parent?.filename?.replace(/\\/g, "/").endsWith("/api/services/AgentService.js")) {
     if (request === "../../lib/prisma") return prisma;
     if (request === "../../core/agents/AgentRunner") return class AgentRunner {};
   }
@@ -51,7 +51,7 @@ test("shared company mailbox cannot be enabled by an unauthorized user", async (
   try {
     await assert.rejects(
       new AgentService().setIntegrationEnabled("other-user", integration.id, true),
-      /Brak uprawnień/
+      /Brak uprawnie/
     );
     assert.equal(updates.length, 0);
   } finally {
@@ -88,3 +88,5 @@ test("an unauthorized user can still disable a legacy shared integration", async
     else process.env.DEKONICA_MAIL_OWNER_USER_ID = previous;
   }
 });
+
+

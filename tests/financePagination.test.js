@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -20,7 +20,7 @@ const fakePrisma = {
 
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-  if (request === "../../lib/prisma" && parent?.filename?.endsWith("/api/services/FinanceService.js")) {
+  if (request === "../../lib/prisma" && parent?.filename?.replace(/\\/g, "/").endsWith("/api/services/FinanceService.js")) {
     return fakePrisma;
   }
   return originalLoad.call(this, request, parent, isMain);
@@ -85,3 +85,4 @@ test("finance list normalizes fractional limits before querying Prisma", async (
   assert.equal(query.skip, 3);
   assert.equal(Number.isInteger(query.take), true);
 });
+
