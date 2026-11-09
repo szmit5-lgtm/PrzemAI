@@ -4,6 +4,9 @@ const {financeClass,validateFinanceClass,summarizePeriods} = require("../../lib/
 
 class FinanceService {
     async list(userId, options = {}) {
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         const limit = Math.min(
             Math.max(Math.trunc(Number(options.limit)) || 100, 1),
             500
@@ -63,6 +66,7 @@ class FinanceService {
     }
 
     async one(userId, id) {
+        if (typeof userId !== "string" || !userId.trim()) return null;
         if (typeof id !== "string" || !id.trim() || id.length > 128) return null;
         const document = await prisma.financialDocument.findFirst({
             where: { id, userId },
