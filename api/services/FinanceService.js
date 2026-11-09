@@ -109,6 +109,9 @@ class FinanceService {
     }
 
     async listProjects(userId) {
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         return prisma.project.findMany({
             where: { userId, status: "ACTIVE" },
             select: { id: true, name: true, aliases: true, company: true },
