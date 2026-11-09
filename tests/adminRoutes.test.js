@@ -538,7 +538,7 @@ test("admin route source: no escaped newline can comment out conditional writes"
  const fs=require("node:fs");
  const source=fs.readFileSync(path.resolve(__dirname,"../api/routes/adminRoutes.js"),"utf8");
  assert.doesNotMatch(source,/\/\/[^\r\n]*\\n\s*if\(email===target\.email\)/);
- assert.match(source,/\n\s*if\(email===target\.email\) return res\.json/);
+ assert.match(source,/\n\s*if\(email===target\.email\.toLowerCase\(\)\) return res\.json/);
  assert.match(source,/\n\s*const result=await prisma\.user\.updateMany/);
 });
 
