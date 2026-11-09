@@ -151,3 +151,22 @@ test("finance list ignores caller-supplied tenant and unapproved query fields", 
   assert.equal(query.take, 25);
   assert.equal(query.skip, 0);
 });
+
+
+test("finance list fails closed without an authenticated tenant", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.list(userId), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not query financial documents");
+  }
+});
+
+test("finance detail fails closed without an authenticated tenant", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    assert.equal(await service.one(userId, "doc-123"), null);
+    assert.equal(calls.length, 0, "missing tenant must not query financial documents");
+  }
+});
