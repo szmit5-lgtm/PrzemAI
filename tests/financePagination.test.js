@@ -7,6 +7,12 @@ const Module = require("node:module");
 const calls = [];
 let nextDocuments = null;
 const fakePrisma = {
+  project: {
+    async findMany(options) {
+      calls.push({ method: "project.findMany", options });
+      return [];
+    }
+  },
   financialDocument: {
     async findFirst(options) {
       calls.push({ method: "findFirst", options });
@@ -179,4 +185,25 @@ test("finance summary fails closed without an authenticated tenant", async () =>
     await assert.rejects(service.summary(userId), /Brak identyfikatora użytkownika/);
     assert.equal(calls.length, 0, "missing tenant must not run aggregate queries");
   }
+});
+
+
+test("finance project list rejects missing tenant without database reads", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.listProjects(userId), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not query projects");
+  }
+  calls.length = 0;
+  assert.deepEqual(await service.listProjects("user-7"), []);
+  assert.deepEqual(calls[0], {
+    method: "project.findMany",
+    options: {
+      where: { userId: "user-7", status: "ACTIVE" },
+      select: { id: true, name: true, aliases: true, company: true },
+      orderBy: { name: "asc" },
+      take: 300
+    }
+  });
 });
