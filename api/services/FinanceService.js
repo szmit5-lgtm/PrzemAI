@@ -216,6 +216,9 @@ class FinanceService {
     }
 
     async summary(userId) {
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         const [
             total,
             newCount,
