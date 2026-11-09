@@ -170,3 +170,13 @@ test("finance detail fails closed without an authenticated tenant", async () => 
     assert.equal(calls.length, 0, "missing tenant must not query financial documents");
   }
 });
+
+
+test("finance summary fails closed without an authenticated tenant", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.summary(userId), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not run aggregate queries");
+  }
+});
