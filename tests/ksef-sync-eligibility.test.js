@@ -189,3 +189,17 @@ test("KSeF disabled flag short-circuits before reading owner or credentials", ()
     allowed: false, status: "DISABLED"
   });
 });
+
+test("KSeF invalid user is rejected before reading owner binding or credentials", () => {
+  const config = {
+    KSEF_SYNC_ENABLED: "true",
+    get KSEF_OWNER_USER_ID() { throw new Error("owner must remain unread"); },
+    get KSEF_NIP() { throw new Error("NIP must remain unread"); },
+    get KSEF_TOKEN() { throw new Error("token must remain unread"); }
+  };
+  for (const userId of [undefined, null, "", " user-owner", "user-owner ", 123]) {
+    assert.deepEqual(getKsefSyncEligibility(userId, config), {
+      allowed: false, status: "INVALID_USER"
+    });
+  }
+});
