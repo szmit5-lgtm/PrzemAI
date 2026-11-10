@@ -8,6 +8,7 @@ import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
 import {
  getOrganizationFinanceStatus,linkOrganizationKsef,getOrganizationFinanceSummary,
+ getOrganizationWorkspace,
  getOrganizationFinanceDocuments,getOrganizationFinanceProjects,
  getOrganizationFinanceMembers,changeOrganizationFinancePermission
 } from "@/lib/api";
@@ -23,6 +24,7 @@ const PAGE_SIZE=50;
 export default function CompanyFinancePage(){
  const {id}=useParams();
  const [status,setStatus]=useState(null);
+ const [companyName,setCompanyName]=useState("");
  const [summary,setSummary]=useState(null);
  const [documents,setDocuments]=useState([]);
  const [projects,setProjects]=useState([]);
@@ -37,7 +39,8 @@ export default function CompanyFinancePage(){
  useEffect(()=>{
   if(!id)return;
   let active=true;setLoading(true);setError("");
-  getOrganizationFinanceStatus(id).then(async result=>{
+  Promise.all([getOrganizationFinanceStatus(id),getOrganizationWorkspace(id)]).then(async ([result,workspace])=>{
+   if(active)setCompanyName(workspace?.data?.company?.displayName||workspace?.data?.company?.name||"");
    if(!active)return;
    const value=result?.data||{};
    setStatus(value);
@@ -82,7 +85,7 @@ export default function CompanyFinancePage(){
    <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
     <div className="min-w-0">
      <p className="text-xs font-bold uppercase tracking-widest text-violet-300">Przestrzeń firmowa / KSeF</p>
-     <h1 className="mt-2 break-words text-3xl font-black sm:text-4xl">Finanse Dekonica</h1>
+     <h1 className="mt-2 break-words text-3xl font-black sm:text-4xl">Finanse {companyName||"firmy"}</h1>
      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
       Firmowe zestawienie faktur KSeF i inwestycji, bez przenoszenia prywatnej historii konta właściciela.
       Dane pochodzą z istniejącej integracji, a pracownicy otrzymują dostęp wyłącznie po jego nadaniu.
@@ -102,18 +105,16 @@ export default function CompanyFinancePage(){
    {error&&<p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</p>}
    {notice&&<p role="status" className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">{notice}</p>}
    {!loading&&status&&!status.linked&&<section className="mt-6 max-w-3xl rounded-3xl border border-white/10 bg-[#111c35] p-5 sm:p-7">
-    <h2 className="flex items-center gap-2 text-xl font-bold"><Link2 size={20} className="text-violet-300"/> Połącz istniejący KSeF Dekonica</h2>
+    <h2 className="flex items-center gap-2 text-xl font-bold"><Link2 size={20} className="text-violet-300"/> {status.canLink?"Połącz istniejący KSeF Dekonica":"Konfiguracja KSeF dla tej firmy"}</h2>
     <p className="mt-3 text-sm leading-6 text-slate-300">
-     Połączenie wyświetli faktury już pobrane na koncie właściciela i automatycznie uwzględni nowe synchronizacje.
-     Nie skopiuje danych ani nie nada dostępu żadnemu pracownikowi.
+     {status.canLink?"Połączenie wyświetli faktury już pobrane na koncie właściciela. Nie skopiuje danych ani nie nada dostępu pracownikom.":"Ta firma nie ma jeszcze własnej autoryzowanej integracji KSeF. Nie można użyć tokenu i NIP innej spółki. Potrzebna jest oddzielna konfiguracja uprawnień i synchronizacji KSeF dla tej firmy."}
     </p>
     {status.canLink?<button type="button" disabled={busy} onClick={()=>doAction(
       ()=>linkOrganizationKsef(id),"KSeF Dekonica połączony z tą przestrzenią.")}
       className="mt-5 min-h-12 w-full rounded-xl bg-violet-500 px-5 font-bold text-white hover:bg-violet-400 disabled:opacity-50 sm:w-auto">
       {busy?"Łączę…":"Połącz KSeF Dekonica"}
     </button>:<p className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-400">
-     Połączenie może uruchomić właściciel konta z aktywną integracją Dekonica.
-     Jeżeli firma nie nazywa się Dekonica, jej KSeF wymaga osobnego podłączenia.
+     W obecnej wersji automatyczne podłączenie jest dostępne tylko dla pilotażowej integracji Dekonica. Konfiguracja KSeF tej spółki wymaga osobnego wdrożenia po autoryzacji.
     </p>}
    </section>}
    {!loading&&status?.linked&&!status.canView&&<section className="mt-6 max-w-3xl rounded-3xl border border-white/10 bg-[#111c35] p-6">
@@ -182,14 +183,14 @@ export default function CompanyFinancePage(){
      </div>
     </section>
     <section className="mt-5 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
-     <h2 className="flex items-center gap-2 text-xl font-bold"><FolderKanban size={21} className="text-violet-300"/> Inwestycje Dekonica</h2>
-     <p className="mt-1 text-xs text-slate-400">Projekty przypisane do Dekonica na koncie właściciela</p>
+     <h2 className="flex items-center gap-2 text-xl font-bold"><FolderKanban size={21} className="text-violet-300"/> Inwestycje {companyName||"firmy"}</h2>
+     <p className="mt-1 text-xs text-slate-400">Projekty powiązane z tą firmą na koncie właściciela</p>
      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map(project=><div key={project.id} className="min-w-0 rounded-xl border border-white/10 bg-[#182742] p-4">
        <strong className="block break-words text-sm">{project.name}</strong>
        <p className="mt-2 break-words text-xs text-slate-400">{project.company}</p>
       </div>)}
-      {projects.length===0&&<p className="text-sm text-slate-400">Brak inwestycji przypisanych do Dekonica.</p>}
+      {projects.length===0&&<p className="text-sm text-slate-400">Brak inwestycji przypisanych do tej firmy.</p>}
      </div>
     </section>
     {status?.canManage&&<section className="mt-5 min-w-0 rounded-3xl border border-violet-400/25 bg-[#111c35] p-4 sm:p-6">
