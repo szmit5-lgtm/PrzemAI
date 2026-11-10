@@ -137,3 +137,29 @@ test("KSeF rejects padded tokens while accepting an exact token", () => {
   }
   assert.deepEqual(getKsefSyncEligibility("user-owner", ready), { allowed: true, status: "READY" });
 });
+
+test("KSeF denies other users before inspecting company credentials", () => {
+  const incomplete = {
+    KSEF_SYNC_ENABLED: "true",
+    KSEF_OWNER_USER_ID: "user-owner",
+    KSEF_NIP: undefined,
+    KSEF_TOKEN: undefined,
+    KSEF_ENVIRONMENT: undefined
+  };
+  for (const userId of ["another-user", "USER-OWNER"]) {
+    assert.deepEqual(getKsefSyncEligibility(userId, incomplete), {
+      allowed: false, status: "OWNER_MISMATCH"
+    });
+  }
+  assert.deepEqual(getKsefSyncEligibility("user-owner", incomplete), {
+    allowed: false, status: "INVALID_NIP"
+  });
+});
+
+test("KSeF eligibility never mutates caller-provided configuration", () => {
+  const config = Object.freeze({ ...ready });
+  assert.deepEqual(getKsefSyncEligibility("user-owner", config), {
+    allowed: true, status: "READY"
+  });
+  assert.equal(config.KSEF_TOKEN, ready.KSEF_TOKEN);
+});
