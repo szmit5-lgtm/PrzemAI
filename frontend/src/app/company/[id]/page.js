@@ -26,6 +26,7 @@ export default function CompanyWorkspace(){
  const [data,setData]=useState(null);
  const [members,setMembers]=useState([]);
  const [tab,setTab]=useState("tasks");
+ const [taskFilter,setTaskFilter]=useState("ALL");
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
@@ -47,6 +48,9 @@ export default function CompanyWorkspace(){
  const [dnsBusy,setDnsBusy]=useState("");
  const org=data?.company;
  const tasks=data?.tasks||[];
+ const openTasks=tasks.filter(t=>t.status!=="DONE");
+ const urgentTasks=openTasks.filter(t=>["HIGH","URGENT"].includes(t.priority));
+ const visibleTasks=taskFilter==="ALL"?tasks:tasks.filter(t=>t.status===taskFilter);
  const isAdmin=["OWNER","ADMIN"].includes(org?.role);
  const isOwner=org?.role==="OWNER";
  useEffect(()=>{
@@ -180,6 +184,27 @@ export default function CompanyWorkspace(){
       <span>Ta przestrzeń posiada własne zadania i dostęp zespołu. Istniejące faktury KSeF, historia, agent finansowy i rozmowy ze starego konta nie są tu jeszcze przeniesione ani współdzielone. Nie traktuj widoku osobistego jako finansów tej firmy.</span>
      </div>
     </section>
+    <section aria-label="Pulpit firmy" className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+     {[
+      {label:"Otwarte zadania",value:openTasks.length,detail:"Do realizacji",icon:BriefcaseBusiness},
+      {label:"Pilne i ważne",value:urgentTasks.length,detail:"Wymagają uwagi",icon:AlertTriangle},
+      {label:"Zakończone",value:tasks.filter(t=>t.status==="DONE").length,detail:"Zadania wykonane",icon:CheckCircle2},
+      {label:"Członkowie zespołu",value:isAdmin?members.length:"—",detail:isAdmin?"Osoby z dostępem":"Widoczne administratorom",icon:Users}
+     ].map(item=><div key={item.label} className="min-w-0 rounded-2xl border border-white/10 bg-[#111c35] p-4">
+      <item.icon size={19} className="text-violet-300"/>
+      <p className="mt-3 text-2xl font-black sm:text-3xl">{item.value}</p>
+      <p className="mt-1 text-sm font-semibold">{item.label}</p>
+      <p className="mt-1 text-xs text-slate-400">{item.detail}</p>
+     </div>)}
+    </section>
+    <section aria-label="Szybkie działania" className="mt-4 flex flex-wrap gap-2">
+     <button type="button" onClick={()=>{setTab("tasks");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-bold text-white hover:bg-violet-400"><Plus size={17}/> Dodaj zadanie</button>
+     {isAdmin&&<button type="button" onClick={()=>{setTab("team");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold"><Users size={17}/> Zarządzaj zespołem</button>}
+     {isAdmin&&<button type="button" onClick={()=>{setTab("brand");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold"><Palette size={17}/> Edytuj profil firmy</button>}
+    </section>
     <Link href={"/company/"+encodeURIComponent(id)+"/finance"}
       className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/10 p-4 transition hover:bg-violet-400/15">
       <span className="flex min-w-0 items-center gap-3">
@@ -192,7 +217,7 @@ export default function CompanyWorkspace(){
       </span>
       <span className="text-xs font-bold text-violet-200">Otwórz finanse</span>
     </Link>
-    <div className="mt-5 flex min-w-0 flex-wrap gap-2" role="tablist" aria-label="Zarządzanie firmą">
+    <div id="company-workspace-tabs" className="mt-5 flex min-w-0 flex-wrap gap-2 scroll-mt-4" role="tablist" aria-label="Zarządzanie firmą">
      {tabs.filter(([key])=>key==="tasks"||(key==="team"||key==="brand")&&isAdmin||key==="domain"&&isOwner)
       .map(([key,label])=><button type="button" key={key} role="tab" aria-selected={tab===key}
        onClick={()=>{setTab(key);setError("");setNotice("");}}
@@ -231,8 +256,9 @@ export default function CompanyWorkspace(){
       <section className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
        <h2 className="text-xl font-bold">Zadania {org.displayName||org.name}</h2>
        <p className="mt-1 text-xs text-slate-400">{tasks.length} widocznych zadań tej firmy</p>
+       <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtr statusu zadań">{[["ALL","Wszystkie"],["TODO","Do zrobienia"],["IN_PROGRESS","W trakcie"],["DONE","Zakończone"]].map(([key,label])=><button key={key} type="button" aria-pressed={taskFilter===key} onClick={()=>setTaskFilter(key)} className={"min-h-10 rounded-lg border px-3 text-xs font-semibold "+(taskFilter===key?"border-violet-300 bg-violet-500/25 text-white":"border-white/15 text-slate-300")}>{label}</button>)}</div>
        <div className="mt-4 max-h-[760px] space-y-3 overflow-y-auto pr-1">
-        {tasks.map(t=><article key={t.id} className="min-w-0 rounded-2xl border border-white/10 bg-[#192844] p-4">
+        {visibleTasks.map(t=><article key={t.id} className="min-w-0 rounded-2xl border border-white/10 bg-[#192844] p-4">
          <div className="flex flex-wrap items-center justify-between gap-2">
           <strong className="min-w-0 break-words text-sm">{t.title}</strong>
           <span className="text-xs text-slate-400">{date(t.dueDate)}</span>
@@ -247,7 +273,7 @@ export default function CompanyWorkspace(){
           </select>
          </div>
         </article>)}
-        {tasks.length===0&&<p className="rounded-xl border border-dashed border-white/15 p-6 text-sm text-slate-400">Brak firmowych zadań. Dodaj pierwsze z lewej strony.</p>}
+        {visibleTasks.length===0&&<p className="rounded-xl border border-dashed border-white/15 p-6 text-sm text-slate-400">{tasks.length===0?"Brak firmowych zadań. Dodaj pierwsze z lewej strony.":"Brak zadań z wybranym statusem."}</p>}
        </div>
       </section>
      </div>}
