@@ -40,7 +40,7 @@ function nextHistoryWindow(cursor, recentStart) {
 }
 
 async function syncKsefOwner({
-  userId, prisma, token, nip, environment = "production",
+  userId, prisma, token, nip, company = "dekonica", environment = "production",
   now = new Date(), authorize = authorizeKsefReadOnly, Client = KsefClient,
   historyWindowsPerRun = positiveInt(process.env.KSEF_BACKFILL_WINDOWS_PER_RUN, 1, MAX_HISTORY_WINDOWS),
   xmlBatchSize = positiveInt(process.env.KSEF_XML_BATCH_SIZE, XML_BATCH, MAX_XML_BATCH)
@@ -49,6 +49,12 @@ async function syncKsefOwner({
       !prisma?.financialDocument || !prisma?.agent) {
     throw new Error("Invalid owner KSeF sync configuration.");
   }
+  if (!/^[0-9]{10}$/.test(String(nip || "")) || !["dekonica", "deherus"].includes(company)) {
+    throw new Error("Invalid KSeF company scope.");
+  }
+  // Every XML request and project analysis must remain within this company NIP.
+  const documentScope = { userId, source: "KSEF", OR: [{ buyerNip: nip }, { sellerNip: nip }] };
+  const cursorKey = company === "deherus" ? "ksefDeherusBackfillCursor" : "ksefBackfillCursor";
   const nowMs = new Date(now).getTime();
   if (!Number.isFinite(nowMs)) throw new Error("Invalid KSeF sync time.");
   const recentStart = new Date(nowMs - 86400000).toISOString();
@@ -94,7 +100,7 @@ async function syncKsefOwner({
   });
   const config = agent?.config && !Array.isArray(agent.config) &&
     typeof agent.config === "object" ? agent.config : {};
-  let cursor = typeof config.ksefBackfillCursor === "string"
+  let cursor = typeof config[cursorKey] === "string"
     ? config.ksefBackfillCursor : DEFAULT_HISTORY_START;
   for (let i = 0; agent && i < historyWindowsPerRun; i += 1) {
     const historical = nextHistoryWindow(cursor, recentStart);
@@ -104,7 +110,7 @@ async function syncKsefOwner({
     // have finished successfully, never while a partial window is in flight.
     await prisma.agent.update({
       where: { userId_key: { userId, key: "financial" } },
-      data: { config: { ...config, ksefBackfillCursor: historical.to } }
+      data: { config: { ...config, [cursorKey]: historical.to } }
     });
     cursor = historical.to;
     historicWindow = historical;
@@ -113,7 +119,7 @@ async function syncKsefOwner({
   historyComplete = !nextHistoryWindow(cursor, recentStart);
 
   // Analyze existing XML as well as newly downloaded invoices, within owner scope.
-  await ensureDekonicaProjects({ prisma, userId });
+  if (company === "dekonica") await ensureDekonicaProjects({ prisma, userId });
   const projects = typeof prisma.project?.findMany === "function"
     ? await prisma.project.findMany({
         where: { userId, status: "ACTIVE" },
@@ -123,13 +129,13 @@ async function syncKsefOwner({
   // This pilot's KSeF credentials represent Dekonica only; never match
   // projects explicitly labeled as another business.
   const permittedProjects = projects.filter(project =>
-    typeof project.company === "string" && /dekonica/i.test(project.company));
+    typeof project.company === "string" && (company === "dekonica" ? /dekonica/i.test(project.company) : /(?:deherus|\bm1\b)/i.test(project.company)));
   const projectCatalogSignature = createHash("sha256").update(JSON.stringify(permittedProjects)).digest("hex").slice(0,16);
   // Query the *missing* XML records instead of only the newest 150 invoices.
   // A durable retry timestamp prevents a few unauthorized or invalid XMLs
   // from endlessly blocking later invoices.
   const missing = await prisma.financialDocument.findMany({
-    where: { userId, source: "KSEF", rawData: { equals: Prisma.DbNull } },
+    where: { ...documentScope, rawData: { equals: Prisma.DbNull } },
     select: { id: true, ksefNumber: true, rawData: true, metadata: true, projectId: true, dueDate: true },
     orderBy: [{ issueDate: "asc" }, { id: "asc" }],
     take: 3000
@@ -152,7 +158,7 @@ async function syncKsefOwner({
     try {
       const xml = await client.getInvoiceXml(item.ksefNumber);
       await prisma.financialDocument.updateMany({
-        where: { id: item.id, userId, source: "KSEF" },
+        where: { id: item.id, ...documentScope },
         data: { rawData: {
           xml, origin: "KSEF_OFFICIAL_XML", downloadedAt: new Date().toISOString()
         } }
@@ -215,7 +221,7 @@ async function syncKsefOwner({
       if (shouldAssign) next.projectId = analysis.projectId;
       if (!item.dueDate && analysis.dueDate) next.dueDate = analysis.dueDate;
       const updated = await prisma.financialDocument.updateMany({
-        where: { id: item.id, userId, source: "KSEF", projectId: item.projectId || null },
+        where: { id: item.id, ...documentScope, projectId: item.projectId || null },
         data: next
       });
       if (updated?.count === 1) {
@@ -231,7 +237,7 @@ async function syncKsefOwner({
   let scanCursor = null;
   for (let page = 0; page < 75; page += 1) {
     const existing = await prisma.financialDocument.findMany({
-      where: { userId, source: "KSEF", rawData: { not: Prisma.DbNull } },
+      where: { ...documentScope, rawData: { not: Prisma.DbNull } },
       select: { id: true, rawData: true, metadata: true, projectId: true, dueDate: true },
       orderBy: { id: "asc" },
       ...(scanCursor ? { cursor: { id: scanCursor }, skip: 1 } : {}),
