@@ -84,3 +84,16 @@ test("KSeF rejects non-string tokens and non-production environment variants", (
     });
   }
 });
+
+test("KSeF rejects non-string user and owner identities", () => {
+  for (const userId of [null, 0, false, {}, [], ["user-owner"]]) {
+    assert.deepEqual(getKsefSyncEligibility(userId, ready), {
+      allowed: false, status: "INVALID_USER"
+    });
+  }
+  for (const owner of [null, 0, false, {}, [], ["user-owner"]]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_OWNER_USER_ID: owner }), {
+      allowed: false, status: "OWNER_NOT_CONFIGURED"
+    });
+  }
+});
