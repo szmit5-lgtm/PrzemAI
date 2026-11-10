@@ -97,3 +97,26 @@ test("KSeF rejects non-string user and owner identities", () => {
     });
   }
 });
+
+test("KSeF rejects padded, blank and mismatched user identities without revealing owner", () => {
+  for (const userId of ["", " ", " user-owner", "user-owner ", "\tuser-owner", "user-owner\n"]) {
+    assert.deepEqual(getKsefSyncEligibility(userId, ready), {
+      allowed: false, status: "INVALID_USER"
+    });
+  }
+  for (const userId of ["another-user", "USER-OWNER", "user-owner-other"]) {
+    assert.deepEqual(getKsefSyncEligibility(userId, ready), {
+      allowed: false, status: "OWNER_MISMATCH"
+    });
+  }
+});
+
+test("KSeF stays disabled for absent configuration and does not expose credentials", () => {
+  for (const env of [undefined, null, {}, { ...ready, KSEF_SYNC_ENABLED: false }]) {
+    // Undefined defaults to process.env; force a disabled flag for that case.
+    const config = env === undefined ? { ...ready, KSEF_SYNC_ENABLED: undefined } : env;
+    assert.deepEqual(getKsefSyncEligibility("user-owner", config), {
+      allowed: false, status: "DISABLED"
+    });
+  }
+});
