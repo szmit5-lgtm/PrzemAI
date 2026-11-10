@@ -2,6 +2,8 @@
 const prisma=require("../../lib/prisma");
 const {OrganizationService,OrganizationError}=require("./OrganizationService");
 const NIP=/^\d{10}$/;
+const DEHERUS_NIP="1133200454";
+function isDeherus(org){return /(?:deherus|(?:^|\W)m1(?:\W|$))/i.test((org?.name||"")+" "+(org?.slug||"")+" "+(org?.displayName||""));}
 function ksefDocPredicate(ownerUserId,nip){
   return {userId:ownerUserId,source:"KSEF",
     OR:[{buyerNip:nip},{sellerNip:nip}]};
@@ -47,13 +49,16 @@ class OrganizationFinanceService{
      select:{id:true}
    }))?.id);
    const pilotOrg=await this.db.organization.findUnique({
-     where:{id:organizationId},select:{name:true,slug:true,status:true}
+     where:{id:organizationId},select:{name:true,slug:true,displayName:true,status:true}
    });
+   const deherus=isDeherus(pilotOrg);
+   const configuredNip=deherus?this.env.KSEF_DEHERUS_NIP:this.env.KSEF_NIP;
    const couldLink=pilotOrg?.status==="ACTIVE"&&
-     /dekonica/i.test((pilotOrg?.name||"")+" "+(pilotOrg?.slug||""))&&
+     (deherus?configuredNip===DEHERUS_NIP&&Boolean(this.env.KSEF_DEHERUS_TOKEN):/dekonica/i.test((pilotOrg?.name||"")+" "+(pilotOrg?.slug||"")))&&
      member.role==="OWNER"&&
      userId===this.env.KSEF_OWNER_USER_ID&&
-     this.env.KSEF_SYNC_ENABLED==="true"&&NIP.test(this.env.KSEF_NIP||"");
+     this.env.KSEF_SYNC_ENABLED==="true"&&NIP.test(configuredNip||"")&&
+     (!deherus||this.env.KSEF_DEHERUS_SYNC_ENABLED==="true");
    return {
      linked:Boolean(link),
      canLink:!link&&couldLink,
@@ -66,11 +71,14 @@ class OrganizationFinanceService{
  async linkPilot(userId,organizationId){
    const member=await this.orgService.membership(userId,organizationId,["OWNER"]);
    const org=await this.db.organization.findUnique({
-     where:{id:organizationId},select:{id:true,name:true,slug:true,status:true}
+     where:{id:organizationId},select:{id:true,name:true,slug:true,displayName:true,status:true}
    });
-   if(!org || org.status!=="ACTIVE" || !/dekonica/i.test(org.name+" "+org.slug))
-     throw new OrganizationError("W pilotażu można połączyć tylko firmę Dekonica.",400);
-   const nip=String(this.env.KSEF_NIP||"").trim();
+   const deherus=isDeherus(org);
+   if(!org || org.status!=="ACTIVE" || !(deherus||/dekonica/i.test(org.name+" "+org.slug)))
+     throw new OrganizationError("Ta firma nie ma obsługiwanej konfiguracji KSeF.",400);
+   const nip=String(deherus?this.env.KSEF_DEHERUS_NIP||"":this.env.KSEF_NIP||"").trim();
+   if(deherus&&(nip!==DEHERUS_NIP||!this.env.KSEF_DEHERUS_TOKEN||this.env.KSEF_DEHERUS_SYNC_ENABLED!=="true"))
+     throw new OrganizationError("Synchronizacja KSeF Deherus nie została jeszcze uruchomiona.",403);
    if(userId!==this.env.KSEF_OWNER_USER_ID||this.env.KSEF_SYNC_ENABLED!=="true"||!NIP.test(nip))
      throw new OrganizationError("Dostęp do KSeF Dekonica nie jest skonfigurowany na tym koncie.",403);
    const existing=await this.db.organizationFinanceLink.findUnique({
@@ -145,7 +153,7 @@ class OrganizationFinanceService{
      })
    ]);
    return {count,source:"KSEF",cashFlowAvailable:false,
-     note:"Faktury są filtrowane po NIP Dekonica. Kwoty brutto nie oznaczają faktycznych wpływów na konto.",
+     note:"Faktury są filtrowane po NIP firmy. Kwoty brutto nie oznaczają faktycznych wpływów na konto.",
      sync:{enabled:Boolean(ownerAgent?.enabled),status:ownerAgent?.status||"UNKNOWN",
        lastRunAt:ownerAgent?.lastRunAt||null},
      amounts:groups.map(r=>({
@@ -183,8 +191,10 @@ class OrganizationFinanceService{
  }
  async projects(userId,organizationId){
    const link=await this.accessible(userId,organizationId);
+   const org=await this.db.organization.findUnique({where:{id:organizationId},select:{name:true,slug:true,displayName:true}});
+   const companyFilter=isDeherus(org)?{OR:[{company:{contains:"Deherus",mode:"insensitive"}},{company:{equals:"M1",mode:"insensitive"}}]}:{company:{contains:"Dekonica",mode:"insensitive"}};
    const rows=await this.db.project.findMany({
-     where:{userId:link.ownerUserId,status:"ACTIVE",company:{contains:"Dekonica",mode:"insensitive"}},
+     where:{userId:link.ownerUserId,status:"ACTIVE",...companyFilter},
      select:{id:true,name:true,company:true,aliases:true},
      orderBy:{name:"asc"},take:200
    });
