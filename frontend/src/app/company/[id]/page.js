@@ -197,6 +197,46 @@ export default function CompanyWorkspace(){
       <p className="mt-1 text-xs text-slate-400">{item.detail}</p>
      </div>)}
     </section>
+    <section aria-label="Wykresy firmy" className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
+     <div className="min-w-0 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
+      <h2 className="text-lg font-bold">Realizacja zadań</h2>
+      <p className="mt-1 text-xs text-slate-400">Podział zadań w tej firmie według statusu</p>
+      <div className="mt-6 space-y-5">
+       {[["TODO","Do zrobienia","#a78bfa"],["IN_PROGRESS","W trakcie","#38bdf8"],["DONE","Zakończone","#34d399"]].map(([key,label,color])=>{
+        const count=tasks.filter(t=>t.status===key).length;
+        const percent=tasks.length?Math.round(count/tasks.length*100):0;
+        return <div key={key}>
+         <div className="mb-2 flex justify-between gap-3 text-sm"><span>{label}</span><span className="font-bold tabular-nums">{count} · {percent}%</span></div>
+         <div className="h-3 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label={label} aria-valuenow={count} aria-valuemin={0} aria-valuemax={tasks.length||1}>
+          <div className="h-full rounded-full transition-all duration-300" style={{width:percent+"%",backgroundColor:color}}/>
+         </div>
+        </div>;
+       })}
+      </div>
+      {tasks.length===0&&<p className="mt-5 text-xs text-slate-400">Dodaj pierwsze zadanie, aby zobaczyć dane na wykresie.</p>}
+     </div>
+     <div className="min-w-0 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
+      <h2 className="text-lg font-bold">Priorytety i terminy</h2>
+      <p className="mt-1 text-xs text-slate-400">Aktywne zadania wymagające realizacji</p>
+      <div className="mt-6 grid grid-cols-3 gap-3">
+       {[
+        {label:"Pilne",count:openTasks.filter(t=>t.priority==="URGENT").length,color:"#fb7185"},
+        {label:"Wysokie",count:openTasks.filter(t=>t.priority==="HIGH").length,color:"#fbbf24"},
+        {label:"Pozostałe",count:openTasks.filter(t=>!["URGENT","HIGH"].includes(t.priority)).length,color:"#a78bfa"}
+       ].map(item=><div key={item.label} className="min-w-0 text-center">
+        <div className="flex h-28 items-end justify-center rounded-xl bg-[#0a162d] px-3 pb-2">
+         <div className="w-full max-w-16 rounded-t-lg transition-all duration-300" style={{height:(openTasks.length?Math.max(4,Math.round(item.count/openTasks.length*100)):4)+"%",backgroundColor:item.color,opacity:item.count?1:.2}}/>
+        </div>
+        <p className="mt-2 text-xl font-black tabular-nums">{item.count}</p>
+        <p className="text-xs text-slate-400">{item.label}</p>
+       </div>)}
+      </div>
+      <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 bg-[#0a162d] p-3">
+       <span className="text-sm text-slate-300">Po terminie</span>
+       <strong className="text-lg tabular-nums text-rose-300">{openTasks.filter(t=>t.dueDate&&new Date(t.dueDate).getTime()<new Date().setHours(0,0,0,0)).length}</strong>
+      </div>
+     </div>
+    </section>
     <section aria-label="Szybkie działania" className="mt-4 flex flex-wrap gap-2">
      <button type="button" onClick={()=>{setTab("tasks");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-bold text-white hover:bg-violet-400"><Plus size={17}/> Dodaj zadanie</button>
