@@ -71,3 +71,16 @@ test("KSeF rejects malformed NIPs and whitespace-only credentials without leakin
     });
   }
 });
+
+test("KSeF rejects non-string tokens and non-production environment variants", () => {
+  for (const token of [0, false, {}, [], 12345]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_TOKEN: token }), {
+      allowed: false, status: "TOKEN_MISSING"
+    });
+  }
+  for (const environment of ["Production", "production ", " production", "", undefined, null]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_ENVIRONMENT: environment }), {
+      allowed: false, status: "ENVIRONMENT_NOT_PRODUCTION"
+    });
+  }
+});
