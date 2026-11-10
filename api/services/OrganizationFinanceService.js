@@ -65,6 +65,7 @@ class OrganizationFinanceService{
      canManage:Boolean(link&&link.ownerUserId===userId&&member.role==="OWNER"),
      canView:Boolean(link&&explicit),
      explanation:link?"Finanse widzą tylko osoby z osobnym dostępem finansowym.":
+       deherus&&!couldLink?"KSeF Deherus nie jest jeszcze gotowy do połączenia. Wymagana jest osobna, aktywna synchronizacja.":
        "Połącz firmę z istniejącym KSeF właściciela. To nie udostępni danych innym pracownikom."
    };
  }
@@ -80,7 +81,7 @@ class OrganizationFinanceService{
    if(deherus&&(nip!==DEHERUS_NIP||!this.env.KSEF_DEHERUS_TOKEN||this.env.KSEF_DEHERUS_SYNC_ENABLED!=="true"))
      throw new OrganizationError("Synchronizacja KSeF Deherus nie została jeszcze uruchomiona.",403);
    if(userId!==this.env.KSEF_OWNER_USER_ID||this.env.KSEF_SYNC_ENABLED!=="true"||!NIP.test(nip))
-     throw new OrganizationError("Dostęp do KSeF Dekonica nie jest skonfigurowany na tym koncie.",403);
+     throw new OrganizationError("Dostęp do KSeF tej firmy nie jest skonfigurowany na tym koncie.",403);
    const existing=await this.db.organizationFinanceLink.findUnique({
      where:{organizationId},select:{id:true,ownerUserId:true,nip:true}
    });
