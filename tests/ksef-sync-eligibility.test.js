@@ -51,3 +51,23 @@ test("KSeF diagnostics reveal no token, NIP or user identifier", () => {
     }
   }
 });
+
+
+test("KSeF rejects malformed NIPs and whitespace-only credentials without leaking input", () => {
+  const invalidNips = ["012345678", "01234567890", "12345 7890", "１２３４５６７８９０", "12345\\n7890", "", undefined];
+  for (const nip of invalidNips) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_NIP: nip }), {
+      allowed: false, status: "INVALID_NIP"
+    });
+  }
+  for (const token of [" ", "\\t\\n", undefined, null]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_TOKEN: token }), {
+      allowed: false, status: "TOKEN_MISSING"
+    });
+  }
+  for (const flag of [true, "TRUE", "1", " true ", undefined]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_SYNC_ENABLED: flag }), {
+      allowed: false, status: "DISABLED"
+    });
+  }
+});
