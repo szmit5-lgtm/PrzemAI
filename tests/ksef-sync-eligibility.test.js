@@ -120,3 +120,11 @@ test("KSeF stays disabled for absent configuration and does not expose credentia
     });
   }
 });
+
+test("KSeF rejects numeric and object-like NIP configuration values", () => {
+  for (const nip of [1234567890, 0, null, false, {}, ["1234567890"]]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_NIP: nip }), {
+      allowed: false, status: "INVALID_NIP"
+    });
+  }
+});
