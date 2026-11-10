@@ -125,7 +125,8 @@ test("Deherus company cannot link KSeF before isolated sync is enabled", async (
     organization: { findUnique: async () => ({
       id: "deherus", name: "M1", slug: "m1", displayName: "Deherus", status: "ACTIVE"
     }) },
-    organizationFinanceLink: { findUnique: async () => null }
+    organizationFinanceLink: { findUnique: async () => null },
+    organizationMembership: { findFirst: async () => null }
   };
   const orgService = { membership: async () => ({ role: "OWNER" }) };
   const env = {
