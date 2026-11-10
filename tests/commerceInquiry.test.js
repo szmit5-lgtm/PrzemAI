@@ -15,3 +15,12 @@ test("rejects invalid quantity, URL and injected headers", () => {
   assert.throws(() => prepareCommerceInquiry({ ...valid, productUrl: "https://allegro.pl.evil.example/oferta/123" }), /URL/);
   assert.throws(() => prepareCommerceInquiry({ ...valid, customerName: "Jan\nBcc: bad" }), /customerName/);
 });
+
+test("rejects arbitrary Allegro paths and external redirects", () => {
+  for (const productUrl of [
+    "https://allegro.pl/oferta/",
+    "https://allegro.pl/oferta/not-a-real-offer",
+    "https://allegro.pl/oferta/example-123456/other",
+    "https://allegro.pl/oferta/example-123456@evil.example"
+  ]) assert.throws(() => prepareCommerceInquiry({ ...valid, productUrl }), /URL/);
+});
