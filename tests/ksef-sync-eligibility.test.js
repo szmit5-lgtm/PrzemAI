@@ -176,3 +176,16 @@ test("KSeF does not read tenant credentials for an unauthorized user", () => {
     allowed: false, status: "OWNER_MISMATCH"
   });
 });
+
+test("KSeF disabled flag short-circuits before reading owner or credentials", () => {
+  const config = {
+    KSEF_SYNC_ENABLED: "false",
+    get KSEF_OWNER_USER_ID() { throw new Error("owner must remain unread"); },
+    get KSEF_NIP() { throw new Error("NIP must remain unread"); },
+    get KSEF_TOKEN() { throw new Error("token must remain unread"); },
+    get KSEF_ENVIRONMENT() { throw new Error("environment must remain unread"); }
+  };
+  assert.deepEqual(getKsefSyncEligibility("user-owner", config), {
+    allowed: false, status: "DISABLED"
+  });
+});
