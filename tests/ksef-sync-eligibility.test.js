@@ -128,3 +128,12 @@ test("KSeF rejects numeric and object-like NIP configuration values", () => {
     });
   }
 });
+
+test("KSeF rejects padded tokens while accepting an exact token", () => {
+  for (const token of [" SECRET-DO-NOT-LOG", "SECRET-DO-NOT-LOG ", "\tSECRET-DO-NOT-LOG", "SECRET-DO-NOT-LOG\n"]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_TOKEN: token }), {
+      allowed: false, status: "TOKEN_MISSING"
+    });
+  }
+  assert.deepEqual(getKsefSyncEligibility("user-owner", ready), { allowed: true, status: "READY" });
+});
