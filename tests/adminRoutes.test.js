@@ -576,3 +576,19 @@ test("admin edit: oversized user id is rejected before database access",async()=
  assert.equal(reads,0);
  assert.equal(writes,0);
 });
+
+
+test("admin authorization: missing authentication context returns 401 before database access",async()=>{
+ let reads=0;
+ const db={user:{findUnique:async()=>{reads++;return null;}}};
+ const routes=setup(db);
+ for(const user of [undefined,{}, {id:""}]){
+  let status=200,body,passed=false;
+  const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+  await routes.middleware[1]({user},res,()=>{passed=true;});
+  assert.equal(status,401);
+  assert.equal(body.success,false);
+  assert.equal(passed,false);
+ }
+ assert.equal(reads,0);
+});
