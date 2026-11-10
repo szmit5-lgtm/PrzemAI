@@ -151,8 +151,36 @@ class FinancialAgent {
       }
     }
 
+    // Deherus uses separate credentials and remains OFF until explicitly enabled.
+    // Do not allow this path for any user except the configured KSeF owner.
+    let deherusKsefStatus = "DISABLED";
+    let deherusKsefImported = 0;
+    let deherusKsefXmlFetched = 0;
+    const deherusReady = process.env.KSEF_DEHERUS_SYNC_ENABLED === "true" &&
+      process.env.KSEF_SYNC_ENABLED === "true" &&
+      ksefEligibility.allowed &&
+      process.env.KSEF_DEHERUS_NIP === "1133200454" &&
+      typeof process.env.KSEF_DEHERUS_TOKEN === "string" &&
+      Boolean(process.env.KSEF_DEHERUS_TOKEN.trim());
+    if (deherusReady) {
+      try {
+        const result = await syncKsefOwner({
+          userId, prisma, token: process.env.KSEF_DEHERUS_TOKEN,
+          nip: process.env.KSEF_DEHERUS_NIP, company: "deherus",
+          environment: "production"
+        });
+        deherusKsefImported = result.created;
+        deherusKsefXmlFetched = result.xmlFetched;
+        deherusKsefStatus = "SYNCED";
+      } catch {
+        deherusKsefStatus = "ERROR";
+        ksefFailed = true;
+        console.warn("[FinancialAgent] Deherus KSeF synchronization failed (details redacted)");
+      }
+    }
+
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}, przyczyny błędów XML ${JSON.stringify(xmlFailureCodes)}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}, przyczyny błędów XML ${JSON.stringify(xmlFailureCodes)}, Deherus KSeF ${deherusKsefStatus}, Deherus nowe ${deherusKsefImported}, Deherus XML ${deherusKsefXmlFetched}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -170,6 +198,9 @@ class FinancialAgent {
         blockedIntegrations,
         failedIntegrations,
         ksefImported,
+        deherusKsefStatus,
+        deherusKsefImported,
+        deherusKsefXmlFetched,
         ksefDuplicates,
         ksefFailed,
         ksefStatus,
