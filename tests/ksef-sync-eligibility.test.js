@@ -60,7 +60,7 @@ test("KSeF rejects malformed NIPs and whitespace-only credentials without leakin
       allowed: false, status: "INVALID_NIP"
     });
   }
-  for (const token of [" ", "\\t\\n", undefined, null]) {
+  for (const token of [" ", String.fromCharCode(9, 10), undefined, null]) {
     assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_TOKEN: token }), {
       allowed: false, status: "TOKEN_MISSING"
     });
