@@ -163,3 +163,16 @@ test("KSeF eligibility never mutates caller-provided configuration", () => {
   });
   assert.equal(config.KSEF_TOKEN, ready.KSEF_TOKEN);
 });
+
+test("KSeF does not read tenant credentials for an unauthorized user", () => {
+  const config = {
+    KSEF_SYNC_ENABLED: "true",
+    KSEF_OWNER_USER_ID: "user-owner",
+    get KSEF_NIP() { throw new Error("NIP must remain unread"); },
+    get KSEF_TOKEN() { throw new Error("token must remain unread"); },
+    get KSEF_ENVIRONMENT() { throw new Error("environment must remain unread"); }
+  };
+  assert.deepEqual(getKsefSyncEligibility("another-user", config), {
+    allowed: false, status: "OWNER_MISMATCH"
+  });
+});
