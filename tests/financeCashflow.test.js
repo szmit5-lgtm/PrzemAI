@@ -27,3 +27,19 @@ test("invalid dates, amounts and missing company are rejected", () => {
   assert.throws(() => summarizeCashflow(rows, { companyId: "", from: "2026-10-01", to: "2026-10-31" }), /companyId/);
   assert.throws(() => summarizeCashflow([{ companyId: "dekonica", bookedAt: "2026-10-01", amountGrosz: 1.5 }], { companyId: "dekonica", from: "2026-10-01", to: "2026-10-31" }), /entry/);
 });
+
+test("quarterly totals reconcile with monthly totals across year boundary", () => {
+  const items = [
+    { id: "oct", companyId: "dekonica", bookedAt: "2026-10-15", amountGrosz: 100 },
+    { id: "dec", companyId: "dekonica", bookedAt: "2026-12-31", amountGrosz: -40 },
+    { id: "jan", companyId: "dekonica", bookedAt: "2027-01-01", amountGrosz: 75 }
+  ];
+  const report = summarizeCashflow(items, { companyId: "dekonica", from: "2026-10-01", to: "2027-01-31" });
+  assert.deepEqual(report.quarters, [
+    { quarter: "2026-Q4", inflowGrosz: 100, outflowGrosz: 40, count: 2 },
+    { quarter: "2027-Q1", inflowGrosz: 75, outflowGrosz: 0, count: 1 }
+  ]);
+  assert.equal(report.quarters.reduce((sum, row) => sum + row.inflowGrosz, 0), report.inflowGrosz);
+  assert.equal(report.quarters.reduce((sum, row) => sum + row.outflowGrosz, 0), report.outflowGrosz);
+  assert.equal(report.source, "BANK_TRANSACTIONS");
+});
