@@ -559,3 +559,20 @@ test("admin edit: missing or blank user ID is rejected without querying database
  assert.equal(reads,0);
  assert.equal(writes,0);
 });
+
+test("admin edit: oversized user id is rejected before database access",async()=>{
+ let reads=0,writes=0;
+ const db={user:{
+  findUnique:async()=>{reads++;throw Error("should not read");},
+  updateMany:async()=>{writes++;throw Error("should not write");}
+ }};
+ const routes=setup(db);
+ const req={user:{id:"owner"},params:{id:"x".repeat(101)},body:{email:"new@example.com",expectedEmail:"old@example.com"}};
+ let status=200,body;
+ const res={status(n){status=n;return this;},json(v){body=v;return this;}};
+ await routes["PATCH /users/:id"](req,res);
+ assert.equal(status,400);
+ assert.equal(body.success,false);
+ assert.equal(reads,0);
+ assert.equal(writes,0);
+});
