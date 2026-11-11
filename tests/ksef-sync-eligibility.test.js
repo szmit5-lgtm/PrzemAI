@@ -203,3 +203,18 @@ test("KSeF invalid user is rejected before reading owner binding or credentials"
     });
   }
 });
+
+test("KSeF reads each credential field only once", () => {
+  let nipReads = 0;
+  let tokenReads = 0;
+  const config = {
+    KSEF_SYNC_ENABLED: "true",
+    KSEF_OWNER_USER_ID: "user-owner",
+    get KSEF_NIP() { nipReads += 1; return "1234567890"; },
+    get KSEF_TOKEN() { tokenReads += 1; return "SECRET-DO-NOT-LOG"; },
+    KSEF_ENVIRONMENT: "production"
+  };
+  assert.deepEqual(getKsefSyncEligibility("user-owner", config), { allowed: true, status: "READY" });
+  assert.equal(nipReads, 1);
+  assert.equal(tokenReads, 1);
+});
