@@ -218,3 +218,14 @@ test("KSeF reads each credential field only once", () => {
   assert.equal(nipReads, 1);
   assert.equal(tokenReads, 1);
 });
+
+test("KSeF rejects embedded token control characters", () => {
+  for (const token of ["abc\ndef", "abc\rdef", "abc\tdef", "abc\u0000def", "abc\u007fdef"]) {
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_TOKEN: token }), {
+      allowed: false, status: "TOKEN_MISSING"
+    });
+  }
+  assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_TOKEN: "abc-def_123" }), {
+    allowed: true, status: "READY"
+  });
+});
