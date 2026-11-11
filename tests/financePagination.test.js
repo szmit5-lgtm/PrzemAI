@@ -227,3 +227,13 @@ test("finance project creation rejects missing tenant before database access", a
     assert.equal(calls.length, 0, "missing tenant must not query or create projects");
   }
 });
+
+
+test("finance invoice project assignment rejects missing tenant before database access", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.assignProject(userId, "doc-123", null), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not read or update invoices");
+  }
+});
