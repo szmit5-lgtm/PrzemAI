@@ -27,9 +27,10 @@ test("unknown company is rejected", () => {
 });
 
 test("future checkpoints cannot skip historical invoices for either company", () => {
-  const future = new Date(Date.now() + 365 * 86400000).toISOString();
-  assert.equal(getKsefHistoryCursor({ ksefBackfillCursor: future }, "dekonica"), HISTORY_START);
-  assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: future }, "deherus"), HISTORY_START);
+  const clock = new Date("2026-11-11T16:00:00.000Z");
+  const future = "2026-11-12T00:00:00.000Z";
+  assert.equal(getKsefHistoryCursor({ ksefBackfillCursor: future }, "dekonica", clock), HISTORY_START);
+  assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: future }, "deherus", clock), HISTORY_START);
 });
 
 test("valid current checkpoint remains usable", () => {
@@ -52,4 +53,13 @@ test("checkpoint before synchronization clock is preserved", () => {
 
 test("invalid synchronization clock is rejected", () => {
   assert.throws(() => getKsefHistoryCursor({}, "deherus", "invalid"), /Invalid KSeF sync time/);
+});
+
+test("checkpoint exactly at the synchronization clock is accepted", () => {
+  const clock = new Date("2026-11-11T16:00:00.000Z");
+  const checkpoint = clock.toISOString();
+  for (const company of ["dekonica", "deherus"]) {
+    const key = company === "deherus" ? "ksefDeherusBackfillCursor" : "ksefBackfillCursor";
+    assert.equal(getKsefHistoryCursor({ [key]: checkpoint }, company, clock), checkpoint);
+  }
 });
