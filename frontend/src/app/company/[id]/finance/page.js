@@ -105,16 +105,16 @@ export default function CompanyFinancePage(){
    {error&&<p role="alert" className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</p>}
    {notice&&<p role="status" className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">{notice}</p>}
    {!loading&&status&&!status.linked&&<section className="mt-6 max-w-3xl rounded-3xl border border-white/10 bg-[#111c35] p-5 sm:p-7">
-    <h2 className="flex items-center gap-2 text-xl font-bold"><Link2 size={20} className="text-violet-300"/> {status.canLink?"Połącz istniejący KSeF Dekonica":"Konfiguracja KSeF dla tej firmy"}</h2>
+    <h2 className="flex items-center gap-2 text-xl font-bold"><Link2 size={20} className="text-violet-300"/> {status.canLink?`Połącz KSeF ${companyName||"firmy"}`:"Konfiguracja KSeF dla tej firmy"}</h2>
     <p className="mt-3 text-sm leading-6 text-slate-300">
      {status.canLink?"Połączenie wyświetli faktury już pobrane na koncie właściciela. Nie skopiuje danych ani nie nada dostępu pracownikom.":"Ta firma nie ma jeszcze własnej autoryzowanej integracji KSeF. Nie można użyć tokenu i NIP innej spółki. Potrzebna jest oddzielna konfiguracja uprawnień i synchronizacji KSeF dla tej firmy."}
     </p>
     {status.canLink?<button type="button" disabled={busy} onClick={()=>doAction(
-      ()=>linkOrganizationKsef(id),"KSeF Dekonica połączony z tą przestrzenią.")}
+      ()=>linkOrganizationKsef(id),`KSeF ${companyName||"firmy"} połączony z tą przestrzenią.`)}
       className="mt-5 min-h-12 w-full rounded-xl bg-violet-500 px-5 font-bold text-white hover:bg-violet-400 disabled:opacity-50 sm:w-auto">
-      {busy?"Łączę…":"Połącz KSeF Dekonica"}
+      {busy?"Łączę…":`Połącz KSeF ${companyName||"firmy"}`}
     </button>:<p className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-400">
-     W obecnej wersji automatyczne podłączenie jest dostępne tylko dla pilotażowej integracji Dekonica. Konfiguracja KSeF tej spółki wymaga osobnego wdrożenia po autoryzacji.
+     Automatyczne podłączenie wymaga osobnej, aktywnej konfiguracji KSeF dla wybranej firmy.
     </p>}
    </section>}
    {!loading&&status?.linked&&!status.canView&&<section className="mt-6 max-w-3xl rounded-3xl border border-white/10 bg-[#111c35] p-6">
