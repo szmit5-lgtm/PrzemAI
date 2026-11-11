@@ -280,6 +280,56 @@ if (process.env.DEKONICA_IMAP_SMOKE_TEST === "true") {
   })().catch(() => console.warn("[IMAP-SMOKE] FAILED: unexpected diagnostic error"));
 }
 
+// One-shot, owner-authorized, read-only overdue-payment discovery diagnostic.
+// Only enabled explicitly in the staging worker; never sends or modifies mail.
+if (process.env.DEKONICA_MAIL_REVIEW_ONCE === "true" &&
+    process.env.DEKONICA_MAIL_PASSWORD &&
+    process.env.DEKONICA_MAIL_OWNER_USER_ID?.trim()) {
+  (async () => {
+    const { ImapFlow } = require("imapflow");
+    const { simpleParser } = require("mailparser");
+    const client = new ImapFlow({
+      host: "dekonica.com", port: 993, secure: true,
+      auth: { user: "office@dekonica.com", pass: process.env.DEKONICA_MAIL_PASSWORD },
+      logger: false, connectionTimeout: 12000, greetingTimeout: 12000,
+      socketTimeout: 45000, disableAutoIdle: true
+    });
+    const since = new Date("2026-10-28T00:00:00+01:00");
+    const re = /wezwan|zapłat|platn|płatn|zaległ|zalegl|przetermin|windykac|ponaglen|przypomnien|należno|nalezn|zadłuż|zadluz|overdue|outstanding|payment reminder|past due|final notice|unpaid|debt collection|faktur|invoice/i;
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock("INBOX", { readOnly: true });
+      try {
+        const ids = await client.search({ since }, { uid: true });
+        console.log("[MAIL-REVIEW] RANGE=2026-10-28..2026-11-11; INBOX_COUNT=" + ids.length);
+        let checked = 0, matched = 0;
+        for (const uid of ids.slice(-250)) {
+          if (checked >= 250 || matched >= 45) break;
+          checked++;
+          const msg = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
+          if (!msg?.source) continue;
+          const parsed = await simpleParser(msg.source, { skipHtmlToText: false, skipImageLinks: true });
+          const subject = String(parsed.subject || "").replace(/[\r\n]/g, " ").slice(0,220);
+          const body = String(parsed.text || "").replace(/\s+/g, " ").trim();
+          const text = subject + " " + body.slice(0, 10000);
+          if (!re.test(text)) continue;
+          matched++;
+          const from = (parsed.from?.value || []).map(x => x.address).join(", ").slice(0,180);
+          const report = { n: matched, uid, date: parsed.date?.toISOString() || null,
+            from, subject, snippet: body.slice(0, 1250) };
+          console.log("[MAIL-REVIEW] MATCH " + JSON.stringify(report));
+        }
+        console.log("[MAIL-REVIEW] DONE checked=" + checked + " matches=" + matched);
+      } finally { lock.release(); }
+      await client.logout();
+    } catch (error) {
+      console.warn("[MAIL-REVIEW] FAILED category=" +
+        (error.authenticationFailed ? "AUTH" : error.code === "ETIMEDOUT" ? "TIMEOUT" : "SCAN"));
+      try { client.close(); } catch (_) {}
+    }
+  })().catch(() => console.warn("[MAIL-REVIEW] FAILED unexpected"));
+}
+
 console.log("PrzemAI Worker active");
 cycle();
 interval = setInterval(cycle, CYCLE_MS);
