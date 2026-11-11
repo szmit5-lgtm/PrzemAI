@@ -242,6 +242,44 @@ if (process.env.DEKONICA_MAIL_PASSWORD && !process.env.DEKONICA_MAIL_OWNER_USER_
   console.warn("[Worker] Shared mailbox secret is configured but DEKONICA_MAIL_OWNER_USER_ID is missing. Mail access remains disabled until an authorized staging user is configured.");
 }
 
+// Opt-in, read-only home.pl IMAP connectivity diagnostic. No message bodies are read.
+if (process.env.DEKONICA_IMAP_SMOKE_TEST === "true") {
+  (async () => {
+    const { ImapFlow } = require("imapflow");
+    const password = process.env.DEKONICA_MAIL_PASSWORD;
+    if (!password || !process.env.DEKONICA_MAIL_OWNER_USER_ID?.trim()) {
+      console.warn("[IMAP-SMOKE] SKIPPED: missing mailbox credential or owner");
+      return;
+    }
+    for (const host of ["imap.home.pl", "dekonica.com"]) {
+      const client = new ImapFlow({
+        host, port: 993, secure: true,
+        auth: { user: "office@dekonica.com", pass: password },
+        logger: false,
+        connectionTimeout: 12000,
+        greetingTimeout: 12000,
+        socketTimeout: 18000,
+        disableAutoIdle: true
+      });
+      try {
+        await client.connect();
+        const lock = await client.getMailboxLock("INBOX", { readOnly: true });
+        try {
+          console.log("[IMAP-SMOKE] SUCCESS: login and read-only INBOX access, host=" + host);
+        } finally { lock.release(); }
+        await client.logout();
+        return;
+      } catch (error) {
+        // Never print error text: some servers echo addresses or sensitive details.
+        console.warn("[IMAP-SMOKE] FAILED: host=" + host + " category=" +
+          (error.authenticationFailed ? "AUTH" : error.code === "ETIMEDOUT" ? "TIMEOUT" : "CONNECTION"));
+        try { client.close(); } catch (_) {}
+      }
+    }
+    console.warn("[IMAP-SMOKE] FAILED: no verified IMAP connection");
+  })().catch(() => console.warn("[IMAP-SMOKE] FAILED: unexpected diagnostic error"));
+}
+
 console.log("PrzemAI Worker active");
 cycle();
 interval = setInterval(cycle, CYCLE_MS);
