@@ -241,3 +241,16 @@ test("KSeF rejects control characters embedded in user and owner bindings", () =
     });
   }
 });
+
+test("KSeF invalid NIP short-circuits before reading token or environment", () => {
+  const config = {
+    KSEF_SYNC_ENABLED: "true",
+    KSEF_OWNER_USER_ID: "user-owner",
+    KSEF_NIP: "invalid",
+    get KSEF_TOKEN() { throw new Error("token must remain unread"); },
+    get KSEF_ENVIRONMENT() { throw new Error("environment must remain unread"); }
+  };
+  assert.deepEqual(getKsefSyncEligibility("user-owner", config), {
+    allowed: false, status: "INVALID_NIP"
+  });
+});
