@@ -217,3 +217,13 @@ test("finance period reports reject missing tenant before querying invoices", as
     assert.equal(calls.length, 0, "missing tenant must not read period invoices");
   }
 });
+
+
+test("finance project creation rejects missing tenant before database access", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.createProject(userId, { name: "New project" }), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not query or create projects");
+  }
+});
