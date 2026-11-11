@@ -36,3 +36,20 @@ test("valid current checkpoint remains usable", () => {
   const cursor = "2026-03-01T00:00:00.000Z";
   assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: cursor }, "deherus"), cursor);
 });
+
+test("checkpoint after synchronization clock falls back to history start", () => {
+  const now = new Date("2026-04-01T00:00:00.000Z");
+  const checkpoint = "2026-05-01T00:00:00.000Z";
+  assert.equal(getKsefHistoryCursor({ ksefBackfillCursor: checkpoint }, "dekonica", now), HISTORY_START);
+  assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: checkpoint }, "deherus", now), HISTORY_START);
+});
+
+test("checkpoint before synchronization clock is preserved", () => {
+  const now = new Date("2026-05-01T00:00:00.000Z");
+  const checkpoint = "2026-04-01T00:00:00.000Z";
+  assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: checkpoint }, "deherus", now), checkpoint);
+});
+
+test("invalid synchronization clock is rejected", () => {
+  assert.throws(() => getKsefHistoryCursor({}, "deherus", "invalid"), /Invalid KSeF sync time/);
+});
