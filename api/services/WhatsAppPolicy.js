@@ -6,7 +6,7 @@ const BLOCKED = [
   /\b(akceptuj(?:ę|emy)?|potwierdzam(?:y)?|zgadzam(?:y)? się|podpisz(?:ę|emy)?|zawieram(?:y)?|zamawiam(?:y)?|kupuj(?:ę|emy)?)\b/i,
   /\b(zapłac(?:ę|imy)|przelej(?:ę|emy)|ureguluj(?:ę|emy)|gwarantuj(?:ę|emy)|zobowiązuj(?:ę|emy) się)\b/i,
   /\b(accept|agree|approve|confirm the order|sign the contract|we will pay|i will pay|we commit|binding offer)\b/i,
-  /\b(wyrażam(?:y)? zgodę|udzielam(?:y)? zgody|zatwierdzam(?:y)?)\b/i
+  /\b(wyrażam(?:y)? zgodę|udzielam(?:y)? zgody|zatwierdzam(?:y)?)(?![\p{L}\p{N}_])/iu
 ];
 const SENSITIVE = /\b(umow\w*|kontrakt\w*|płatnoś\w*|faktur\w*|rabat\w*|cen\w* końcow\w*|rachun\w* bankow\w*|hasł\w*|kod\w* sms|dane poufne|contract|payment|bank account|confidential)\b/i;
 
