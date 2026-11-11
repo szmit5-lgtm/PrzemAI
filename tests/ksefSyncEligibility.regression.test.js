@@ -23,7 +23,7 @@ test("KSeF eligibility fails closed when the owner binding is absent", () => {
 });
 
 test("KSeF eligibility rejects malformed user IDs without revealing them", () => {
-  for (const userId of [undefined, "", " owner-1", "owner-1 ", "owner-1\\n", "owner-1\n"]) {
+  for (const userId of [undefined, "", " owner-1", "owner-1 ", "owner-1\n", "owner-1\n"]) {
     assert.deepEqual(getKsefSyncEligibility(userId, validEnv), { allowed: false, status: "INVALID_USER" });
   }
 });
@@ -40,10 +40,10 @@ test("KSeF eligibility rejects disabled sync before inspecting credentials", () 
 });
 
 test("KSeF eligibility rejects malformed owner binding and token", () => {
-  for (const owner of ["", " owner-1", "owner-1 ", "owner-1\\n"]) {
+  for (const owner of ["", " owner-1", "owner-1 ", "owner-1\n"]) {
     assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_OWNER_USER_ID: owner }), { allowed: false, status: "OWNER_NOT_CONFIGURED" });
   }
-  for (const token of ["", " ", "test\\ntoken"]) {
+  for (const token of ["", " ", "test\ntoken"]) {
     assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_TOKEN: token }), { allowed: false, status: "TOKEN_MISSING" });
   }
 });
