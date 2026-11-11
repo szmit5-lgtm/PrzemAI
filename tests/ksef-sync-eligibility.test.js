@@ -254,3 +254,16 @@ test("KSeF invalid NIP short-circuits before reading token or environment", () =
     allowed: false, status: "INVALID_NIP"
   });
 });
+
+test("KSeF invalid token short-circuits before reading environment", () => {
+  const config = {
+    KSEF_SYNC_ENABLED: "true",
+    KSEF_OWNER_USER_ID: "user-owner",
+    KSEF_NIP: "1234567890",
+    KSEF_TOKEN: "bad\ntoken",
+    get KSEF_ENVIRONMENT() { throw new Error("environment must remain unread"); }
+  };
+  assert.deepEqual(getKsefSyncEligibility("user-owner", config), {
+    allowed: false, status: "TOKEN_MISSING"
+  });
+});
