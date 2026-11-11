@@ -193,7 +193,7 @@ export default function CompanyFinancePage(){
       {projects.length===0&&<p className="text-sm text-slate-400">Brak inwestycji przypisanych do tej firmy.</p>}
      </div>
     </section>
-    {status?.canManage&&<section className="mt-5 min-w-0 rounded-3xl border border-violet-400/25 bg-[#111c35] p-4 sm:p-6">
+    {status?.canManage&&<section id="finance-permissions" className="mt-5 min-w-0 scroll-mt-24 rounded-3xl border border-violet-400/25 bg-[#111c35] p-4 sm:p-6">
      <h2 className="flex items-center gap-2 text-xl font-bold"><Users size={21} className="text-violet-300"/> Dostęp pracowników do finansów</h2>
      <p className="mt-2 text-sm leading-6 text-slate-300">Uprawnienie nadajesz osobno, niezależnie od roli firmowej. Pracownik otrzyma wyłącznie odczyt firmowych faktur z właściwym NIP, a nie token KSeF czy prawo do importu.</p>
      <div className="mt-4 space-y-2">
