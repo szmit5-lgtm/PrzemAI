@@ -237,3 +237,13 @@ test("finance invoice project assignment rejects missing tenant before database 
     assert.equal(calls.length, 0, "missing tenant must not read or update invoices");
   }
 });
+
+
+test("finance expense classification rejects missing tenant before database access", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.classifyExpense(userId, "doc-123", "COST"), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not read or update expense invoices");
+  }
+});
