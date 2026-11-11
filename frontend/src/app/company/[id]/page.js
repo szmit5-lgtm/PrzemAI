@@ -336,6 +336,11 @@ export default function CompanyWorkspace(){
       </form>
       <div className="min-w-0 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
        <h2 className="text-lg font-bold">Osoby i uprawnienia</h2>
+       <p className="mt-2 text-xs leading-6 text-slate-300">Zaproszenia możesz wysyłać do kolejnych osób bez oczekiwania na akceptację wcześniejszych. Dostęp do KSeF i faktur nadaje się oddzielnie.</p>
+       <Link href={"/company/"+encodeURIComponent(id)+"/finance#finance-permissions"}
+        className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 text-sm font-semibold text-violet-200 hover:bg-violet-400/20">
+        <ShieldCheck size={17}/> Nadaj dostęp do KSeF i finansów
+       </Link>
        <div className="mt-4 space-y-3">{members.map(m=><div key={m.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#182642] p-4">
         <div className="min-w-0"><strong className="block break-all text-sm">{m.user?.email}</strong>
          <p className="mt-1 text-xs text-slate-400">{roles[m.role]||m.role} · {m.status==="ACTIVE"?"Aktywny":m.status==="PENDING"?"Czeka na akceptację":"Dostęp odebrany"}</p>
