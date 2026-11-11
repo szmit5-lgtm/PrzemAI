@@ -121,6 +121,9 @@ class FinanceService {
     }
 
     async createProject(userId, payload) {
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         const name = typeof payload?.name === "string" ? payload.name.trim() : "";
         const company = typeof payload?.company === "string" ? payload.company.trim() : "";
         const aliases = Array.isArray(payload?.aliases)
