@@ -25,3 +25,14 @@ test("invalid and pre-history cursors fall back safely", () => {
 test("unknown company is rejected", () => {
   assert.throws(() => getKsefHistoryCursor({}, "other"), /Invalid KSeF company/);
 });
+
+test("future checkpoints cannot skip historical invoices for either company", () => {
+  const future = new Date(Date.now() + 365 * 86400000).toISOString();
+  assert.equal(getKsefHistoryCursor({ ksefBackfillCursor: future }, "dekonica"), HISTORY_START);
+  assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: future }, "deherus"), HISTORY_START);
+});
+
+test("valid current checkpoint remains usable", () => {
+  const cursor = "2026-03-01T00:00:00.000Z";
+  assert.equal(getKsefHistoryCursor({ ksefDeherusBackfillCursor: cursor }, "deherus"), cursor);
+});
