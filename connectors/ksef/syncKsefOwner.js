@@ -101,7 +101,7 @@ async function syncKsefOwner({
   const config = agent?.config && !Array.isArray(agent.config) &&
     typeof agent.config === "object" ? agent.config : {};
   let cursor = typeof config[cursorKey] === "string"
-    ? config.ksefBackfillCursor : DEFAULT_HISTORY_START;
+    ? config[cursorKey] : DEFAULT_HISTORY_START;
   for (let i = 0; agent && i < historyWindowsPerRun; i += 1) {
     const historical = nextHistoryWindow(cursor, recentStart);
     if (!historical) break;
