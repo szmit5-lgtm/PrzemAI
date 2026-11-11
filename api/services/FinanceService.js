@@ -182,6 +182,9 @@ class FinanceService {
     }
 
     async classifyExpense(userId,id,value) {
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         if(typeof id!=="string"||id.length<1||id.length>128)throw Error("Nieprawidłowa faktura.");
         const classification=validateFinanceClass(value);
         const document=await prisma.financialDocument.findFirst({
