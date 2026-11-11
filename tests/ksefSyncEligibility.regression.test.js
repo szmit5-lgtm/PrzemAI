@@ -33,3 +33,17 @@ test("KSeF eligibility requires an exact production environment and a token", ()
   assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_TOKEN: " " }), { allowed: false, status: "TOKEN_MISSING" });
   assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_NIP: "123" }), { allowed: false, status: "INVALID_NIP" });
 });
+
+test("KSeF eligibility rejects disabled sync before inspecting credentials", () => {
+  assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_SYNC_ENABLED: "false" }), { allowed: false, status: "DISABLED" });
+  assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_SYNC_ENABLED: undefined }), { allowed: false, status: "DISABLED" });
+});
+
+test("KSeF eligibility rejects malformed owner binding and token", () => {
+  for (const owner of ["", " owner-1", "owner-1 ", "owner-1\\n"]) {
+    assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_OWNER_USER_ID: owner }), { allowed: false, status: "OWNER_NOT_CONFIGURED" });
+  }
+  for (const token of ["", " ", "test\\ntoken"]) {
+    assert.deepEqual(getKsefSyncEligibility("owner-1", { ...validEnv, KSEF_TOKEN: token }), { allowed: false, status: "TOKEN_MISSING" });
+  }
+});
