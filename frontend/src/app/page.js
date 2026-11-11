@@ -57,6 +57,9 @@ export default function HomePage() {
  const [errors,setErrors]=useState(0);
  const [refresh,setRefresh]=useState(0);
  const [companySearch,setCompanySearch]=useState("");
+ const [simpleMode,setSimpleMode]=useState(false);
+ useEffect(()=>{try{setSimpleMode(window.localStorage.getItem("przemai-dashboard-mode")==="simple");}catch{}},[]);
+ const switchMode=mode=>{setSimpleMode(mode);try{window.localStorage.setItem("przemai-dashboard-mode",mode?"simple":"full");}catch{}};
  useEffect(()=>{
   let alive=true;
   setLoading(true);
@@ -135,7 +138,13 @@ export default function HomePage() {
        <p className="truncate text-[11px] text-slate-500">Agenci · Finanse · Inwestycje</p>
       </div>
      </div>
-     <UserMenu/>
+     <div className="flex flex-wrap items-center gap-3">
+      <div role="group" aria-label="Tryb pulpitu" className="flex rounded-xl border border-white/15 p-1 text-xs">
+       <button type="button" aria-pressed={simpleMode} onClick={()=>switchMode(true)} className={"rounded-lg px-3 py-2 "+(simpleMode?"bg-violet-600 text-white":"text-slate-300")}>Uproszczony</button>
+       <button type="button" aria-pressed={!simpleMode} onClick={()=>switchMode(false)} className={"rounded-lg px-3 py-2 "+(!simpleMode?"bg-violet-600 text-white":"text-slate-300")}>Pełny</button>
+      </div>
+      <UserMenu/>
+     </div>
     </header>
     <div className="lg:hidden"><Navbar/></div>
     <div className="mt-6 flex min-w-0 flex-wrap items-start justify-between gap-4">
@@ -152,6 +161,13 @@ export default function HomePage() {
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
+    {simpleMode&&<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+     <SmallLink href="/chat" title="Porozmawiaj z asystentem" icon={MessageSquareText}/>
+     <SmallLink href="/agents" title="Agenci AI" icon={Bot}/>
+     <SmallLink href="/finance" title="Finanse i KSeF" icon={Wallet}/>
+     <SmallLink href="/finance/projects" title="Projekty" icon={FolderKanban}/>
+     <SmallLink href="/agents/sales" title="Agent sprzedażowy" icon={Handshake}/>
+    </section>}
     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
      <Metric label="Faktury z KSeF" value={ready?(finance.ksef??"—"):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
      <Metric label="Faktury zakupowe PLN" value={ready?(data?.finance?money(purchasePLN?.gross??0):"—"):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
@@ -163,7 +179,7 @@ export default function HomePage() {
      <strong className="text-slate-200">Rachunki bankowe:</strong> brak podłączonej bankowości. Salda i wpływy będą dostępne po autoryzacji integracji.
      <Link href="/finance" className="ml-auto font-semibold text-violet-300">Finanse <ArrowUpRight size={12} className="inline"/></Link>
     </div>
-    <div className="mt-5 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.65fr)_minmax(290px,1fr)]">
+    {!simpleMode&&<div className="mt-5 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.65fr)_minmax(290px,1fr)]">
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/finance/reports" link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">{new Date().getFullYear()} · miesiące · brutto · nie są to przepływy pieniężne</p>
@@ -204,8 +220,8 @@ export default function HomePage() {
        </Link>)}
       </div>
      </Panel>
-    </div>
-    <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+    </div>}
+    {!simpleMode&&<div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/finance/projects" link="Zarządzaj inwestycjami">Projekty i inwestycje</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">Projekty zapisane na koncie · bez fikcyjnych procentów postępu</p>
@@ -231,8 +247,8 @@ export default function HomePage() {
        <div className="rounded-xl border border-white/[.06] bg-white/[.025] p-4"><p className="text-2xl font-extrabold">{ready?(summary.overdueTasks??"—"):"…"}</p><p className="mt-1 text-xs text-slate-400">Po terminie</p></div>
       </div>
      </Panel>
-    </div>
-    <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+    </div>}
+    {!simpleMode&&<div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/chat" link="Otwórz asystenta">Asystent PrzemAI</SectionTitle>
       <p className="mt-3 text-sm leading-6 text-slate-300">Rozmawiaj z asystentem, zlecaj przygotowanie dokumentów i sprawdzaj swoje zadania.</p>
@@ -256,13 +272,14 @@ export default function HomePage() {
       </div>
       <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Powyższe finanse są nadal danymi konta osobistego — nie skonsolidowaną księgowością spółek.</p>
      </Panel>
-    </div>
-    <div className="mt-4 flex flex-wrap gap-2">
+    </div>}
+    {!simpleMode&&<div className="mt-4 flex flex-wrap gap-2">
      <SmallLink href="/document" title="Dodaj dokument" icon={FileText}/>
      <SmallLink href="/meeting" title="Nowe spotkanie" icon={Mic}/>
      <SmallLink href="/agents" title="Wszyscy agenci" icon={Bot}/>
      <SmallLink href="/company/setup" title="Dodaj spółkę" icon={Plus}/>
     </div>
+    }
     <footer className="mt-7 border-t border-white/10 pt-4 text-xs text-slate-500">
      PrzemAI · Dane rzeczywiste dostępne dla zalogowanego użytkownika · Połączenia bankowe i konsolidacja grupy wymagają integracji.
     </footer>
