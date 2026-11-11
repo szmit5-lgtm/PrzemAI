@@ -28,3 +28,10 @@ test("company chooser links only to organizations returned for the account", () 
   assert.match(page, /Wszystkie firmy/);
   assert.match(page, /bez niezweryfikowanej konsolidacji/);
 });
+
+test("company selector keeps aggregate view explicitly non-financial", () => {
+  assert.match(page, /Nie znaleziono spółek przypisanych do konta/);
+  assert.match(page, /nie sumuje danych osobistych ani nie ujawnia danych innych kont/);
+  assert.match(page, /getOrganizations\(\)/);
+  assert.doesNotMatch(page, /organizations\.concat\(/);
+});
