@@ -194,6 +194,9 @@ class FinanceService {
     }
 
     async reportPeriods(userId,yearInput){
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         const year=yearInput===undefined?new Date().getUTCFullYear():Number(yearInput);
         if(!Number.isSafeInteger(year)||year<2020||year>2100)
             throw Error("Nieprawidłowy rok zestawienia.");
