@@ -7,6 +7,7 @@ const KsefClient = require("./KsefClient");
 const { importKsefMetadata } = require("./importKsefMetadata");
 const { analyzeKsefXml } = require("./analyzeKsefXml");
 const { ensureDekonicaProjects } = require("./ensureDekonicaProjects");
+const { getKsefHistoryCursor } = require("../../lib/ksefHistoryCursor");
 
 // Backfill historic windows in bounded batches; persist progress after each
 // complete bidirectional window, so interrupted runs resume safely.
@@ -100,8 +101,7 @@ async function syncKsefOwner({
   });
   const config = agent?.config && !Array.isArray(agent.config) &&
     typeof agent.config === "object" ? agent.config : {};
-  let cursor = typeof config[cursorKey] === "string"
-    ? config[cursorKey] : DEFAULT_HISTORY_START;
+  let cursor = getKsefHistoryCursor(config, company);
   for (let i = 0; agent && i < historyWindowsPerRun; i += 1) {
     const historical = nextHistoryWindow(cursor, recentStart);
     if (!historical) break;
