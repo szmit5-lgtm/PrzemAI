@@ -33,6 +33,10 @@ test("admin edit rejects invalid input before database access", async () => {
   assert.equal(typeof patchHandler, "function");
   const cases = [
     [{params: {id: " "}, body: {email: "person@example.com"}, user: {id: "admin"}}, 400],
+    [{params: {id: " target"}, body: {email: "person@example.com"}, user: {id: "admin"}}, 400],
+    [{params: {id: "target "}, body: {email: "person@example.com"}, user: {id: "admin"}}, 400],
+    [{params: {id: "tar\u0000get"}, body: {email: "person@example.com"}, user: {id: "admin"}}, 400],
+    [{params: {id: "tar\tget"}, body: {email: "person@example.com"}, user: {id: "admin"}}, 400],
     [{params: {id: "target"}, body: {email: "not-an-email"}, user: {id: "admin"}}, 400],
     [{params: {id: "target"}, body: {email: "p.szmitkowski@dekonica.com"}, user: {id: "admin"}}, 403],
     [{params: {id: "admin"}, body: {email: "person@example.com"}, user: {id: "admin"}}, 403]
