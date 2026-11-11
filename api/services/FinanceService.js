@@ -144,6 +144,9 @@ class FinanceService {
     }
 
     async assignProject(userId, id, projectId) {
+        if (typeof userId !== "string" || !userId.trim()) {
+            throw new Error("Brak identyfikatora użytkownika.");
+        }
         if (typeof id !== "string" || !id.trim() || id.length > 128) {
             throw new Error("Nieprawidłowy dokument.");
         }
