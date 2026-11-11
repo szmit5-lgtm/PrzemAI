@@ -175,7 +175,7 @@ async function syncKsefOwner({
       const metadata = item.metadata && typeof item.metadata === "object" &&
         !Array.isArray(item.metadata) ? item.metadata : {};
       await prisma.financialDocument.updateMany({
-        where: { id: item.id, userId, source: "KSEF" },
+        where: { id: item.id, ...documentScope },
         data: { metadata: { ...metadata, ksefXmlRetry: {
           attempts, nextRetryAt: new Date(nowMs + xmlRetryDelay(attempts, error)).toISOString()
         } } }
