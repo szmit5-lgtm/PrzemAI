@@ -20,3 +20,11 @@ test("simplified dashboard preserves quick access to agents and financial data",
   assert.match(page, /simpleMode&&<section aria-label="Szybki dostęp"/);
   assert.match(page, /przemai-dashboard-mode/);
 });
+
+test("company chooser links only to organizations returned for the account", () => {
+  assert.match(page, /aria-label="Wybór spółki"/);
+  assert.match(page, /organizations\.map\(o=><Link key=\{o\.id\}/);
+  assert.match(page, /href=\{"\/company\/"\+encodeURIComponent\(o\.id\)\}/);
+  assert.match(page, /Wszystkie firmy/);
+  assert.match(page, /bez niezweryfikowanej konsolidacji/);
+});
