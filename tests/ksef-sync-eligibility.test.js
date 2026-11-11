@@ -229,3 +229,15 @@ test("KSeF rejects embedded token control characters", () => {
     allowed: true, status: "READY"
   });
 });
+
+test("KSeF rejects control characters embedded in user and owner bindings", () => {
+  for (const control of ["\n", "\r", "\t", "\u0000", "\u007f"]) {
+    const identity = `user${control}owner`;
+    assert.deepEqual(getKsefSyncEligibility(identity, { ...ready, KSEF_OWNER_USER_ID: identity }), {
+      allowed: false, status: "INVALID_USER"
+    });
+    assert.deepEqual(getKsefSyncEligibility("user-owner", { ...ready, KSEF_OWNER_USER_ID: identity }), {
+      allowed: false, status: "OWNER_NOT_CONFIGURED"
+    });
+  }
+});
