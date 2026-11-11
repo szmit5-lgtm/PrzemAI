@@ -158,6 +158,26 @@ export default function HomePage() {
        <RefreshCw size={17} className={loading?"animate-spin":""}/>{loading?"Ładowanie…":"Odśwież dane"}
      </button>
     </div>
+    <section aria-label="Wybór spółki" className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-5">
+     <div className="flex flex-wrap items-center justify-between gap-2">
+      <h2 className="text-base font-bold">Wybierz spółkę</h2>
+      <Link href="/company/setup" className="text-xs font-semibold text-violet-300">Zarządzaj spółkami <ArrowUpRight size={12} className="inline"/></Link>
+     </div>
+     <p className="mt-1 text-xs leading-5 text-slate-400">Wybierz firmę, aby otworzyć jej osobną przestrzeń. Widok wszystkich firm nie sumuje danych osobistych ani nie ujawnia danych innych kont.</p>
+     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div aria-current="page" className="flex min-h-24 items-center gap-3 rounded-xl border border-violet-400/40 bg-violet-500/10 p-4">
+       <span className="rounded-xl bg-violet-500/20 p-3 text-violet-300"><BarChart3 size={23}/></span>
+       <span><strong className="block text-sm">Wszystkie firmy</strong><span className="mt-1 block text-xs text-slate-400">Lista dostępnych spółek · bez niezweryfikowanej konsolidacji</span></span>
+      </div>
+      {organizations.map(o=><Link key={o.id} href={"/company/"+encodeURIComponent(o.id)}
+       className="flex min-h-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[.035] p-4 hover:border-violet-400/40 hover:bg-white/[.07]">
+       <span className="rounded-xl bg-blue-500/15 p-3 text-blue-300"><Building2 size={23}/></span>
+       <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{o.displayName||o.name}</strong><span className="mt-1 block text-xs text-slate-400">Otwórz panel spółki</span></span>
+       <ChevronRight size={17} className="shrink-0 text-violet-300"/>
+      </Link>)}
+     </div>
+     {!loading&&organizations.length===0&&<p className="mt-3 text-xs text-amber-200">Nie znaleziono spółek przypisanych do konta. Sprawdź dostęp w panelu spółek.</p>}
+    </section>
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
