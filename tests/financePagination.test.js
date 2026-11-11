@@ -207,3 +207,13 @@ test("finance project list rejects missing tenant without database reads", async
     }
   });
 });
+
+
+test("finance period reports reject missing tenant before querying invoices", async () => {
+  const service = new FinanceService();
+  for (const userId of [undefined, null, "", "   ", 42]) {
+    calls.length = 0;
+    await assert.rejects(service.reportPeriods(userId, 2026), /Brak identyfikatora użytkownika/);
+    assert.equal(calls.length, 0, "missing tenant must not read period invoices");
+  }
+});
