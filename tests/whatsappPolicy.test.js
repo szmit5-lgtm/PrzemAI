@@ -36,3 +36,11 @@ test("outside 24h window requires approved template", () => {
   const { withinCustomerServiceWindow, ...notInWindow } = approved;
   assert.ok(evaluateOutbound({ ...notInWindow, text: "Dzień dobry" }).reasons.includes("WHATSAPP_WINDOW"));
 });
+
+test("explicit Polish consent and English approval require owner approval", () => {
+  for (const text of ["Wyrażamy zgodę", "Udzielamy zgody", "Zatwierdzamy", "We approve the terms", "I approve"]) {
+    const outcome = evaluateOutbound({ ...approved, text });
+    assert.ok(outcome.reasons.includes("OWNER_APPROVAL_REQUIRED"), text);
+    assert.equal(outcome.sendAuthorized, false);
+  }
+});
