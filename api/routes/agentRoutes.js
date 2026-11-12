@@ -27,18 +27,28 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   try {
     const companyId = "kaldeva:" + actorId;
     const id = kaldevaWorkflow.enqueue({ companyId, actorId, query });
-    // Only successful queue admission consumes the per-user search allowance.
+    // Persist the queued job before returning 202 so it survives navigation.
+    // If persistence is unavailable, do not claim that a durable job was accepted.
+    const queued = kaldevaWorkflow.get(id, { companyId, actorId });
+    try {
+      await prisma.history.create({ data: {
+        id, userId: actorId, type: KALDEVA_HISTORY_TYPE,
+        title: "Kaldeva: " + query.slice(0, 150), filename: "",
+        report: queued
+      } });
+    } catch (persistenceError) {
+      kaldevaWorkflow.cancel(id, { companyId, actorId });
+      console.error("kaldeva_queue_persistence_error", persistenceError?.message || "unknown");
+      return res.status(503).json({ success: false, error: "Nie można zapisać zlecenia. Spróbuj ponownie." });
+    }
     lastDiscovery.set(actorId, now);
-    // Return the job immediately instead of blocking the HTTP request on a
-    // third-party search. The result is retrieved through GET /jobs/:id.
     setImmediate(() => {
       kaldevaWorkflow.runNext(id).then(async job => {
         if (!job) return;
-        await prisma.history.create({ data: {
-          id: job.id, userId: actorId, type: KALDEVA_HISTORY_TYPE,
-          title: "Kaldeva: " + job.query.slice(0, 150), filename: "",
-          report: job
-        } });
+        await prisma.history.update({
+          where: { id },
+          data: { report: job }
+        });
       }).catch(error => {
         console.error("kaldeva_discovery_persistence_error", error?.message || "unknown");
       });
