@@ -334,6 +334,9 @@ model Organization {
   memberships OrganizationMembership[]
   domains     OrganizationDomain[]
   financeLink OrganizationFinanceLink?
+  bankAccounts BankAccount[]
+  bankStatements BankStatement[]
+  bankTransactions BankTransaction[]
 
   @@index([status])
 }
@@ -390,4 +393,71 @@ model OrganizationFinanceLink {
   @@unique([ownerUserId, nip])
   @@index([ownerUserId])
   @@index([nip])
+}
+
+
+/// Bank data is tenant-scoped and never shared across organizations.
+model BankAccount {
+  id String @id @default(cuid())
+  organizationId String
+  iban String
+  label String?
+  accountType String @default("CURRENT")
+  currency String @default("PLN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  statements BankStatement[]
+  transactions BankTransaction[]
+
+  @@unique([organizationId, iban])
+  @@index([organizationId])
+}
+
+model BankStatement {
+  id String @id @default(cuid())
+  organizationId String
+  bankAccountId String
+  statementNumber String
+  sourceHash String
+  openingBalance Decimal @db.Decimal(18, 2)
+  closingBalance Decimal @db.Decimal(18, 2)
+  periodStart DateTime?
+  periodEnd DateTime
+  importedAt DateTime @default(now())
+  importedByUserId String
+  transactionCount Int @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@unique([organizationId, sourceHash, bankAccountId, statementNumber])
+  @@index([organizationId, bankAccountId, periodEnd])
+}
+
+model BankTransaction {
+  id String @id @default(cuid())
+  organizationId String
+  bankAccountId String
+  bankStatementId String
+  fingerprint String
+  bookedAt DateTime
+  amount Decimal @db.Decimal(18, 2)
+  balanceAfter Decimal? @db.Decimal(18, 2)
+  description String @default("")
+  counterparty String?
+  reference String?
+  externalId String?
+  reviewStatus String @default("UNMATCHED")
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  bankStatement BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, bankStatementId, fingerprint])
+  @@index([organizationId, bookedAt])
+  @@index([organizationId, bankAccountId, bookedAt])
 }
