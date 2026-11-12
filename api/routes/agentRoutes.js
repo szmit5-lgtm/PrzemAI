@@ -47,6 +47,14 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   }
 });
 
+// Recover jobs after navigation/reload, scoped to the authenticated user.
+router.get("/kaldeva/jobs", verifyToken, (req, res) => {
+  const actorId = String(req.user?.id || "");
+  if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
+  const data = kaldevaWorkflow.list({ companyId: "kaldeva:" + actorId, actorId }, 20);
+  return res.json({ success: true, data });
+});
+
 // Only the initiating user may read a transient job; no cross-user leakage.
 router.get("/kaldeva/jobs/:id", verifyToken, (req, res) => {
   const actorId = String(req.user?.id || "");
