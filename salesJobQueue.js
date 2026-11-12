@@ -30,6 +30,16 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
     if (!job || job.companyId !== companyId || job.actorId !== actorId) return null;
     return structuredClone(job);
   }
+  // Recover recent jobs for the signed-in user after a page reload.
+  // Never expose other users' jobs or internal mutable queue objects.
+  function list({ companyId, actorId }, limit = 20) {
+    if (!companyId || !actorId) return [];
+    return [...jobs.values()]
+      .filter(job => job.companyId === companyId && job.actorId === actorId)
+      .slice(-Math.min(Math.max(Number(limit) || 20, 1), 50))
+      .reverse()
+      .map(job => structuredClone(job));
+  }
   function cancel(id, scope) {
     const job = get(id, scope);
     if (!job || job.status !== 'queued') return false;
@@ -52,6 +62,6 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
     }
     return get(job.id, { companyId: job.companyId, actorId: job.actorId });
   }
-  return { enqueue, get, cancel, runNext };
+  return { enqueue, get, list, cancel, runNext };
 }
 module.exports = { createSalesJobQueue };
