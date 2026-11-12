@@ -3,6 +3,32 @@ const prisma=require("../../lib/prisma");
 const AIEngine=require("../../core/ai/AIEngine");
 const {getAgentDefinition}=require("../../lib/agentCatalog");
 const {appendTurn,buildConversationPrompt,safeTurns}=require("../../lib/agentConversation");
+// Public-source discovery is opt-in per sales assignment and never sends messages.
+async function discoverPublicSources(query) {
+ const q=String(query||"").trim().slice(0,180);
+ if(!q)return [];
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),9000);
+ try {
+  const url="https://www.bing.com/search?format=rss&q="+encodeURIComponent(q);
+  const response=await fetch(url,{signal:controller.signal,headers:{"User-Agent":"PrzemAI/1.0 (public research; read-only)"}});
+  if(!response.ok)throw Error("Search HTTP "+response.status);
+  const xml=await response.text();
+  const decode=t=>t.replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]>/g,"$1").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  const items=[...xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/g)].slice(0,20);
+  const seen=new Set(),results=[];
+  for(const [,item] of items){
+   const field=name=>decode((item.match(new RegExp("<"+name+">([\\s\\S]*?)<\\/"+name+">"))||[])[1]||"").trim();
+   const link=field("link"),title=field("title");
+   let u;try{u=new URL(link);}catch{continue;}
+   if(u.protocol!=="https:"||!title||seen.has(u.hostname+u.pathname))continue;
+   seen.add(u.hostname+u.pathname);
+   results.push({title:title.slice(0,180),url:u.href,description:field("description").replace(/<[^>]*>/g,"").slice(0,300)});
+   if(results.length===10)break;
+  }
+  return results;
+ }finally{clearTimeout(timer);}
+}
 class BusinessTaskAgent{
  constructor({db=prisma,ai=null}={}){this.db=db;this.ai=ai;}
  async run({userId,agentKey}={}){
@@ -23,14 +49,22 @@ class BusinessTaskAgent{
    if(lock.count!==1)continue;
    const m=task.metadata&&typeof task.metadata==="object"&&!Array.isArray(task.metadata)?task.metadata:{};
    try{
+    // Search only for explicit public-client discovery tasks. No search on
+    // ordinary conversations, and no claim that a search hit is a qualified lead.
+    const wantsSearch=agentKey==="sales" && /(?:wyszukaj|znajdź|poszukaj|szukaj).{0,100}(?:klient|firm|odbiorc|instalator|dystrybutor)/i.test(String(task.description||""));
+    let sources=[];
+    if(wantsSearch){
+     sources=await discoverPublicSources(task.description);
+     if(!sources.length)throw Error("Brak wyników publicznego wyszukiwania; nie generuję fikcyjnych leadów.");
+    }
     const result=await ai.ask({
      system:"Jesteś "+def.name+" w PrzemAI. "+def.description+
       " Odpowiadaj po polsku. Wykonujesz analizę, piszesz szkice i plany działań wyłącznie na podstawie informacji dostarczonych w zleceniu. "+
-      "Nie masz dostępu do aktualnego internetu, poczty, CRM zewnętrznych firm, banków ani WhatsApp. "+
+      "Masz dostęp wyłącznie do podanych poniżej wyników publicznej wyszukiwarki, jeśli zostały dołączone. Są to kandydaci do weryfikacji, nie potwierdzeni klienci. Nie masz dostępu do poczty, CRM zewnętrznych firm, banków ani WhatsApp. "+
       "Nie twierdź, że wysłałeś ofertę, znalazłeś nowych klientów, sprawdziłeś przetarg lub wykonałeś operację zewnętrzną. "+
       "Nie wymyślaj cen, klientów, faktów ani kontaktów. Jeśli brak danych, wymień potrzebne informacje. "+
       "Pokaż konkretne wyniki i następne kroki; ewentualne wysłanie wiadomości wymaga akceptacji użytkownika.",
-     user:buildConversationPrompt(task),
+     user:buildConversationPrompt(task)+(sources.length?"\\n\\nPUBLICZNE WYNIKI WYSZUKIWANIA (niezweryfikowane kontakty; cytuj URL, deduplikuj firmy):\\n"+JSON.stringify(sources):""),
      model:"gpt-5.5"
     });
     if(typeof result!=="string"||!result.trim())throw Error("Pusta odpowiedź.");
@@ -42,7 +76,7 @@ class BusinessTaskAgent{
     const updatedConversation=appendTurn(turns,"assistant",result.slice(0,16000));
     const update=await this.db.task.updateMany({
      where:{id:task.id,userId,source:"AGENT",status:"IN_PROGRESS"},
-     data:{status:"DONE",completedAt:new Date(),metadata:{...m,result:result.slice(0,45000),conversation:updatedConversation,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
+     data:{status:"DONE",completedAt:new Date(),metadata:{...m,result:result.slice(0,45000),conversation:updatedConversation,publicSources:sources,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
     });
     if(update.count===1)completed++;
    }catch(error){
