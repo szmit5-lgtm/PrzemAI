@@ -1,0 +1,10 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {assessOpportunity,buildDailyReport}=require('../allegroOpportunity');
+const base={store:'Lidl',product:'Przykładowy produkt',sourceUrl:'https://example.org/offer',checkedAt:'2026-11-12',promotionStart:'2026-11-12',promotionEnd:'2026-11-15',purchasePriceVerified:true,salePriceVerified:true,comparableProductVerified:true,resalePermitted:true,availabilityVerified:true,competitorCount:3,purchasePrice:20,salePrice:40,marketplaceFee:5,packingCost:1,shippingCost:3,taxCost:2,adCost:0};
+test('calculates all costs and margin for fully verified candidate',()=>{const x=assessOpportunity(base);assert.equal(x.status,'candidate');assert.equal(x.profit,9);assert.equal(x.totalCost,31);assert.equal(x.marginPercent,22.5)});
+test('unverified retail price never becomes an opportunity',()=>{const x=assessOpportunity({...base,purchasePriceVerified:false});assert.equal(x.status,'needs_verification');assert.ok(x.reasons.includes('unverified_prices'))});
+test('resale rights and availability must be confirmed',()=>{const x=assessOpportunity({...base,resalePermitted:false,availabilityVerified:false});assert.equal(x.status,'needs_verification')});
+test('missing fees or invalid negative amounts fail closed',()=>{const x=assessOpportunity({...base,marketplaceFee:-1});assert.equal(x.status,'needs_verification')});
+test('reports distinguish candidates and losses',()=>{const r=buildDailyReport([base,{...base,salePrice:25},{...base,sourceUrl:'invalid'}],'2026-11-12');assert.equal(r.candidates.length,1);assert.equal(r.notProfitable.length,1);assert.equal(r.needsVerification.length,1)});
