@@ -330,6 +330,9 @@ if (process.env.DEKONICA_MAIL_REVIEW_ONCE === "true" &&
   })().catch(() => console.warn("[MAIL-REVIEW] FAILED unexpected"));
 }
 
+// Explicit one-time authorized sender. Guarded by a persistent unique database task ID.
+require("./scripts/sendSpecpozOnce")().catch(() => console.warn("[SPECPOZ-SEND] unexpected failure"));
+
 console.log("PrzemAI Worker active");
 cycle();
 interval = setInterval(cycle, CYCLE_MS);
