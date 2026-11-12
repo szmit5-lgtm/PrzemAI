@@ -12,7 +12,7 @@ function money(v){
 function date(v){
  const s=String(v??"").trim();
  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
- if(!m||new Date(s+"T12:00:00Z").toISOString().slice(0,10)!==s)throw new Error("Data musi mieć format RRRR-MM-DD.");
+ if(!m||!Number.isFinite(Date.parse(s+"T12:00:00Z"))||new Date(s+"T12:00:00Z").toISOString().slice(0,10)!==s)throw new Error("Data musi mieć format RRRR-MM-DD.");
  return new Date(s+"T12:00:00Z");
 }
 async function importStatement(userId,orgId,payload){
@@ -26,8 +26,10 @@ async function importStatement(userId,orgId,payload){
  !Array.isArray(rows)||rows.length<1||rows.length>3000)throw new Error("Podaj IBAN, numer wyciągu i 1–3000 transakcji.");
  const opening=money(payload.openingBalance),closing=money(payload.closingBalance);
  const periodEnd=date(payload.periodEnd),periodStart=payload.periodStart?date(payload.periodStart):null;
+ if(periodStart&&periodStart>periodEnd)throw new Error("Nieprawidłowa kolejność dat okresu.");
  const transactions=rows.map((r,i)=>{
   const bookedAt=date(r.date),amount=money(r.amount);
+  if(bookedAt>periodEnd||(periodStart&&bookedAt<periodStart))throw new Error("Data transakcji jest poza okresem wyciągu.");
   const description=String(r.description||"").slice(0,1000);
   const counterparty=String(r.counterparty||"").slice(0,250);
   const reference=String(r.reference||"").slice(0,250);
