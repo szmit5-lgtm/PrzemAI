@@ -175,4 +175,33 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
+
+const {importStatement}=require("../services/BankStatementImportService");
+router.post("/:id/bank/statements",verifyToken,async(req,res)=>{
+ try{
+  const data=await importStatement(req.user.id,req.params.id,req.body);
+  return res.status(201).json({success:true,data});
+ }catch(error){
+  const status=error instanceof OrganizationError?error.status||403:
+   error?.code==="P2002"?409:
+   /Nieprawidłowa|Podaj |Saldo |Data musi|Wyciąg /.test(error?.message||"")?400:500;
+  return res.status(status).json({success:false,error:status===500?
+   "Nie udało się zaimportować wyciągu.":error.message});
+ }
+});
+router.get("/:id/bank/statements",verifyToken,async(req,res)=>{
+ try{
+  await financeService.accessible(req.user.id,req.params.id);
+  const data=await prisma.bankStatement.findMany({where:{organizationId:req.params.id},
+   orderBy:{periodEnd:"desc"},take:50,
+   select:{id:true,statementNumber:true,periodEnd:true,openingBalance:true,closingBalance:true,transactionCount:true,
+    bankAccount:{select:{label:true,iban:true}}}});
+  return res.json({success:true,data:data.map(x=>({...x,openingBalance:x.openingBalance.toString(),
+   closingBalance:x.closingBalance.toString(),bankAccount:{label:x.bankAccount.label,ibanSuffix:x.bankAccount.iban.slice(-4)}}))});
+ }catch(error){
+  const status=error instanceof OrganizationError?error.status||403:500;
+  return res.status(status).json({success:false,error:status===500?"Nie udało się pobrać wyciągów.":error.message});
+ }
+});
+
 module.exports = router;
