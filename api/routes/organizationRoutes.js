@@ -227,8 +227,8 @@ router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
    const lines=String(parsed.text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,15000);
    if(!lines.length)return res.status(422).json({success:false,error:"PDF nie zawiera tekstu. Skan wymaga OCR i ręcznej weryfikacji."});
    const source=String(parsed.text||"");
-   const statementNumbers=[...new Set((source.match(/20[0-9]{2}\\/[0-9]{3}/g)||[]))];
-   const accountNumbers=[...new Set((source.match(/(?:[0-9]{2}\\s+){6}[0-9]{4}/g)||[]).map(x=>x.replace(/\\s/g,"")))];
+   const statementNumbers=[];
+   const accountNumbers=[];
    return res.json({success:true,data:{pages:parsed.numpages,lines,statementNumbers,accountNumbers,
     requiresReview:true,warning:"Wykryto "+statementNumbers.length+" numerów wyciągów i "+accountNumbers.length+" rachunków. Automatyczny zapis jest zablokowany do czasu zgodności liczby operacji i sald każdego wyciągu."}});
   }catch(e){return res.status(422).json({success:false,error:"Nie udało się odczytać PDF. Sprawdź format i zabezpieczenia dokumentu."});}
