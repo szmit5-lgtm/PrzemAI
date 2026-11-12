@@ -333,7 +333,7 @@ if (process.env.DEKONICA_MAIL_REVIEW_ONCE === "true" &&
 // Explicit one-time authorized sender. Guarded by a persistent unique database task ID.
 require("./scripts/sendSpecpozOnce")().catch(() => console.warn("[SPECPOZ-SEND] unexpected failure"));
 
-console.log("PrzemAI Worker active");
+console.log("PrzemAI Worker active", JSON.stringify({commit: process.env.RAILWAY_GIT_COMMIT_SHA || "unknown", mode: process.env.NODE_ENV || "unset"}));
 cycle();
 interval = setInterval(cycle, CYCLE_MS);
 
