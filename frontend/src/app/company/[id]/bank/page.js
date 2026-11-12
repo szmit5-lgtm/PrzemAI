@@ -5,13 +5,14 @@ import {useEffect,useState} from "react";
 import {ArrowLeft,Landmark,FileUp,ShieldAlert,Wallet} from "lucide-react";
 import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
-import {getOrganizationFinanceStatus,getOrganizationWorkspace} from "@/lib/api";
+import {getOrganizationFinanceStatus,getOrganizationWorkspace,getOrganizationBankSummary} from "@/lib/api";
 
 export default function CompanyBankPage(){
  const {id}=useParams();
  const [name,setName]=useState("");
  const [status,setStatus]=useState(null);
  const [error,setError]=useState("");
+ const [accounts,setAccounts]=useState([]);
  const [loading,setLoading]=useState(true);
  useEffect(()=>{
   if(!id)return;
@@ -21,6 +22,7 @@ export default function CompanyBankPage(){
     if(!alive)return;
     setName(workspace?.data?.company?.displayName||workspace?.data?.company?.name||"");
     setStatus(finance?.data||{});
+    if(finance?.data?.canView)getOrganizationBankSummary(id).then(v=>{if(alive)setAccounts(v?.data?.accounts||[]);}).catch(e=>{if(alive)setError(e.message||"Nie udało się pobrać sald.");});
    }).catch(e=>{if(alive)setError(e.message||"Brak dostępu do firmy.");})
    .finally(()=>{if(alive)setLoading(false);});
   return()=>{alive=false;};
@@ -46,12 +48,12 @@ export default function CompanyBankPage(){
    </section>}
    {!loading&&!error&&status?.canView&&<>
     <section className="mt-6 grid gap-3 sm:grid-cols-3">
-     {[["Saldo rachunków","Nie zaimportowano","Ostatni zatwierdzony wyciąg"],["Rachunek bieżący","Brak danych","Saldo nie jest jeszcze dostępne"],["Rachunek VAT","Brak danych","Środki VAT pokazywane oddzielnie"]].map(([title,value,detail])=>
-      <div key={title} className="rounded-2xl border border-white/10 bg-[#111c35] p-5">
+     {accounts.length===0?<div className="rounded-2xl border border-white/10 bg-[#111c35] p-5 text-slate-300">Nie zaimportowano jeszcze żadnego wyciągu. Salda pojawią się po zatwierdzonym imporcie.</div>:
+      accounts.map(a=><div key={a.id} className="rounded-2xl border border-white/10 bg-[#111c35] p-5">
        <Wallet size={20} className="text-violet-300"/>
-       <h2 className="mt-4 text-sm text-slate-300">{title}</h2>
-       <p className="mt-2 text-xl font-bold">{value}</p>
-       <p className="mt-2 text-xs text-slate-400">{detail}</p>
+       <h2 className="mt-4 text-sm text-slate-300">{a.label|| (a.accountType==="VAT"?"Rachunek VAT":"Rachunek bankowy")} · •••• {a.ibanSuffix}</h2>
+       <p className="mt-2 text-xl font-bold">{a.balance===null?"Brak salda":new Intl.NumberFormat("pl-PL",{style:"currency",currency:a.currency||"PLN"}).format(Number(a.balance))}</p>
+       <p className="mt-2 text-xs text-slate-400">{a.balanceDate?"Saldo z wyciągu na "+new Date(a.balanceDate).toLocaleDateString("pl-PL"):"Brak wyciągu"}</p>
       </div>)}
     </section>
     <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-5 sm:p-7">
