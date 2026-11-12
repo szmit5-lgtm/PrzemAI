@@ -11,7 +11,7 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
   const jobs = new Map();
   let sequence = 0;
   function enqueue({ companyId, actorId, query }) {
-    if (typeof query !== 'string' || !query.trim() || query.length > 300) throw new TypeError('invalid_query');
+    if (typeof query !== 'string' || !query.trim() || query.length > 200) throw new TypeError('invalid_query');
     const policy = evaluateSalesAction({ type: 'search_web', companyId }, { companyId, actorId });
     if (policy.decision !== 'allow') throw new Error('sales_policy_denied');
     if (jobs.size >= maxJobs) throw new Error('sales_queue_full');
@@ -35,7 +35,7 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
     if (!job) return null;
     job.status = 'running';
     try {
-      const leads = await searchPublicLeads({ query: job.query, companyId: job.companyId, limit: maxLeads });
+      const leads = await searchPublicLeads({ query: job.query, companyId: job.companyId, actorId: job.actorId, limit: maxLeads });
       if (!Array.isArray(leads) || leads.length > maxLeads) throw new TypeError('invalid_search_results');
       job.report = buildSalesLeadReport({ companyId: job.companyId, actorId: job.actorId, leads });
       job.status = 'completed';
