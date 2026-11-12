@@ -47,10 +47,25 @@ export default function CompanyBankPage(){
  const [importing,setImporting]=useState(false);
  const [notice,setNotice]=useState("");
  const [fileName,setFileName]=useState("");
+ const [pdfPreview,setPdfPreview]=useState(null);
+ const [pdfLoading,setPdfLoading]=useState(false);
  async function readFile(e){
   const file=e.target.files?.[0];e.target.value="";
   if(!file)return;
-  setError("");setNotice("");setTransactions([]);setFileName("");
+  setError("");setNotice("");setTransactions([]);setFileName("");setPdfPreview(null);
+  if(/\.pdf$/i.test(file.name)){
+   if(file.size>5*1024*1024){setError("PDF może mieć maksymalnie 5 MB.");return;}
+   setPdfLoading(true);
+   try{
+    const form=new FormData();form.append("file",file);
+    const token=localStorage.getItem("token");
+    const response=await fetch("/api/organizations/"+encodeURIComponent(id)+"/bank/pdf-preview",{method:"POST",headers:{Authorization:"Bearer "+token},body:form});
+    const result=await response.json();
+    if(!response.ok||!result.success)throw Error(result.error||"Nie udało się odczytać PDF.");
+    setPdfPreview(result.data);setFileName(file.name);
+   }catch(err){setError(err.message);}finally{setPdfLoading(false);}
+   return;
+  }
   if(!/\.csv$/i.test(file.name)||file.size>1024*1024){setError("Wybierz plik CSV do 1 MB.");return;}
   try{const rows=parseCsv(await file.text());setTransactions(rows);setFileName(file.name);}
   catch(err){setError(err.message);}
@@ -112,15 +127,17 @@ export default function CompanyBankPage(){
     </section>
     <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-5 sm:p-7">
      <div className="flex items-center gap-3"><Landmark className="text-violet-300"/><h2 className="text-xl font-bold">Wyciągi bankowe</h2></div>
-     <p className="mt-3 text-sm text-slate-400">Import CSV po sprawdzeniu sald. PDF i XLSX nie są jeszcze obsługiwane automatycznie. Operacje nie oznaczają faktur KSeF jako opłaconych.</p>
+     <p className="mt-3 text-sm text-slate-400">Import CSV z kontrolą sald lub bezpieczny podgląd tekstu PDF przed weryfikacją. PDF nie jest jeszcze automatycznie zapisywany jako transakcje. Operacje nie oznaczają faktur KSeF jako opłaconych.</p>
      {owner?<form onSubmit={submitImport} className="mt-5 space-y-4">
       <label className="block rounded-xl border border-dashed border-violet-400/40 p-5 text-sm">
        <FileUp size={24} className="mb-3 text-violet-300"/>
-       Wybierz wyciąg CSV (maks. 1 MB)
-       <input type="file" accept=".csv,text/csv" onChange={readFile} className="mt-3 block w-full text-sm"/>
+       Wybierz wyciąg CSV (do 1 MB) lub PDF (do 5 MB)
+       <input type="file" accept=".csv,.pdf,text/csv,application/pdf" onChange={readFile} className="mt-3 block w-full text-sm"/>
       </label>
       <p className="text-xs text-slate-400">Wymagane nagłówki CSV oddzielone średnikami: date;amount;description;counterparty;reference. Daty RRRR-MM-DD, kwoty ze znakiem minus dla wydatków.</p>
-      {fileName&&<p className="text-sm text-emerald-300">Wczytano {fileName}: {transactions.length} operacji do sprawdzenia.</p>}
+      {pdfLoading&&<p className="text-sm text-slate-300">Odczytywanie PDF…</p>}
+      {pdfPreview&&<div className="rounded-xl border border-amber-400/30 p-4"><p className="text-sm text-amber-200">{pdfPreview.warning}</p><p className="mt-2 text-xs">Strony: {pdfPreview.pages}</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{pdfPreview.lines.join("\\n")}</pre></div>}
+      {fileName&&<p className="text-sm text-emerald-300">Wczytano {fileName}: {transactions.length ? transactions.length+" operacji do sprawdzenia" : "podgląd PDF bez zapisu transakcji"}.</p>}
       <div className="grid gap-3 sm:grid-cols-2">
        {[[iban,setIban,"IBAN rachunku"],[statementNumber,setStatementNumber,"Numer wyciągu"],[openingBalance,setOpeningBalance,"Saldo początkowe PLN"],[closingBalance,setClosingBalance,"Saldo końcowe PLN"]].map(([value,setValue,label])=><label key={label} className="text-sm">{label}
         <input required value={value} onChange={e=>setValue(e.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#0a162d] p-3" placeholder={label}/>
