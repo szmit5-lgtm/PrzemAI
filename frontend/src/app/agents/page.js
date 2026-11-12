@@ -88,7 +88,7 @@ export default function AgentsPage(){
                <Clock3 size={13}/> {a.intervalMinutes} min · {date(a.lastRunAt)}
              </div>
              <div className="mt-4 flex flex-wrap gap-2">
-               <Link href={a.key==="financial"?"/finance":"/agents/"+a.key}
+               <Link href={a.key==="financial"?"/finance":a.key==="sales"?"/agents/kaldeva":"/agents/"+a.key}
                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-violet-300">
                  {a.key==="financial"?<Wallet size={16}/>:<MessageSquareText size={16}/>}
                  {a.key==="financial"?"Centrum finansów":"Zleć zadanie"} <ArrowUpRight size={15}/>
