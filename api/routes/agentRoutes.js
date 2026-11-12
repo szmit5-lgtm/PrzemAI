@@ -109,7 +109,7 @@ router.get("/kaldeva/jobs/:id", verifyToken, async (req, res) => {
 
 // Allow the owner to cancel a queued search before it starts. Running jobs
 // cannot be interrupted by this endpoint and return a conflict instead.
-router.post("/kaldeva/jobs/:id/cancel", verifyToken, (req, res) => {
+router.post("/kaldeva/jobs/:id/cancel", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
   const id = String(req.params.id);
@@ -118,7 +118,17 @@ router.post("/kaldeva/jobs/:id/cancel", verifyToken, (req, res) => {
   if (!job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
   if (!kaldevaWorkflow.cancel(id, scope))
     return res.status(409).json({ success: false, error: "Można anulować tylko oczekujące zlecenie." });
-  return res.json({ success: true, data: kaldevaWorkflow.get(id, scope) });
+  const cancelled = kaldevaWorkflow.get(id, scope);
+  try {
+    await prisma.history.updateMany({
+      where: { id, userId: actorId, type: KALDEVA_HISTORY_TYPE },
+      data: { report: cancelled }
+    });
+  } catch (error) {
+    console.error("kaldeva_cancel_persistence_error", error?.name || "Error");
+    return res.status(503).json({ success: false, error: "Anulowano lokalnie, ale nie zapisano stanu. Odśwież listę zleceń." });
+  }
+  return res.json({ success: true, data: cancelled });
 });
 
 const controller = new AgentController();
