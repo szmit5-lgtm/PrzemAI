@@ -26,11 +26,23 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   try {
     const companyId = "kaldeva:" + actorId;
     const id = kaldevaWorkflow.enqueue({ companyId, actorId, query });
-    const job = await kaldevaWorkflow.runNext(id);
-    if (!job || job.id !== id) return res.status(503).json({ success: false, error: "Kolejka zajęta." });
-    return res.status(job.status === "completed" ? 200 : 502).json({ success: job.status === "completed", data: job });
+    // Return the job immediately instead of blocking the HTTP request on a
+    // third-party search. The result is retrieved through GET /jobs/:id.
+    setImmediate(() => {
+      kaldevaWorkflow.runNext(id).catch(error => {
+        console.error("kaldeva_discovery_worker_error", error?.message || "unknown");
+      });
+    });
+    return res.status(202).json({
+      success: true,
+      data: { id, status: "queued", resultPath: "/api/agents/kaldeva/jobs/" + encodeURIComponent(id) }
+    });
   } catch (error) {
-    return res.status(502).json({ success: false, error: "Wyszukiwanie publiczne niedostępne.", detail: error.message });
+    const full = error?.message === "sales_queue_full";
+    return res.status(full ? 503 : 500).json({
+      success: false,
+      error: full ? "Kolejka zleceń jest pełna." : "Nie udało się przyjąć zlecenia."
+    });
   }
 });
 
