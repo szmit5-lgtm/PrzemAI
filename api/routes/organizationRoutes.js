@@ -134,6 +134,8 @@ router.patch("/:id/branding",verifyToken,
 router.get("/:id/members",verifyToken,handler(req=>service.members(req.user.id,req.params.id)));
 router.post("/:id/invitations",verifyToken,
   handler(req=>service.invite(req.user.id,req.params.id,req.body)));
+router.post("/:id/members/:membershipId/activate",verifyToken,
+  handler(req=>service.activateMember(req.user.id,req.params.id,req.params.membershipId)));
 router.delete("/:id/members/:membershipId",verifyToken,
   handler(req=>service.revoke(req.user.id,req.params.id,req.params.membershipId)));
 router.post("/:id/domains",verifyToken,
