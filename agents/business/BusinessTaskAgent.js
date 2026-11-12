@@ -5,7 +5,7 @@ const {getAgentDefinition}=require("../../lib/agentCatalog");
 const {appendTurn,buildConversationPrompt,safeTurns}=require("../../lib/agentConversation");
 // Public-source discovery is opt-in per sales assignment and never sends messages.
 async function discoverPublicSources(query) {
- const q=String(query||"").trim().slice(0,180);
+ const q=String(query||"").replace(/https?:\/\/\S+/g," ").replace(/\s+/g," ").trim().slice(0,180);
  if(!q)return [];
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),9000);
@@ -54,7 +54,8 @@ class BusinessTaskAgent{
     const wantsSearch=agentKey==="sales" && /(?:wyszukaj|znajdź|poszukaj|szukaj).{0,100}(?:klient|firm|odbiorc|instalator|dystrybutor)/i.test(String(task.description||""));
     let sources=[];
     if(wantsSearch){
-     sources=await discoverPublicSources(task.description);
+     const searchQuery=String(m.searchQuery||task.description||task.title||"").replace(/^(?:wyszukaj|znajdź|poszukaj|szukaj)\s+/i,"").slice(0,180);
+     sources=await discoverPublicSources(searchQuery);
      if(!sources.length)throw Error("Brak wyników publicznego wyszukiwania; nie generuję fikcyjnych leadów.");
     }
     const result=await ai.ask({
@@ -64,7 +65,7 @@ class BusinessTaskAgent{
       "Nie twierdź, że wysłałeś ofertę, znalazłeś nowych klientów, sprawdziłeś przetarg lub wykonałeś operację zewnętrzną. "+
       "Nie wymyślaj cen, klientów, faktów ani kontaktów. Jeśli brak danych, wymień potrzebne informacje. "+
       "Pokaż konkretne wyniki i następne kroki; ewentualne wysłanie wiadomości wymaga akceptacji użytkownika.",
-     user:buildConversationPrompt(task)+(sources.length?"\\n\\nPUBLICZNE WYNIKI WYSZUKIWANIA (niezweryfikowane kontakty; cytuj URL, deduplikuj firmy):\\n"+JSON.stringify(sources):""),
+     user:buildConversationPrompt(task)+(sources.length?"\n\nPUBLICZNE WYNIKI WYSZUKIWANIA (niezweryfikowane kontakty; cytuj URL, deduplikuj firmy):\n"+JSON.stringify(sources):""),
      model:"gpt-5.5"
     });
     if(typeof result!=="string"||!result.trim())throw Error("Pusta odpowiedź.");
