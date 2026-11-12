@@ -203,6 +203,15 @@ class OrganizationService{
     if(updated.count!==1)throw new OrganizationError("Zaproszenie jest nieaktualne.",404);
     return {organizationId:orgId,status:"ACTIVE"};
   }
+  async activateMember(userId,orgId,membershipId){
+    await this.membership(userId,orgId,["OWNER"]);
+    const updated=await this.db.organizationMembership.updateMany({
+      where:{id:membershipId,organizationId:orgId,role:{not:"OWNER"},status:"PENDING"},
+      data:{status:"ACTIVE",financeAccess:false}
+    });
+    if(updated.count!==1)throw new OrganizationError("Nie znaleziono oczekującego pracownika.",404);
+    return {id:membershipId,status:"ACTIVE"};
+  }
   async revoke(userId,orgId,membershipId){
     await this.membership(userId,orgId,["OWNER"]);
     const updated=await this.db.organizationMembership.updateMany({
