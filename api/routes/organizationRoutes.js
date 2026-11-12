@@ -10,6 +10,29 @@ const financeService=new OrganizationFinanceService();
 
 const router = express.Router();
 
+router.get("/:id/bank/summary", verifyToken, async (req,res)=>{
+ try{
+  await financeService.accessible(req.user.id,req.params.id);
+  const accounts=await prisma.bankAccount.findMany({
+   where:{organizationId:req.params.id},
+   select:{id:true,label:true,accountType:true,currency:true,iban:true,
+    statements:{orderBy:[{periodEnd:"desc"},{importedAt:"desc"}],take:1,
+     select:{closingBalance:true,periodEnd:true,statementNumber:true}}}
+  });
+  return res.json({success:true,data:{accounts:accounts.map(a=>({
+   id:a.id,label:a.label,accountType:a.accountType,currency:a.currency,
+   ibanSuffix:a.iban.slice(-4),
+   balance:a.statements[0]?.closingBalance?.toString()??null,
+   balanceDate:a.statements[0]?.periodEnd??null,
+   statementNumber:a.statements[0]?.statementNumber??null
+  }))}});
+ }catch(error){
+  const code=error instanceof OrganizationError?error.status||403:500;
+  return res.status(code).json({success:false,error:code===500?"Nie udało się pobrać sald.":error.message});
+ }
+});
+
+
 // Company records are created only by authenticated users. This does not
 // grant access to another user's tasks, invoices, KSeF or bank connections.
 router.get("/", verifyToken, async (req, res) => {
