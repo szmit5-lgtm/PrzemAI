@@ -29,7 +29,7 @@ function buildSalesLeadReport({ companyId, actorId, leads }) {
     seen.add(host);
     const category = normalize(lead.category);
     const relevant = /instal|ogrzew|pompy ciepła|hvac|oze/.test(category);
-    accepted.push({ name: lead.name.trim(), website: `https://${host}`, category: lead.category || '', score: relevant ? 2 : 1, status: 'research_only', draft: 'Dzień dobry, chcielibyśmy porozmawiać o potencjalnej współpracy w zakresie pomp ciepła. Czy możemy przesłać krótką informację?' });
+    accepted.push({ name: lead.name.trim(), website: `https://${host}`, category: lead.category || '', source: lead.source || 'public_search', verificationStatus: 'unverified', score: relevant ? 2 : 1, status: 'research_only', draft: 'Dzień dobry, chcielibyśmy porozmawiać o potencjalnej współpracy w zakresie pomp ciepła. Czy możemy przesłać krótką informację?' });
   }
   return { companyId, scanned: leads.length, accepted, rejected, requiresApprovalBeforeSending: true };
 }
