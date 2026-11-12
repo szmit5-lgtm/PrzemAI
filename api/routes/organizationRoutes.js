@@ -226,7 +226,12 @@ router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
    const parsed=await pdfParse(req.file.buffer,{max:150});
    const lines=String(parsed.text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,15000);
    if(!lines.length)return res.status(422).json({success:false,error:"PDF nie zawiera tekstu. Skan wymaga OCR i ręcznej weryfikacji."});
-   return res.json({success:true,data:{pages:parsed.numpages,lines,warning:"Podgląd tekstu PDF — transakcje nie zostały zapisane. Zweryfikuj daty, kwoty i salda przed importem."}});
+   const source=String(parsed.text||"");
+   const statementIds=[...source.matchAll(/(?:^|\\n)\\s*(\\d{2}-\\d{2}-\\d{4})\\s+(\\d{2}-\\d{2}-\\d{4})\\s+(\\d{2}-\\d{2}-\\d{4})\\s+(20\\d{2}\\/\\d{3})/g)];
+   const statementNumbers=[...new Set(statementIds.map(x=>x[4]))];
+   const accountNumbers=[...new Set([...source.matchAll(/(?:NR RACHUNKU[^\\n]*\\n(?:[^\\n]*\\n){0,3}?|WYCIĄG Z RACHUNKU BANKOWEGO[^\\n]*?)\\s*(\\d{2}(?:\\s+\\d{4}){6})/g)].map(x=>x[1].replace(/\\s/g,"")))];
+   return res.json({success:true,data:{pages:parsed.numpages,lines,statementNumbers,accountNumbers,
+    requiresReview:true,warning:"Wykryto "+statementNumbers.length+" numerów wyciągów i "+accountNumbers.length+" rachunków. Automatyczny zapis jest zablokowany do czasu zgodności liczby operacji i sald każdego wyciągu."}});
   }catch(e){return res.status(422).json({success:false,error:"Nie udało się odczytać PDF. Sprawdź format i zabezpieczenia dokumentu."});}
  });
 });
