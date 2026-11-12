@@ -526,3 +526,7 @@ export async function updateSystemUser(id,payload) {
 export async function getOrganizationBankSummary(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/summary");
 }
+
+export async function activateOrganizationMember(orgId,membershipId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/members/"+encodeURIComponent(membershipId)+"/activate",{method:"POST"});
+}
