@@ -9,7 +9,7 @@ import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
 import {
  getOrganizationWorkspace,createOrganizationTask,changeOrganizationTaskStatus,
- getOrganizationMembers,inviteOrganizationMember,revokeOrganizationMember,
+ getOrganizationMembers,inviteOrganizationMember,revokeOrganizationMember,activateOrganizationMember,
  updateOrganizationBrand,requestOrganizationDomain,getOrganizationDomainInstructions,
  verifyOrganizationDomain
 } from "@/lib/api";
@@ -127,7 +127,7 @@ export default function CompanyWorkspace(){
   mutate(async()=>{
    await inviteOrganizationMember(id,{email:memberEmail.trim(),role:memberRole});
    setMemberEmail("");
-  },"Wysłano zaproszenie w systemie. Osoba zobaczy je po zalogowaniu do swojego konta PrzemAI.");
+  },isOwner?"Dostęp do firmy został nadany.":"Zaproszenie wysłane — pracownik musi je zaakceptować.");
  }
  function requestDomain(e){
   e.preventDefault();
@@ -319,8 +319,8 @@ export default function CompanyWorkspace(){
      </div>}
     {tab==="team"&&isAdmin&&<section className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
       <form onSubmit={invite} className="min-w-0 space-y-4 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
-       <h2 className="flex items-center gap-2 text-lg font-bold"><Users className="text-violet-300" size={20}/> Zaproś osobę do firmy</h2>
-       <p className="text-xs leading-6 text-slate-400">Osoba powinna mieć własne konto PrzemAI. Zobaczy zaproszenie po zalogowaniu i sama je zaakceptuje. Nie otrzymuje dostępu do Twojego konta osobistego.</p>
+       <h2 className="flex items-center gap-2 text-lg font-bold"><Users className="text-violet-300" size={20}/> Dodaj osobę do firmy</h2>
+       <p className="text-xs leading-6 text-slate-400">Osoba musi mieć własne konto PrzemAI. Właściciel nadaje dostęp natychmiast; administrator wysyła zaproszenie do akceptacji. Dostęp do finansów nadaje się osobno.</p>
        <label className="block text-sm">E-mail pracownika
         <input required type="email" value={memberEmail} onChange={e=>setMemberEmail(e.target.value)}
          placeholder="pracownik@twojafirma.pl" className="mt-2 w-full min-w-0 rounded-xl border border-white/20 bg-[#0a162d] p-3 text-white"/>
@@ -332,7 +332,7 @@ export default function CompanyWorkspace(){
          {isOwner&&<option value="ADMIN">Administrator — zaproszenia i branding</option>}
         </select>
        </label>
-       <button disabled={busy} className="min-h-12 w-full rounded-xl bg-violet-500 font-bold text-white disabled:opacity-40">Wyślij zaproszenie w PrzemAI</button>
+       <button disabled={busy} className="min-h-12 w-full rounded-xl bg-violet-500 font-bold text-white disabled:opacity-40">{isOwner?"Nadaj dostęp":"Wyślij zaproszenie"}</button>
       </form>
       <div className="min-w-0 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
        <h2 className="text-lg font-bold">Osoby i uprawnienia</h2>
@@ -345,6 +345,9 @@ export default function CompanyWorkspace(){
         <div className="min-w-0"><strong className="block break-all text-sm">{m.user?.email}</strong>
          <p className="mt-1 text-xs text-slate-400">{roles[m.role]||m.role} · {m.status==="ACTIVE"?"Aktywny":m.status==="PENDING"?"Czeka na akceptację":"Dostęp odebrany"}</p>
         </div>
+        {isOwner&&m.status==="PENDING"&&m.role!=="OWNER"&&<button type="button" disabled={busy}
+         onClick={()=>mutate(()=>activateOrganizationMember(id,m.id),"Dostęp pracownika został aktywowany.")}
+         className="min-h-10 rounded-xl border border-emerald-400/40 px-3 text-xs font-semibold text-emerald-200 disabled:opacity-40">Aktywuj dostęp</button>}
         {isOwner&&m.role!=="OWNER"&&m.status!=="REVOKED"&&<button type="button" disabled={busy}
          onClick={()=>{if(window.confirm("Odebrać dostęp tej osobie do firmy?"))mutate(()=>revokeOrganizationMember(id,m.id),"Dostęp odebrany.");}}
          className="min-h-10 rounded-xl border border-rose-400/30 px-3 text-xs text-rose-200 disabled:opacity-40">Odbierz dostęp</button>}
