@@ -19,13 +19,14 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   const now = Date.now();
   if (now - (lastDiscovery.get(actorId) || 0) < 60000)
     return res.status(429).json({ success: false, error: "Odczekaj minutę przed następnym wyszukiwaniem." });
-  lastDiscovery.set(actorId, now);
   if (lastDiscovery.size > 1000) {
     for (const [key, time] of lastDiscovery) if (now - time > 120000) lastDiscovery.delete(key);
   }
   try {
     const companyId = "kaldeva:" + actorId;
     const id = kaldevaWorkflow.enqueue({ companyId, actorId, query });
+    // Only successful queue admission consumes the per-user search allowance.
+    lastDiscovery.set(actorId, now);
     // Return the job immediately instead of blocking the HTTP request on a
     // third-party search. The result is retrieved through GET /jobs/:id.
     setImmediate(() => {
@@ -55,6 +56,20 @@ router.get("/kaldeva/jobs/:id", verifyToken, (req, res) => {
   });
   if (!job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
   return res.json({ success: true, data: job });
+});
+
+// Allow the owner to cancel a queued search before it starts. Running jobs
+// cannot be interrupted by this endpoint and return a conflict instead.
+router.post("/kaldeva/jobs/:id/cancel", verifyToken, (req, res) => {
+  const actorId = String(req.user?.id || "");
+  if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
+  const id = String(req.params.id);
+  const scope = { companyId: "kaldeva:" + actorId, actorId };
+  const job = kaldevaWorkflow.get(id, scope);
+  if (!job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
+  if (!kaldevaWorkflow.cancel(id, scope))
+    return res.status(409).json({ success: false, error: "Można anulować tylko oczekujące zlecenie." });
+  return res.json({ success: true, data: kaldevaWorkflow.get(id, scope) });
 });
 
 const controller = new AgentController();
