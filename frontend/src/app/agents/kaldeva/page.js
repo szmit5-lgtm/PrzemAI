@@ -48,6 +48,7 @@ export default function KaldevaPage() {
     return () => clearTimeout(timer);
   }, [id, job?.status]);
   const result = job?.result || job?.report || {};
+  const leads = Array.isArray(result.accepted) ? result.accepted : null;
   return <main className="min-h-screen bg-[#080e20] p-4 text-slate-100 sm:p-8">
     <div className="mx-auto max-w-4xl">
       <Link href="/agents" className="text-cyan-300">← Centrum agentów</Link>
@@ -68,7 +69,19 @@ export default function KaldevaPage() {
         {job.error && <p className="mt-3 text-rose-200">{String(job.error)}</p>}
         {["completed", "failed"].includes(job.status) && <div className="mt-5 space-y-4">
           <h3 className="font-semibold">Wynik zlecenia</h3>
-          <pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-xs leading-6">{JSON.stringify(result, null, 2)}</pre>
+          {leads ? <div className="space-y-4">
+            <p className="text-sm text-slate-300">Przeanalizowano: {result.scanned ?? 0} · Kandydaci: {leads.length} · Odrzucone: {result.rejected?.length ?? 0}</p>
+            <p className="text-xs text-amber-200">Publiczne wyniki wymagają weryfikacji. Szkice nie zostały wysłane.</p>
+            {leads.length === 0 && <p>Nie znaleziono kandydatów. Spróbuj innego zapytania.</p>}
+            {leads.map((lead, index) => <article key={lead.website || index} className="rounded-xl border border-white/15 bg-white/5 p-4">
+              <h4 className="font-semibold">{lead.name || "Firma bez nazwy"}</h4>
+              {lead.website && <a href={lead.website} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-sm text-cyan-300 underline">{lead.website}</a>}
+              {lead.category && <p className="mt-2 text-sm text-slate-300">{lead.category}</p>}
+              <p className="mt-3 text-xs font-semibold text-slate-400">Szkic do zatwierdzenia</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">{lead.draft || "Brak szkicu."}</p>
+              {lead.draft && <button type="button" onClick={() => navigator.clipboard?.writeText(lead.draft)} className="mt-3 min-h-11 rounded-lg border border-white/30 px-4 text-sm">Kopiuj szkic</button>}
+            </article>)}
+          </div> : <pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-xs leading-6">{JSON.stringify(result, null, 2)}</pre>}
         </div>}
       </section>}
     </div>
