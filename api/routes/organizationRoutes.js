@@ -211,20 +211,20 @@ const multer = require("multer");
 const pdfParse = require("pdf-parse");
 const bankPdfUpload = multer({
  storage: multer.memoryStorage(),
- limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+ limits: { fileSize: 15 * 1024 * 1024, files: 1 },
  fileFilter: (_req,file,cb) => cb(null, file.mimetype === "application/pdf" || /\.pdf$/i.test(file.originalname))
 });
 router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
  bankPdfUpload.single("file")(req,res,async error=>{
-  if(error)return res.status(400).json({success:false,error:"PDF jest za duży lub nieprawidłowy (limit 5 MB)."});
+  if(error)return res.status(400).json({success:false,error:"PDF jest za duży lub nieprawidłowy (limit 15 MB)."});
   if(!req.file)return res.status(400).json({success:false,error:"Wybierz plik PDF."});
   try{
    await financeService.accessible(req.user.id,req.params.id);
    const membership=await prisma.organizationMembership.findFirst({where:{userId:req.user.id,organizationId:req.params.id,status:"ACTIVE",role:"OWNER"}});
    if(!membership)return res.status(403).json({success:false,error:"Import wymaga roli właściciela."});
    if(req.file.buffer.subarray(0,5).toString()!=="%PDF-")return res.status(400).json({success:false,error:"Plik nie jest dokumentem PDF."});
-   const parsed=await pdfParse(req.file.buffer,{max:30});
-   const lines=String(parsed.text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,1000);
+   const parsed=await pdfParse(req.file.buffer,{max:150});
+   const lines=String(parsed.text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,15000);
    if(!lines.length)return res.status(422).json({success:false,error:"PDF nie zawiera tekstu. Skan wymaga OCR i ręcznej weryfikacji."});
    return res.json({success:true,data:{pages:parsed.numpages,lines,warning:"Podgląd tekstu PDF — transakcje nie zostały zapisane. Zweryfikuj daty, kwoty i salda przed importem."}});
   }catch(e){return res.status(422).json({success:false,error:"Nie udało się odczytać PDF. Sprawdź format i zabezpieczenia dokumentu."});}
