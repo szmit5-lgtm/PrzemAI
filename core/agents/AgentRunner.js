@@ -57,13 +57,29 @@ class AgentRunner {
         }
       });
 
+      // A new assignment may arrive while this agent is RUNNING. Do not
+      // postpone that queued work until the next periodic interval.
+      let hasQueuedAssignments = false;
+      if (agent.type !== "FINANCIAL" && agent.key) {
+        const queued = await prisma.task.findFirst({
+          where: {
+            userId: agent.userId,
+            source: "AGENT",
+            status: "TODO",
+            metadata: { path: ["agentKey"], equals: agent.key }
+          },
+          select: { id: true }
+        });
+        hasQueuedAssignments = Boolean(queued);
+      }
+
       // A recovered/stopped run must not overwrite a newer agent state.
       const released = await prisma.agent.updateMany({
         where: { id: agent.id, status: "RUNNING" },
         data: {
           status: "IDLE",
           lastRunAt: finishedAt,
-          nextRunAt: new Date(finishedAt.getTime() + intervalMinutes * 60000)
+          nextRunAt: hasQueuedAssignments ? finishedAt : new Date(finishedAt.getTime() + intervalMinutes * 60000)
         }
       });
 
