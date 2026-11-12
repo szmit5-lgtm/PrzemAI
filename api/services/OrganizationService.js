@@ -181,7 +181,10 @@ class OrganizationService{
       where:{organizationId_userId:{organizationId:orgId,userId:user.id}}
     });
     if(old?.status==="ACTIVE")throw new OrganizationError("Użytkownik należy już do firmy.",409);
-    // The company OWNER may grant immediate access to an existing account.\n    // ADMIN invitations still require acceptance; financeAccess remains false.\n    const status=sender.role==="OWNER"?"ACTIVE":"PENDING";\n    return this.db.organizationMembership.upsert({
+    // The company OWNER may grant immediate access to an existing account.
+    // ADMIN invitations still require acceptance; financeAccess remains false.
+    const status=sender.role==="OWNER"?"ACTIVE":"PENDING";
+    return this.db.organizationMembership.upsert({
       where:{organizationId_userId:{organizationId:orgId,userId:user.id}},
       create:{organizationId:orgId,userId:user.id,role,status,financeAccess:false},
       update:{status,role,financeAccess:false},
