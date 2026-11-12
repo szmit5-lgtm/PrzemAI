@@ -530,3 +530,12 @@ export async function getOrganizationBankSummary(orgId){
 export async function activateOrganizationMember(orgId,membershipId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/members/"+encodeURIComponent(membershipId)+"/activate",{method:"POST"});
 }
+
+export async function importOrganizationBankStatement(orgId,payload){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/statements",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
+ });
+}
+export async function getOrganizationBankStatements(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/statements");
+}
