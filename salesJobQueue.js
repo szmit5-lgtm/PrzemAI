@@ -30,8 +30,9 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
     jobs.get(id).status = 'cancelled';
     return true;
   }
-  async function runNext() {
-    const job = [...jobs.values()].find(j => j.status === 'queued');
+  async function runNext(id = null) {
+    const job = id === null ? [...jobs.values()].find(j => j.status === 'queued') : jobs.get(String(id));
+    if (job && job.status !== 'queued') return null;
     if (!job) return null;
     job.status = 'running';
     try {
