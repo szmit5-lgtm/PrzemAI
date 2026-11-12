@@ -3,6 +3,8 @@ const AgentController = require("../controllers/AgentController");
 const verifyToken = require("../middleware/verifyToken");
 
 const router = express.Router();
+const prisma = require("../../lib/prisma");
+const KALDEVA_HISTORY_TYPE = "KALDEVA_SALES";
 
 // Live read-only Kaldeva MVP: authenticated, user-scoped, no outbound messages.
 // Results are transient until the persistent worker integration is completed.
@@ -30,8 +32,15 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
     // Return the job immediately instead of blocking the HTTP request on a
     // third-party search. The result is retrieved through GET /jobs/:id.
     setImmediate(() => {
-      kaldevaWorkflow.runNext(id).catch(error => {
-        console.error("kaldeva_discovery_worker_error", error?.message || "unknown");
+      kaldevaWorkflow.runNext(id).then(async job => {
+        if (!job) return;
+        await prisma.history.create({ data: {
+          id: job.id, userId: actorId, type: KALDEVA_HISTORY_TYPE,
+          title: "Kaldeva: " + job.query.slice(0, 150), filename: "",
+          report: job
+        } });
+      }).catch(error => {
+        console.error("kaldeva_discovery_persistence_error", error?.message || "unknown");
       });
     });
     return res.status(202).json({
@@ -48,22 +57,44 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
 });
 
 // Recover jobs after navigation/reload, scoped to the authenticated user.
-router.get("/kaldeva/jobs", verifyToken, (req, res) => {
+router.get("/kaldeva/jobs", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
-  const data = kaldevaWorkflow.list({ companyId: "kaldeva:" + actorId, actorId }, 20);
-  return res.json({ success: true, data });
+  try {
+    const saved = await prisma.history.findMany({
+      where: { userId: actorId, type: KALDEVA_HISTORY_TYPE },
+      orderBy: { createdAt: "desc" }, take: 20,
+      select: { report: true }
+    });
+    const live = kaldevaWorkflow.list({ companyId: "kaldeva:" + actorId, actorId }, 20);
+    const merged = new Map();
+    for (const job of [...live, ...saved.map(item => item.report)]) {
+      if (job?.id && !merged.has(job.id)) merged.set(job.id, job);
+    }
+    return res.json({ success: true, data: [...merged.values()].slice(0, 20) });
+  } catch {
+    return res.status(500).json({ success: false, error: "Nie udało się pobrać historii zleceń." });
+  }
 });
 
 // Only the initiating user may read a transient job; no cross-user leakage.
-router.get("/kaldeva/jobs/:id", verifyToken, (req, res) => {
+router.get("/kaldeva/jobs/:id", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
   const job = kaldevaWorkflow.get(String(req.params.id), {
     companyId: "kaldeva:" + actorId, actorId
   });
-  if (!job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
-  return res.json({ success: true, data: job });
+  if (job) return res.json({ success: true, data: job });
+  try {
+    const saved = await prisma.history.findFirst({
+      where: { id: String(req.params.id), userId: actorId, type: KALDEVA_HISTORY_TYPE },
+      select: { report: true }
+    });
+    if (!saved) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
+    return res.json({ success: true, data: saved.report });
+  } catch {
+    return res.status(500).json({ success: false, error: "Nie udało się pobrać zlecenia." });
+  }
 });
 
 // Allow the owner to cancel a queued search before it starts. Running jobs
