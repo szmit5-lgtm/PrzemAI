@@ -1,5 +1,6 @@
 'use strict';
 const { evaluateSalesAction } = require('./salesAgentPolicy');
+const { randomUUID } = require('node:crypto');
 const { buildSalesLeadReport } = require('./salesLeadPipeline');
 
 // Minimal, in-process queue. The search adapter is injected; this module
@@ -9,7 +10,6 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
   if (!Number.isInteger(maxLeads) || maxLeads < 1 || maxLeads > 1000) throw new TypeError('invalid_limit');
   if (!Number.isInteger(maxJobs) || maxJobs < 1 || maxJobs > 10000) throw new TypeError('invalid_job_limit');
   const jobs = new Map();
-  let sequence = 0;
   function enqueue({ companyId, actorId, query }) {
     if (typeof query !== 'string' || !query.trim() || query.length > 200) throw new TypeError('invalid_query');
     const policy = evaluateSalesAction({ type: 'search_web', companyId }, { companyId, actorId });
@@ -21,7 +21,7 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
       if (finished) jobs.delete(finished.id);
     }
     if (jobs.size >= maxJobs) throw new Error('sales_queue_full');
-    const id = String(++sequence);
+    const id = randomUUID();
     jobs.set(id, { id, companyId, actorId, query: query.trim(), status: 'queued', report: null, error: null });
     return id;
   }
