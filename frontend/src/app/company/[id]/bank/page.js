@@ -54,7 +54,7 @@ export default function CompanyBankPage(){
   if(!file)return;
   setError("");setNotice("");setTransactions([]);setFileName("");setPdfPreview(null);
   if(/\.pdf$/i.test(file.name)){
-   if(file.size>5*1024*1024){setError("PDF może mieć maksymalnie 5 MB.");return;}
+   if(file.size>15*1024*1024){setError("PDF może mieć maksymalnie 15 MB.");return;}
    setPdfLoading(true);
    try{
     const form=new FormData();form.append("file",file);
@@ -131,7 +131,7 @@ export default function CompanyBankPage(){
      {owner?<form onSubmit={submitImport} className="mt-5 space-y-4">
       <label className="block rounded-xl border border-dashed border-violet-400/40 p-5 text-sm">
        <FileUp size={24} className="mb-3 text-violet-300"/>
-       Wybierz wyciąg CSV (do 1 MB) lub PDF (do 5 MB)
+       Wybierz wyciąg CSV (do 1 MB) lub PDF (do 15 MB)
        <input type="file" accept=".csv,.pdf,text/csv,application/pdf" onChange={readFile} className="mt-3 block w-full text-sm"/>
       </label>
       <p className="text-xs text-slate-400">Wymagane nagłówki CSV oddzielone średnikami: date;amount;description;counterparty;reference. Daty RRRR-MM-DD, kwoty ze znakiem minus dla wydatków.</p>
