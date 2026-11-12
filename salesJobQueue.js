@@ -14,7 +14,13 @@ function createSalesJobQueue({ searchPublicLeads, maxLeads = 100, maxJobs = 500 
     if (typeof query !== 'string' || !query.trim() || query.length > 200) throw new TypeError('invalid_query');
     const policy = evaluateSalesAction({ type: 'search_web', companyId }, { companyId, actorId });
     if (policy.decision !== 'allow') throw new Error('sales_policy_denied');
-    // Reclaim the oldest finished job before rejecting new work. Never evict\n    // queued/running jobs, so bursts cannot silently discard active work.\n    if (jobs.size >= maxJobs) {\n      const finished = [...jobs.values()].find(j => ['completed', 'failed', 'cancelled'].includes(j.status));\n      if (finished) jobs.delete(finished.id);\n    }\n    if (jobs.size >= maxJobs) throw new Error('sales_queue_full');
+    // Reclaim the oldest finished job before rejecting new work. Never evict
+    // queued/running jobs, so bursts cannot silently discard active work.
+    if (jobs.size >= maxJobs) {
+      const finished = [...jobs.values()].find(j => ['completed', 'failed', 'cancelled'].includes(j.status));
+      if (finished) jobs.delete(finished.id);
+    }
+    if (jobs.size >= maxJobs) throw new Error('sales_queue_full');
     const id = String(++sequence);
     jobs.set(id, { id, companyId, actorId, query: query.trim(), status: 'queued', report: null, error: null });
     return id;
