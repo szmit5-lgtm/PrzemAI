@@ -522,3 +522,7 @@ export async function updateSystemUser(id,payload) {
     body:JSON.stringify(payload)
   });
 }
+
+export async function getOrganizationBankSummary(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/summary");
+}
