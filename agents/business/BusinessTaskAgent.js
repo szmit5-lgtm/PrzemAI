@@ -14,8 +14,8 @@ async function discoverPublicSources(query) {
   const response=await fetch(url,{signal:controller.signal,headers:{"User-Agent":"PrzemAI/1.0 (public research; read-only)"}});
   if(!response.ok)throw Error("Search HTTP "+response.status);
   const xml=await response.text();
-  const decode=t=>t.replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]>/g,"$1").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'");
-  const items=[...xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/g)].slice(0,20);
+  const decode=t=>t.replace(/<!\[CDATA\[([\s\S]*?)\]>/g,"$1").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  const items=[...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0,20);
   const seen=new Set(),results=[];
   for(const [,item] of items){
    const field=name=>decode((item.match(new RegExp("<"+name+">([\\s\\S]*?)<\\/"+name+">"))||[])[1]||"").trim();
