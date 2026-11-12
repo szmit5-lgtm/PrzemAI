@@ -26,12 +26,23 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   try {
     const companyId = "kaldeva:" + actorId;
     const id = kaldevaWorkflow.enqueue({ companyId, actorId, query });
-    const job = await kaldevaWorkflow.runNext();
+    const job = await kaldevaWorkflow.runNext(id);
     if (!job || job.id !== id) return res.status(503).json({ success: false, error: "Kolejka zajęta." });
     return res.status(job.status === "completed" ? 200 : 502).json({ success: job.status === "completed", data: job });
   } catch (error) {
     return res.status(502).json({ success: false, error: "Wyszukiwanie publiczne niedostępne.", detail: error.message });
   }
+});
+
+// Only the initiating user may read a transient job; no cross-user leakage.
+router.get("/kaldeva/jobs/:id", verifyToken, (req, res) => {
+  const actorId = String(req.user?.id || "");
+  if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
+  const job = kaldevaWorkflow.get(String(req.params.id), {
+    companyId: "kaldeva:" + actorId, actorId
+  });
+  if (!job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
+  return res.json({ success: true, data: job });
 });
 
 const controller = new AgentController();
