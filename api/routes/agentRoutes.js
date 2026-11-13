@@ -67,6 +67,7 @@ router.get("/kaldeva/jobs", verifyToken, async (req, res) => {
     });
     const live = kaldevaWorkflow.list({ companyId: "kaldeva:" + actorId, actorId }, 20);
     const merged = new Map();
+    // The worker updates persisted reports; never overwrite them with stale API memory.
     for (const job of [...saved.map(item => item.report), ...live]) {
       if (job?.id && !merged.has(job.id)) merged.set(job.id, job);
     }
@@ -102,22 +103,29 @@ router.post("/kaldeva/jobs/:id/cancel", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
   const id = String(req.params.id);
-  const scope = { companyId: "kaldeva:" + actorId, actorId };
-  const job = kaldevaWorkflow.get(id, scope);
-  if (!job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
-  if (!kaldevaWorkflow.cancel(id, scope))
-    return res.status(409).json({ success: false, error: "Można anulować tylko oczekujące zlecenie." });
-  const cancelled = kaldevaWorkflow.get(id, scope);
   try {
-    await prisma.history.updateMany({
+    const saved = await prisma.history.findFirst({
       where: { id, userId: actorId, type: KALDEVA_HISTORY_TYPE },
-      data: { report: cancelled }
+      select: { report: true }
     });
+    if (!saved) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
+    if (saved.report?.status !== "queued")
+      return res.status(409).json({ success: false, error: "Można anulować tylko oczekujące zlecenie." });
+    // Conditional update prevents cancelling a job already picked up by the worker.
+    const cancelled = { ...saved.report, status: "cancelled", updatedAt: new Date().toISOString() };
+    const updated = await prisma.$executeRaw`
+      UPDATE "History" SET "report" = ${JSON.stringify(cancelled)}::jsonb
+      WHERE "id" = ${id} AND "userId" = ${actorId}
+        AND "type" = ${KALDEVA_HISTORY_TYPE}
+        AND "report"->>'status' = 'queued'
+    `;
+    if (!updated) return res.status(409).json({ success: false, error: "Zlecenie zostało już podjęte przez worker." });
+    kaldevaWorkflow.cancel(id, { companyId: "kaldeva:" + actorId, actorId });
+    return res.json({ success: true, data: cancelled });
   } catch (error) {
     console.error("kaldeva_cancel_persistence_error", error?.name || "Error");
-    return res.status(503).json({ success: false, error: "Anulowano lokalnie, ale nie zapisano stanu. Odśwież listę zleceń." });
+    return res.status(503).json({ success: false, error: "Nie udało się anulować zlecenia." });
   }
-  return res.json({ success: true, data: cancelled });
 });
 
 const controller = new AgentController();
