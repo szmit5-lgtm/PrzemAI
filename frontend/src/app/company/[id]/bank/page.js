@@ -24,7 +24,11 @@ function parseCsv(text){
  if(lines.length<1||lines.length>3000)throw Error("CSV musi zawierać od 1 do 3000 transakcji.");
  return lines.map((values,i)=>{
   const obj=Object.fromEntries(header.map((key,j)=>[key,values[j]||""]));
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.date)||!obj.amount)throw Error("Nieprawidłowa data lub kwota w wierszu "+(i+2));
+  const polish=/^(\d{2})[.\-/](\d{2})[.\-/](\d{4})$/.exec(obj.date.trim());
+  if(polish)obj.date=`${polish[3]}-${polish[2]}-${polish[1]}`;
+  const parsed=/^(\d{4})-(\d{2})-(\d{2})$/.exec(obj.date);
+  const checked=parsed?new Date(`${obj.date}T12:00:00Z`):null;
+  if(!parsed||!checked||Number.isNaN(checked.getTime())||checked.toISOString().slice(0,10)!==obj.date||!obj.amount)throw Error("Nieprawidłowa data lub kwota w wierszu "+(i+2));
   return {date:obj.date,amount:obj.amount,description:obj.description,counterparty:obj.counterparty||"",reference:obj.reference||""};
  });
 }
