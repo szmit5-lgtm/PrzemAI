@@ -89,14 +89,37 @@ export default function CompanyBankPage(){
  useEffect(()=>{
   if(!id)return;
   let alive=true;setLoading(true);setError("");
-  Promise.all([getOrganizationWorkspace(id),getOrganizationFinanceStatus(id)])
-   .then(([workspace,finance])=>{
-    if(!alive)return;
-    setName(workspace?.data?.company?.displayName||workspace?.data?.company?.name||"");
-    setOwner(workspace?.data?.company?.role==="OWNER");
-    setStatus(finance?.data||{});
-    if(finance?.data?.canView)Promise.all([getOrganizationBankSummary(id),getOrganizationBankStatements(id)]).then(([v,h])=>{if(alive){setAccounts(v?.data?.accounts||[]);setStatements(h?.data||[]);}}).catch(e=>{if(alive)setError(e.message||"Nie udało się pobrać wyciągów.");});
-   }).catch(e=>{if(alive)setError(e.message||"Brak dostępu do firmy.");})
+  (async()=>{
+   const [workspaceResult,financeResult]=await Promise.allSettled([
+    getOrganizationWorkspace(id),getOrganizationFinanceStatus(id)
+   ]);
+   if(!alive)return;
+   const workspace=workspaceResult.status==="fulfilled"?workspaceResult.value:null;
+   const finance=financeResult.status==="fulfilled"?financeResult.value:null;
+   const company=workspace?.data?.company;
+   const isOwner=company?.role==="OWNER";
+   setName(company?.displayName||company?.name||"");
+   setOwner(isOwner);
+   // Owner access is still independently enforced by the bank API.
+   const canView=Boolean(finance?.data?.canView||isOwner);
+   setStatus({...(finance?.data||{}),canView});
+   if(!canView){
+    const message=financeResult.status==="rejected"?financeResult.reason?.message:
+     workspaceResult.status==="rejected"?workspaceResult.reason?.message:"";
+    if(message)setError(message);
+    return;
+   }
+   const [summaryResult,statementsResult]=await Promise.allSettled([
+    getOrganizationBankSummary(id),getOrganizationBankStatements(id)
+   ]);
+   if(!alive)return;
+   if(summaryResult.status==="fulfilled")setAccounts(summaryResult.value?.data?.accounts||[]);
+   if(statementsResult.status==="fulfilled")setStatements(statementsResult.value?.data||[]);
+   if(summaryResult.status==="rejected"||statementsResult.status==="rejected"){
+    setError("Nie udało się pobrać sald lub historii wyciągów. Formularz importu pozostaje dostępny. "+[
+     summaryResult,statementsResult].filter(x=>x.status==="rejected").map(x=>x.reason?.message||"Błąd API").join("; "));
+   }
+  })().catch(e=>{if(alive)setError(e.message||"Nie udało się pobrać danych bankowych.");})
    .finally(()=>{if(alive)setLoading(false);});
   return()=>{alive=false;};
  },[id]);
@@ -114,12 +137,12 @@ export default function CompanyBankPage(){
    </div>
    {loading&&<p className="mt-6 text-slate-400">Sprawdzanie uprawnień…</p>}
    {error&&<p role="alert" className="mt-6 rounded-xl border border-rose-400/30 p-4 text-rose-200">{error}</p>}
-   {!loading&&!error&&status&&!status.canView&&<section className="mt-6 rounded-2xl border border-amber-400/20 bg-[#111c35] p-6">
+   {!loading&&status&&!status.canView&&<section className="mt-6 rounded-2xl border border-amber-400/20 bg-[#111c35] p-6">
     <ShieldAlert className="text-amber-300"/>
     <h2 className="mt-3 font-bold">Brak uprawnień finansowych</h2>
     <p className="mt-2 text-sm text-slate-300">Dostęp do danych bankowych wymaga osobnego uprawnienia do finansów tej spółki.</p>
    </section>}
-   {!loading&&!error&&status?.canView&&<>
+   {!loading&&status?.canView&&<>
     <section className="mt-6 grid gap-3 sm:grid-cols-3">
      {accounts.length===0?<div className="rounded-2xl border border-white/10 bg-[#111c35] p-5 text-slate-300">Nie zaimportowano jeszcze żadnego wyciągu. Salda pojawią się po zatwierdzonym imporcie.</div>:
       accounts.map(a=><div key={a.id} className="rounded-2xl border border-white/10 bg-[#111c35] p-5">
