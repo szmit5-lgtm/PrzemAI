@@ -218,7 +218,7 @@ class AgentService {
             data:{userId,source:"AGENT",priority:"MEDIUM",status:"TODO",
               title:instruction.replace(/\s+/g," ").slice(0,110),
               description:instruction,tags:[key],
-              metadata:{agentKey:key,company:opt(payload?.company),
+              metadata:{agentKey:key,...(key==="sales" && typeof payload?.searchQuery==="string" && payload.searchQuery.trim() ? {searchQuery:payload.searchQuery.trim().slice(0,180)} : {}),company:opt(payload?.company),
                 client:opt(payload?.client),contact:opt(payload?.contact),
                 project:opt(payload?.project),stage,resultStatus:"QUEUED",
                 submittedAt:new Date().toISOString()}}
