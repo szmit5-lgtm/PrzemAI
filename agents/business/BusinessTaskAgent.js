@@ -51,7 +51,8 @@ class BusinessTaskAgent{
    try{
     // Search only for explicit public-client discovery tasks. No search on
     // ordinary conversations, and no claim that a search hit is a qualified lead.
-    const wantsSearch=agentKey==="sales" && /(?:wyszukaj|znajdź|poszukaj|szukaj).{0,100}(?:klient|firm|odbiorc|instalator|dystrybutor)/i.test(String(task.description||""));
+    const searchIntent=[task.title,task.description].filter(Boolean).join(" ");
+    const wantsSearch=agentKey==="sales" && (Boolean(String(m.searchQuery||"").trim()) || /(?:wyszukaj|znajdź|poszukaj|szukaj).{0,100}(?:klient|firm|odbiorc|instalator|dystrybutor)/i.test(searchIntent));
     let sources=[];
     if(wantsSearch){
      const searchQuery=String(m.searchQuery||task.description||task.title||"").replace(/^(?:wyszukaj|znajdź|poszukaj|szukaj)\s+/i,"").slice(0,180);
