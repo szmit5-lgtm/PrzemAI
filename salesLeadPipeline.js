@@ -21,6 +21,10 @@ const NON_LEAD_HOSTS = new Set([
 function isDirectoryHost(host) {
   return [...NON_LEAD_HOSTS].some(blocked => host === blocked || host.endsWith('.' + blocked));
 }
+const NON_LEAD_HOSTS = ['facebook.com','instagram.com','linkedin.com','youtube.com','tiktok.com','google.com','bing.com','panoramafirm.pl','pkt.pl','aleo.com','oferteo.pl','fixly.pl','olx.pl','allegro.pl','wikipedia.org'];
+function isDirectoryHost(host) {
+ return NON_LEAD_HOSTS.some(blocked => host === blocked || host.endsWith('.' + blocked));
+}
 function buildSalesLeadReport({ companyId, actorId, leads }) {
   if (!companyId || !actorId || !Array.isArray(leads)) throw new TypeError('invalid_sales_job');
   const decision = evaluateSalesAction({ type: 'deduplicate_leads', companyId }, { companyId, actorId });
@@ -36,6 +40,7 @@ function buildSalesLeadReport({ companyId, actorId, leads }) {
       continue;
     }
     if (isDirectoryHost(host)) { rejected.push({ reason: 'directory_or_social_listing', website: lead.website }); continue; }
+    if (isDirectoryHost(host)) { rejected.push({ reason: 'directory_or_social_listing' }); continue; }
     if (seen.has(host)) { rejected.push({ reason: 'duplicate_domain' }); continue; }
     seen.add(host);
     const category = normalize(lead.category);
