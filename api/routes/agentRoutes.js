@@ -7,10 +7,9 @@ const prisma = require("../../lib/prisma");
 const KALDEVA_HISTORY_TYPE = "KALDEVA_SALES";
 
 // Live read-only Kaldeva MVP: authenticated, user-scoped, no outbound messages.
-// Results are transient until the persistent worker integration is completed.
-const { createKaldevSalesWorkflow } = require("../../kaldevSalesWorkflow");
-const { searchPublicCompanies } = require("../../publicCompanySearch");
-const kaldevaWorkflow = createKaldevSalesWorkflow({ search: searchPublicCompanies, maxLeads: 20, maxJobs: 100 });
+// PostgreSQL History is the sole queue state; the worker owns execution.
+const { randomUUID } = require("node:crypto");
+const { evaluateSalesAction } = require("../../salesAgentPolicy");
 const lastDiscovery = new Map();
 router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
@@ -26,10 +25,12 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   }
   try {
     const companyId = "kaldeva:" + actorId;
-    const id = kaldevaWorkflow.enqueue({ companyId, actorId, query });
+    const decision = evaluateSalesAction({ type: "search_web", companyId }, { companyId, actorId });
+    if (decision.decision !== "allow") return res.status(403).json({ success: false, error: "Brak uprawnienia do wyszukiwania." });
+    const id = randomUUID();
     // Persist the queued job before returning 202 so it survives navigation.
     // If persistence is unavailable, do not claim that a durable job was accepted.
-    const queued = kaldevaWorkflow.get(id, { companyId, actorId });
+    const queued = { id, companyId, actorId, query: query.trim(), status: "queued", report: null, error: null };
     try {
       await prisma.history.create({ data: {
         id, userId: actorId, type: KALDEVA_HISTORY_TYPE,
@@ -37,7 +38,6 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
         report: queued
       } });
     } catch (persistenceError) {
-      kaldevaWorkflow.cancel(id, { companyId, actorId });
       console.error("kaldeva_queue_persistence_error", persistenceError?.message || "unknown");
       return res.status(503).json({ success: false, error: "Nie można zapisać zlecenia. Spróbuj ponownie." });
     }
@@ -47,15 +47,12 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
       data: { id, status: "queued", resultPath: "/api/agents/kaldeva/jobs/" + encodeURIComponent(id) }
     });
   } catch (error) {
-    const full = error?.message === "sales_queue_full";
-    return res.status(full ? 503 : 500).json({
-      success: false,
-      error: full ? "Kolejka zleceń jest pełna." : "Nie udało się przyjąć zlecenia."
-    });
+    console.error("kaldeva_enqueue_error", error?.message || "unknown");
+    return res.status(500).json({ success: false, error: "Nie udało się przyjąć zlecenia." });
   }
 });
 
-// Recover jobs after navigation/reload, scoped to the authenticated user.
+// Read durable jobs after navigation/reload, scoped to the authenticated user.
 router.get("/kaldeva/jobs", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
@@ -65,33 +62,24 @@ router.get("/kaldeva/jobs", verifyToken, async (req, res) => {
       orderBy: { createdAt: "desc" }, take: 20,
       select: { report: true }
     });
-    const live = kaldevaWorkflow.list({ companyId: "kaldeva:" + actorId, actorId }, 20);
-    const merged = new Map();
-    // The worker updates persisted reports; never overwrite them with stale API memory.
-    for (const job of [...saved.map(item => item.report), ...live]) {
-      if (job?.id && !merged.has(job.id)) merged.set(job.id, job);
-    }
-    return res.json({ success: true, data: [...merged.values()].slice(0, 20) });
+    return res.json({ success: true, data: saved.map(item => item.report) });
   } catch {
     return res.status(500).json({ success: false, error: "Nie udało się pobrać historii zleceń." });
   }
 });
 
-// Only the initiating user may read a transient job; no cross-user leakage.
+// Only the initiating user may read the persisted job; no cross-user leakage.
 router.get("/kaldeva/jobs/:id", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
-  const job = kaldevaWorkflow.get(String(req.params.id), {
-    companyId: "kaldeva:" + actorId, actorId
-  });
   // Persisted worker result takes precedence over the transient API queue.
   try {
     const saved = await prisma.history.findFirst({
       where: { id: String(req.params.id), userId: actorId, type: KALDEVA_HISTORY_TYPE },
       select: { report: true }
     });
-    if (!saved && !job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
-    return res.json({ success: true, data: saved?.report || job });
+    if (!saved) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
+    return res.json({ success: true, data: saved.report });
   } catch {
     return res.status(500).json({ success: false, error: "Nie udało się pobrać zlecenia." });
   }
@@ -120,7 +108,6 @@ router.post("/kaldeva/jobs/:id/cancel", verifyToken, async (req, res) => {
         AND "report"->>'status' = 'queued'
     `;
     if (!updated) return res.status(409).json({ success: false, error: "Zlecenie zostało już podjęte przez worker." });
-    kaldevaWorkflow.cancel(id, { companyId: "kaldeva:" + actorId, actorId });
     return res.json({ success: true, data: cancelled });
   } catch (error) {
     console.error("kaldeva_cancel_persistence_error", error?.name || "Error");
