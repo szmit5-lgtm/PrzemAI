@@ -67,7 +67,7 @@ router.get("/kaldeva/jobs", verifyToken, async (req, res) => {
     });
     const live = kaldevaWorkflow.list({ companyId: "kaldeva:" + actorId, actorId }, 20);
     const merged = new Map();
-    for (const job of [...live, ...saved.map(item => item.report)]) {
+    for (const job of [...saved.map(item => item.report), ...live]) {
       if (job?.id && !merged.has(job.id)) merged.set(job.id, job);
     }
     return res.json({ success: true, data: [...merged.values()].slice(0, 20) });
@@ -83,14 +83,14 @@ router.get("/kaldeva/jobs/:id", verifyToken, async (req, res) => {
   const job = kaldevaWorkflow.get(String(req.params.id), {
     companyId: "kaldeva:" + actorId, actorId
   });
-  if (job) return res.json({ success: true, data: job });
+  // Persisted worker result takes precedence over the transient API queue.
   try {
     const saved = await prisma.history.findFirst({
       where: { id: String(req.params.id), userId: actorId, type: KALDEVA_HISTORY_TYPE },
       select: { report: true }
     });
-    if (!saved) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
-    return res.json({ success: true, data: saved.report });
+    if (!saved && !job) return res.status(404).json({ success: false, error: "Nie znaleziono zlecenia." });
+    return res.json({ success: true, data: saved?.report || job });
   } catch {
     return res.status(500).json({ success: false, error: "Nie udało się pobrać zlecenia." });
   }
