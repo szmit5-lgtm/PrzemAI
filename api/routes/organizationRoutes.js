@@ -234,8 +234,9 @@ router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
    const lines=String(parsed.text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,15000);
    if(!lines.length)return res.status(422).json({success:false,error:"PDF nie zawiera tekstu. Skan wymaga OCR i ręcznej weryfikacji."});
    const source=String(parsed.text||"");
-   const statementNumbers=[];
-   const accountNumbers=[];
+   // Preview only: extract candidates without writing any financial records.
+   const statementNumbers=[...new Set([...source.matchAll(/(?:nr\\s*(?:wyci[aą]gu)?|wyci[aą]g\\s*(?:nr)?)\\s*[:#-]?\\s*(\\d{4}\\s*\\/\\s*\\d{1,5})/gi)].map(m=>m[1].replace(/\\s/g,""))].slice(0,50);
+   const accountNumbers=[...new Set([...source.matchAll(/(?:PL\\s*)?(?:\\d[\\s-]*){26}/g)].map(m=>m[0].replace(/[\\s-]/g,"")).filter(v=>/^(?:PL)?\\d{26}$/.test(v)))].slice(0,50);
    return res.json({success:true,data:{pages:parsed.numpages,lines,statementNumbers,accountNumbers,
     requiresReview:true,warning:"Wykryto "+statementNumbers.length+" numerów wyciągów i "+accountNumbers.length+" rachunków. Automatyczny zapis jest zablokowany do czasu zgodności liczby operacji i sald każdego wyciągu."}});
   }catch(e){return res.status(422).json({success:false,error:"Nie udało się odczytać PDF. Sprawdź format i zabezpieczenia dokumentu."});}
