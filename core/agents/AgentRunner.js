@@ -45,6 +45,12 @@ class AgentRunner {
         const BusinessTaskAgent=require("../../agents/business/BusinessTaskAgent");
         result=await new BusinessTaskAgent().run({userId:agent.userId,agentKey:agent.key});
       }
+      // A completed scheduler invocation is not a successful assignment when
+      // BusinessTaskAgent recorded task-level failures. Keep the run audit honest.
+      if (Number(result?.metadata?.failed || 0) > 0) {
+        throw new Error("Agent task failures: " + result.metadata.failed +
+          " (completed: " + Number(result.metadata.completed || 0) + ")");
+      }
       const finishedAt = new Date();
 
       await prisma.agentRun.update({
