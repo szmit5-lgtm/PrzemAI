@@ -19,7 +19,8 @@ async function importStatement(userId,orgId,payload){
  await finance.accessible(userId,orgId);
  const membership=await prisma.organizationMembership.findFirst({where:{userId,organizationId:orgId,status:"ACTIVE",role:"OWNER"}});
  if(!membership)throw new OrganizationError("Import wyciągów wymaga roli właściciela firmy.",403);
- const iban=String(payload?.iban||"").replace(/\s/g,"").toUpperCase();
+ const rawIban=String(payload?.iban||"").replace(/[\s-]/g,"").toUpperCase();
+ const iban=/^\d{26}$/.test(rawIban)?"PL"+rawIban:rawIban;
  const number=String(payload?.statementNumber||"").trim();
  const rows=payload?.transactions;
  if(!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)||!number||number.length>100||
