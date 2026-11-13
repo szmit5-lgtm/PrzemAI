@@ -165,6 +165,28 @@ class OrganizationFinanceService{
      }))
    };
  }
+ async annualReport(userId,organizationId,yearInput){
+   const link=await this.accessible(userId,organizationId);
+   const year=Number(yearInput);
+   if(!Number.isInteger(year)||year<2020||year>2100)
+     throw new OrganizationError("Nieprawidłowy rok raportu.",400);
+   const docs=await this.db.financialDocument.groupBy({
+     by:["direction","currency","issueDate"],
+     where:{AND:[ksefDocPredicate(link.ownerUserId,link.nip),
+       {issueDate:{gte:new Date(Date.UTC(year,0,1)),lt:new Date(Date.UTC(year+1,0,1))}}]},
+     _sum:{grossAmount:true},_count:{_all:true}
+   });
+   const totals=new Map();
+   for(const row of docs){
+     const month=new Date(row.issueDate).getUTCMonth()+1;
+     const key=month+"|"+row.direction+"|"+row.currency;
+     const old=totals.get(key)||{month,direction:row.direction,currency:row.currency,gross:0,count:0};
+     old.gross+=Number(row._sum.grossAmount||0);
+     old.count+=row._count._all;
+     totals.set(key,old);
+   }
+   return {year,source:"KSEF",rows:[...totals.values()].map(r=>({...r,gross:r.gross.toFixed(2)}))};
+ }
  async documents(userId,organizationId,options={}){
    const link=await this.accessible(userId,organizationId);
    const limit=normalizePageNumber(options.limit,50,100);
