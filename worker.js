@@ -95,7 +95,7 @@ async function processKaldevaJobs() {
     if (row.report?.actorId !== row.userId || row.report?.companyId !== "kaldeva:" + row.userId) continue;
     const failed = { ...row.report, status: "failed", error: "worker_interrupted_retry_search" };
     await prisma.$executeRaw`
-      UPDATE "History" SET "report" = ${JSON.stringify(failed)}::jsonb
+      UPDATE "History" SET "report" = ${JSON.stringify(failed)}::jsonb, "updatedAt" = NOW()
       WHERE "id" = ${row.id} AND "userId" = ${row.userId}
         AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
         AND "updatedAt" < ${new Date(Date.now() - 15 * 60000)}
@@ -118,7 +118,7 @@ async function processKaldevaJobs() {
     const running = { ...job, status: "running" };
     // Claim only a still-queued job; cancellation or a second worker wins safely.
     const claimed = await prisma.$executeRaw`
-      UPDATE "History" SET "report" = ${JSON.stringify(running)}::jsonb
+      UPDATE "History" SET "report" = ${JSON.stringify(running)}::jsonb, "updatedAt" = NOW()
       WHERE "id" = ${row.id} AND "userId" = ${row.userId}
         AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'queued'
     `;
