@@ -337,6 +337,7 @@ model Organization {
   bankAccounts BankAccount[]
   bankStatements BankStatement[]
   bankTransactions BankTransaction[]
+  whatsappMessages WhatsAppMessage[]
 
   @@index([status])
 }
@@ -460,4 +461,21 @@ model BankTransaction {
   @@unique([organizationId, bankStatementId, fingerprint])
   @@index([organizationId, bookedAt])
   @@index([organizationId, bankAccountId, bookedAt])
+}
+
+model WhatsAppMessage {
+  id String @id @default(cuid())
+  organizationId String
+  externalMessageId String @unique
+  phoneNumberId String
+  contactWaId String
+  direction String @default("INBOUND")
+  messageType String
+  text String?
+  receivedAt DateTime @default(now())
+  metadata Json?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, receivedAt])
+  @@index([organizationId, contactWaId, receivedAt])
 }
