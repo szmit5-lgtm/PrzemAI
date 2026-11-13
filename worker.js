@@ -140,6 +140,13 @@ async function processKaldevaJobs() {
       result = { ...running, status: "failed", error: String(error?.message || "search_failed").slice(0, 150) };
     }
     await prisma.history.update({ where: { id: row.id }, data: { report: result } });
+    console.log("[Worker] Kaldeva job finished", JSON.stringify({
+      jobId: row.id, status: result.status,
+      scanned: result.report?.scanned ?? 0,
+      accepted: result.report?.accepted?.length ?? 0,
+      rejected: result.report?.rejected?.length ?? 0,
+      error: result.error || null
+    }));
     processed++;
     if (processed >= 5 || stopping) break;
   }
