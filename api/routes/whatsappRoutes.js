@@ -80,6 +80,33 @@ router.post("/webhook", async (req, res) => {
   }
 });
 
+// Tenant-scoped inbox. Never use the browser-selected company as authorization.
+router.get("/organizations/:organizationId/messages", verifyToken, async (req, res) => {
+  const organizationId = req.params.organizationId;
+  try {
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { organizationId, userId: req.user.id, status: "ACTIVE",
+        organization: { status: "ACTIVE" } },
+      select: { id: true }
+    });
+    if (!membership) return res.sendStatus(403);
+    const contactWaId = typeof req.query.contact === "string" ? req.query.contact : null;
+    if (contactWaId && !/^\d{6,20}$/.test(contactWaId))
+      return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
+    const take = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+    const data = await prisma.whatsAppMessage.findMany({
+      where: { organizationId, ...(contactWaId ? { contactWaId } : {}) },
+      orderBy: [{ receivedAt: "desc" }, { id: "desc" }], take,
+      select: { id: true, contactWaId: true, direction: true, messageType: true,
+        text: true, receivedAt: true }
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error("WhatsApp inbox read failed:", error?.code || "UNKNOWN");
+    return res.status(503).json({ success: false, error: "Skrzynka chwilowo niedostępna." });
+  }
+});
+
 router.get("/status", verifyToken, (_req, res) => res.json({
   success: true,
   mode: "SEMI_AUTOMATIC",
