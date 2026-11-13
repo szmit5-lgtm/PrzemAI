@@ -10,7 +10,7 @@ import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import {
  getAgents,getExecutiveDashboard,getFinanceSummary,getFinanceProjects,
- getOrganizations,getFinancePeriodReport
+ getOrganizations,getOrganizationFinanceSummary,getFinancePeriodReport
 } from "@/lib/api";
 
 const months=["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"];
@@ -58,6 +58,10 @@ export default function HomePage() {
  const [refresh,setRefresh]=useState(0);
  const [companySearch,setCompanySearch]=useState("");
  const [simpleMode,setSimpleMode]=useState(false);
+ const [primaryCompany,setPrimaryCompany]=useState("");
+ const [companyFinance,setCompanyFinance]=useState(null);
+ const [companyFinanceError,setCompanyFinanceError]=useState("");
+ useEffect(()=>{try{setPrimaryCompany(window.localStorage.getItem("przemai-primary-organization")||"");}catch{}},[]);
  useEffect(()=>{try{setSimpleMode(window.localStorage.getItem("przemai-dashboard-mode")==="simple");}catch{}},[]);
  const switchMode=mode=>{setSimpleMode(mode);try{window.localStorage.setItem("przemai-dashboard-mode",mode?"simple":"full");}catch{}};
  useEffect(()=>{
@@ -80,6 +84,20 @@ export default function HomePage() {
   }).finally(()=>{if(alive)setLoading(false);});
   return()=>{alive=false;};
  },[refresh]);
+ useEffect(()=>{
+  const allowed=(data?.organizations||[]).some(o=>o.id===primaryCompany);
+  if(!allowed){setCompanyFinance(null);setCompanyFinanceError("");return;}
+  let active=true;setCompanyFinance(null);setCompanyFinanceError("");
+  getOrganizationFinanceSummary(primaryCompany).then(result=>{
+   if(active)setCompanyFinance(result?.data||null);
+  }).catch(error=>{if(active)setCompanyFinanceError(error?.message||"Nie można pobrać KSeF.");});
+  return()=>{active=false;};
+ },[primaryCompany,data?.organizations]);
+ const selectPrimaryCompany=id=>{
+  setPrimaryCompany(id);
+  try{if(id)window.localStorage.setItem("przemai-primary-organization",id);
+   else window.localStorage.removeItem("przemai-primary-organization");}catch{}
+ };
  const agents=Array.isArray(data?.agents)?data.agents:[];
  const projects=Array.isArray(data?.projects)?data.projects:[];
  const organizations=Array.isArray(data?.organizations)?data.organizations:[];
@@ -164,6 +182,34 @@ export default function HomePage() {
       <Link href="/company/setup" className="text-xs font-semibold text-violet-300">Zarządzaj spółkami <ArrowUpRight size={12} className="inline"/></Link>
      </div>
      <p className="mt-1 text-xs leading-5 text-slate-400">Wybierz firmę, aby otworzyć jej osobną przestrzeń. Widok wszystkich firm nie sumuje danych osobistych ani nie ujawnia danych innych kont.</p>
+     <div className="mt-4 flex flex-wrap items-center gap-3">
+      <label htmlFor="primary-company" className="text-sm font-semibold">Firma główna na pulpicie</label>
+      <select id="primary-company" value={organizations.some(o=>o.id===primaryCompany)?primaryCompany:""} onChange={e=>selectPrimaryCompany(e.target.value)}
+       className="min-h-11 min-w-0 max-w-full rounded-xl border border-white/20 bg-[#1b2745] px-3 text-sm text-white">
+       <option value="">Konto osobiste / wszystkie dostępne</option>
+       {organizations.map(o=><option key={o.id} value={o.id}>{o.displayName||o.name}</option>)}
+      </select>
+      <span className="text-xs text-slate-400">Wybór zostaje zapamiętany w tej przeglądarce.</span>
+     </div>
+     {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<div className="mt-4 rounded-xl border border-violet-400/20 bg-[#0a162d] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+       <h3 className="text-sm font-bold">KSeF — {organizations.find(o=>o.id===primaryCompany)?.displayName||organizations.find(o=>o.id===primaryCompany)?.name}</h3>
+       <Link href={"/company/"+encodeURIComponent(primaryCompany)+"/finance"} className="text-xs text-violet-300">Szczegóły finansów →</Link>
+      </div>
+      {companyFinanceError?<p role="status" className="mt-3 text-sm text-amber-200">{companyFinanceError} Sprawdź połączenie KSeF i uprawnienia finansowe.</p>:
+       !companyFinance?<p className="mt-3 text-sm text-slate-400">Pobieranie danych finansowych…</p>:
+       <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        {[
+         {label:"Sprzedaż KSeF (PLN, brutto)",direction:"OUTGOING"},
+         {label:"Zakupy KSeF (PLN, brutto)",direction:"INCOMING"}
+        ].map(item=><div key={item.direction} className="rounded-lg bg-white/5 p-3">
+         <p className="text-xs text-slate-400">{item.label}</p>
+         <p className="mt-1 text-xl font-bold">{money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction===item.direction)?.gross??null)}</p>
+        </div>)}
+        <div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-slate-400">Faktury KSeF</p><p className="mt-1 text-xl font-bold">{companyFinance.count??"—"}</p></div>
+       </div>}
+      <p className="mt-3 text-xs text-slate-400">Suma zaimportowanych faktur, nie przychód kasowy. Ostatnia aktywność agenta: {companyFinance?.sync?.lastRunAt?new Date(companyFinance.sync.lastRunAt).toLocaleString("pl-PL"):"brak danych"}.</p>
+     </div>}
      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <div aria-current="page" className="flex min-h-24 items-center gap-3 rounded-xl border border-violet-400/40 bg-violet-500/10 p-4">
        <span className="rounded-xl bg-violet-500/20 p-3 text-violet-300"><BarChart3 size={23}/></span>
