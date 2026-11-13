@@ -200,7 +200,13 @@ router.post("/:id/bank/statements",verifyToken,async(req,res)=>{
 });
 router.get("/:id/bank/statements",verifyToken,async(req,res)=>{
  try{
-  await financeService.accessible(req.user.id,req.params.id);
+  const membership=await prisma.organizationMembership.findFirst({
+   where:{userId:req.user.id,organizationId:req.params.id,status:"ACTIVE",organization:{status:"ACTIVE"}},
+   select:{role:true,financeAccess:true}
+  });
+  if(!membership)return res.status(403).json({success:false,error:"Brak dostępu do firmy."});
+  if(membership.role!=="OWNER"&&!membership.financeAccess)
+   return res.status(403).json({success:false,error:"Nie masz dostępu do finansów tej firmy."});
   const data=await prisma.bankStatement.findMany({where:{organizationId:req.params.id},
    orderBy:{periodEnd:"desc"},take:50,
    select:{id:true,statementNumber:true,periodEnd:true,openingBalance:true,closingBalance:true,transactionCount:true,
