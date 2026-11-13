@@ -139,7 +139,17 @@ async function processKaldevaJobs() {
     } catch (error) {
       result = { ...running, status: "failed", error: String(error?.message || "search_failed").slice(0, 150) };
     }
-    await prisma.history.update({ where: { id: row.id }, data: { report: result } });
+    // Do not overwrite a cancellation or a newer recovery decision made while searching.
+    const saved = await prisma.$executeRaw`
+      UPDATE "History" SET "report" = ${JSON.stringify(result)}::jsonb, "updatedAt" = NOW()
+      WHERE "id" = ${row.id} AND "userId" = ${row.userId}
+        AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
+        AND "report"->>'actorId' = ${row.userId}
+    `;
+    if (saved !== 1) {
+      console.warn("[Worker] Kaldeva result discarded: job no longer running", row.id);
+      continue;
+    }
     console.log("[Worker] Kaldeva job finished", JSON.stringify({
       jobId: row.id, status: result.status,
       scanned: result.report?.scanned ?? 0,
