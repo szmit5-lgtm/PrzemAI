@@ -21,8 +21,8 @@ async function discoverPublicSources(query) {
    const field=name=>decode((item.match(new RegExp("<"+name+">([\\s\\S]*?)<\\/"+name+">"))||[])[1]||"").trim();
    const link=field("link"),title=field("title");
    let u;try{u=new URL(link);}catch{continue;}
-   if(u.protocol!=="https:"||!title||seen.has(u.hostname+u.pathname))continue;
-   seen.add(u.hostname+u.pathname);
+   if(u.protocol!=="https:"||!title||seen.has(u.hostname.toLowerCase()))continue;
+   seen.add(u.hostname.toLowerCase());
    results.push({title:title.slice(0,180),url:u.href,description:field("description").replace(/<[^>]*>/g,"").slice(0,300)});
    if(results.length===10)break;
   }
@@ -57,6 +57,7 @@ class BusinessTaskAgent{
      const searchQuery=String(m.searchQuery||task.description||task.title||"").replace(/^(?:wyszukaj|znajdź|poszukaj|szukaj)\s+/i,"").slice(0,180);
      sources=await discoverPublicSources(searchQuery);
      if(!sources.length)throw Error("Brak wyników publicznego wyszukiwania; nie generuję fikcyjnych leadów.");
+     console.log("[BusinessTaskAgent] Public source candidates",JSON.stringify({agentKey,count:sources.length}));
     }
     const result=await ai.ask({
      system:"Jesteś "+def.name+" w PrzemAI. "+def.description+
@@ -79,7 +80,7 @@ class BusinessTaskAgent{
      where:{id:task.id,userId,source:"AGENT",status:"IN_PROGRESS"},
      data:{status:"DONE",completedAt:new Date(),metadata:{...m,result:result.slice(0,45000),conversation:updatedConversation,publicSources:sources,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
     });
-    if(update.count===1)completed++;
+    if(update.count===1){completed++;console.log("[BusinessTaskAgent] Draft saved",JSON.stringify({agentKey,publicSources:sources.length}));}
    }catch(error){
     failed++;
     await this.db.task.updateMany({
