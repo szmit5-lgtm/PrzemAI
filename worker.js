@@ -73,6 +73,46 @@ async function recoverStaleRuns() {
   return recovered;
 }
 
+const { discoverPublicLeads } = require("./publicLeadDiscovery");
+const { searchPublicCompanies } = require("./publicCompanySearch");
+const { buildSalesLeadReport } = require("./salesLeadPipeline");
+
+async function processKaldevaJobs() {
+  const jobs = await prisma.history.findMany({
+    where: { type: "KALDEVA_SALES", ...(ownerScope ? { userId: ownerScope } : {}) },
+    orderBy: { createdAt: "asc" }, take: 100,
+    select: { id: true, userId: true, report: true }
+  });
+  let processed = 0;
+  for (const row of jobs) {
+    const job = row.report;
+    if (job?.status !== "queued" || job.actorId !== row.userId ||
+        job.companyId !== "kaldeva:" + row.userId || typeof job.query !== "string") continue;
+    const running = { ...job, status: "running" };
+    await prisma.history.update({ where: { id: row.id }, data: { report: running } });
+    let result;
+    try {
+      const found = await discoverPublicLeads({
+        companyId: job.companyId, actorId: job.actorId, query: job.query,
+        search: searchPublicCompanies, maxResults: 20
+      });
+      const leads = found.leads.map(lead => ({
+        companyId: lead.companyId, name: lead.name, website: lead.url,
+        category: lead.snippet, source: lead.source, status: lead.status
+      }));
+      result = { ...running, status: "completed", report: buildSalesLeadReport({
+        companyId: job.companyId, actorId: job.actorId, leads
+      }), error: null };
+    } catch (error) {
+      result = { ...running, status: "failed", error: String(error?.message || "search_failed").slice(0, 150) };
+    }
+    await prisma.history.update({ where: { id: row.id }, data: { report: result } });
+    processed++;
+    if (processed >= 5 || stopping) break;
+  }
+  return processed;
+}
+
 async function cycle() {
   if (busy || stopping) return;
   busy = true;
@@ -85,7 +125,7 @@ async function cycle() {
       // A failed stale-run scan must not prevent healthy agents from running.
       console.error("[Worker] Stale run scan failed", error.message);
     }
-    // A SIGTERM during the stale scan must not start user provisioning.
+    try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }\n    catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }\n    // A SIGTERM during the stale scan must not start user provisioning.
     if (stopping) return;
     const users = await prisma.user.findMany({
       ...(ownerScope ? { where: { id: ownerScope } } : {}),
