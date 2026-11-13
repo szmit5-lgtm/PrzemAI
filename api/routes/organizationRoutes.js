@@ -125,6 +125,8 @@ router.post("/:id/finance/link",verifyToken,
   handler(req=>financeService.linkPilot(req.user.id,req.params.id)));
 router.get("/:id/finance/summary",verifyToken,
   handler(req=>financeService.summary(req.user.id,req.params.id)));
+router.get("/:id/finance/report/:year",verifyToken,
+  handler(req=>financeService.annualReport(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/documents",verifyToken,
   handler(req=>financeService.documents(req.user.id,req.params.id,req.query)));
 router.get("/:id/finance/projects",verifyToken,
