@@ -11,6 +11,16 @@ function canonicalHost(url) {
     return parsed.hostname.toLowerCase().replace(/^www\./, '');
   } catch { return ''; }
 }
+// Public search results can include directories, social media and search engines.
+// These are not individual prospective customer websites.
+const NON_LEAD_HOSTS = new Set([
+  'facebook.com','instagram.com','linkedin.com','youtube.com','tiktok.com',
+  'google.com','bing.com','panoramafirm.pl','pkt.pl','aleo.com',
+  'oferteo.pl','fixly.pl','olx.pl','allegro.pl','wikipedia.org'
+]);
+function isDirectoryHost(host) {
+  return [...NON_LEAD_HOSTS].some(blocked => host === blocked || host.endsWith('.' + blocked));
+}
 function buildSalesLeadReport({ companyId, actorId, leads }) {
   if (!companyId || !actorId || !Array.isArray(leads)) throw new TypeError('invalid_sales_job');
   const decision = evaluateSalesAction({ type: 'deduplicate_leads', companyId }, { companyId, actorId });
@@ -25,6 +35,7 @@ function buildSalesLeadReport({ companyId, actorId, leads }) {
       rejected.push({ reason: 'invalid_or_cross_company_lead' });
       continue;
     }
+    if (isDirectoryHost(host)) { rejected.push({ reason: 'directory_or_social_listing', website: lead.website }); continue; }
     if (seen.has(host)) { rejected.push({ reason: 'duplicate_domain' }); continue; }
     seen.add(host);
     const category = normalize(lead.category);
@@ -33,4 +44,4 @@ function buildSalesLeadReport({ companyId, actorId, leads }) {
   }
   return { companyId, scanned: leads.length, accepted, rejected, requiresApprovalBeforeSending: true };
 }
-module.exports = { buildSalesLeadReport };
+module.exports = { buildSalesLeadReport, isDirectoryHost };
