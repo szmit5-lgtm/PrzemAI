@@ -32,7 +32,7 @@ app.use(
 // Allow small inline raster logos for authenticated company branding while keeping
 // the default JSON size limit for other API endpoints.
 app.use("/api/organizations", express.json({ limit: "800kb" }));
-app.use(express.json());
+app.use(express.json({ verify: (req, _res, buf) => { if (req.originalUrl?.startsWith("/api/whatsapp/webhook")) req.rawBody = Buffer.from(buf); } }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth", authRoutes);
