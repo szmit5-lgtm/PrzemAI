@@ -42,17 +42,6 @@ router.post("/kaldeva/discover", verifyToken, async (req, res) => {
       return res.status(503).json({ success: false, error: "Nie można zapisać zlecenia. Spróbuj ponownie." });
     }
     lastDiscovery.set(actorId, now);
-    setImmediate(() => {
-      kaldevaWorkflow.runNext(id).then(async job => {
-        if (!job) return;
-        await prisma.history.update({
-          where: { id },
-          data: { report: job }
-        });
-      }).catch(error => {
-        console.error("kaldeva_discovery_persistence_error", error?.message || "unknown");
-      });
-    });
     return res.status(202).json({
       success: true,
       data: { id, status: "queued", resultPath: "/api/agents/kaldeva/jobs/" + encodeURIComponent(id) }
