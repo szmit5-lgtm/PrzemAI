@@ -125,7 +125,9 @@ async function cycle() {
       // A failed stale-run scan must not prevent healthy agents from running.
       console.error("[Worker] Stale run scan failed", error.message);
     }
-    try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }\n    catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }\n    // A SIGTERM during the stale scan must not start user provisioning.
+    try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }
+    catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }
+    // A SIGTERM during the stale scan must not start user provisioning.
     if (stopping) return;
     const users = await prisma.user.findMany({
       ...(ownerScope ? { where: { id: ownerScope } } : {}),
@@ -349,7 +351,8 @@ if (process.env.DEKONICA_MAIL_REVIEW_ONCE === "true" &&
           const msg = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
           if (!msg?.source) continue;
           const parsed = await simpleParser(msg.source, { skipHtmlToText: false, skipImageLinks: true });
-          const subject = String(parsed.subject || "").replace(/[\r\n]/g, " ").slice(0,220);
+          const subject = String(parsed.subject || "").replace(/[\r
+]/g, " ").slice(0,220);
           const body = String(parsed.text || "").replace(/\s+/g, " ").trim();
           const text = subject + " " + body.slice(0, 10000);
           if (!re.test(text)) continue;
