@@ -12,7 +12,14 @@ const router = express.Router();
 
 router.get("/:id/bank/summary", verifyToken, async (req,res)=>{
  try{
-  await financeService.accessible(req.user.id,req.params.id);
+  const membership=await prisma.organizationMembership.findFirst({
+   where:{userId:req.user.id,organizationId:req.params.id,status:"ACTIVE",
+    organization:{status:"ACTIVE"}},
+   select:{role:true,financeAccess:true}
+  });
+  if(!membership)return res.status(403).json({success:false,error:"Brak dostępu do firmy."});
+  if(membership.role!=="OWNER"&&!membership.financeAccess)
+   return res.status(403).json({success:false,error:"Nie masz dostępu do finansów tej firmy."});
   const accounts=await prisma.bankAccount.findMany({
    where:{organizationId:req.params.id},
    select:{id:true,label:true,accountType:true,currency:true,iban:true,
