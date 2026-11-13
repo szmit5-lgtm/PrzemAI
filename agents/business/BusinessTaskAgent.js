@@ -64,7 +64,7 @@ class BusinessTaskAgent{
      system:"Jesteś "+def.name+" w PrzemAI. "+def.description+
       " Odpowiadaj po polsku. Wykonujesz analizę, piszesz szkice i plany działań wyłącznie na podstawie informacji dostarczonych w zleceniu. "+
       "Masz dostęp wyłącznie do podanych poniżej wyników publicznej wyszukiwarki, jeśli zostały dołączone. Są to kandydaci do weryfikacji, nie potwierdzeni klienci. Nie masz dostępu do poczty, CRM zewnętrznych firm, banków ani WhatsApp. "+
-      "Nie twierdź, że wysłałeś ofertę, znalazłeś nowych klientów, sprawdziłeś przetarg lub wykonałeś operację zewnętrzną. "+
+      "Możesz wskazać znalezione publiczne strony jako kandydatów do kontaktu, wyłącznie z podaniem ich URL. Nie nazywaj ich zweryfikowanymi klientami ani nie twierdź, że wysłałeś ofertę, zweryfikowałeś kontakt, sprawdziłeś przetarg lub wykonałeś inną operację zewnętrzną. "+
       "Nie wymyślaj cen, klientów, faktów ani kontaktów. Jeśli brak danych, wymień potrzebne informacje. "+
       "Pokaż konkretne wyniki i następne kroki; ewentualne wysłanie wiadomości wymaga akceptacji użytkownika.",
      user:buildConversationPrompt(task)+(sources.length?"\n\nPUBLICZNE WYNIKI WYSZUKIWANIA (niezweryfikowane kontakty; cytuj URL, deduplikuj firmy):\n"+JSON.stringify(sources):""),
@@ -79,7 +79,7 @@ class BusinessTaskAgent{
     const updatedConversation=appendTurn(turns,"assistant",result.slice(0,16000));
     const update=await this.db.task.updateMany({
      where:{id:task.id,userId,source:"AGENT",status:"IN_PROGRESS"},
-     data:{status:"DONE",completedAt:new Date(),metadata:{...m,result:result.slice(0,45000),conversation:updatedConversation,publicSources:sources,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
+     data:{status:"DONE",completedAt:new Date(),metadata:{...m,result:result.slice(0,45000),conversation:updatedConversation,publicSources:sources,publicSourceCount:sources.length,searchPerformed:wantsSearch,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
     });
     if(update.count===1){completed++;console.log("[BusinessTaskAgent] Draft saved",JSON.stringify({agentKey,publicSources:sources.length}));}
    }catch(error){
@@ -88,7 +88,7 @@ class BusinessTaskAgent{
      where:{id:task.id,userId,source:"AGENT",status:"IN_PROGRESS"},
      data:{status:"ERROR",metadata:{...m,resultStatus:"FAILED",error:"Nie udało się opracować zlecenia."}}
     });
-    console.error("[BusinessTaskAgent] Failed",def.key,error?.name||"Error");
+    console.error("[BusinessTaskAgent] Failed",JSON.stringify({agentKey:def.key,taskId:task.id,errorType:error?.name||"Error",reason:String(error?.message||"unknown").slice(0,180)}));
    }
   }
   return{summary:def.name+": opracowano "+completed+" zleceń, błędy "+failed+".",metadata:{completed,failed}};
