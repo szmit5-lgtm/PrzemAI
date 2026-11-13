@@ -204,7 +204,7 @@ export default function HomePage() {
          {label:"Zakupy KSeF (PLN, brutto)",direction:"INCOMING"}
         ].map(item=><div key={item.direction} className="rounded-lg bg-white/5 p-3">
          <p className="text-xs text-slate-400">{item.label}</p>
-         <p className="mt-1 text-xl font-bold">{money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction===item.direction)?.gross??null)}</p>
+         <p className="mt-1 text-xl font-bold">{(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction===item.direction)?.gross==null?"—":money(companyFinance.amounts.find(a=>a.currency==="PLN"&&a.direction===item.direction).gross))}</p>
         </div>)}
         <div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-slate-400">Faktury KSeF</p><p className="mt-1 text-xl font-bold">{companyFinance.count??"—"}</p></div>
        </div>}
