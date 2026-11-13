@@ -37,6 +37,18 @@ export default function KaldevaPage() {
       if (!["queued", "running"].includes(result?.status)) loadHistory();
     } catch (e) { setError(e.message); }
   }
+  async function cancelJob() {
+    if (!id || job?.status !== "queued") return;
+    setBusy(true); setError("");
+    try {
+      const cancelled = await call("/jobs/" + encodeURIComponent(id) + "/cancel", { method: "POST" });
+      setJob(cancelled);
+      await loadHistory();
+    } catch (e) {
+      setError(e.message);
+      await refresh(id);
+    } finally { setBusy(false); }
+  }
   async function submit(e) {
     e.preventDefault();
     setBusy(true); setError(""); setJob(null); setId("");
@@ -82,7 +94,10 @@ export default function KaldevaPage() {
       {job && <section className="mt-6 rounded-2xl border border-white/15 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">Zlecenie: {job.status || "nieznany"}</h2>
-          <button onClick={() => refresh()} className="min-h-11 rounded-lg border border-white/30 px-4">Odśwież</button>
+          <div className="flex flex-wrap gap-2">
+            {job.status === "queued" && <button type="button" disabled={busy} onClick={cancelJob} className="min-h-11 rounded-lg border border-amber-300/50 px-4 text-amber-200 disabled:opacity-50">Anuluj oczekujące</button>}
+            <button type="button" onClick={() => refresh()} className="min-h-11 rounded-lg border border-white/30 px-4">Odśwież</button>
+          </div>
         </div>
         <p className="mt-2 break-all text-xs text-slate-400">ID: {id}</p>
         {job.error && <p className="mt-3 text-rose-200">{String(job.error)}</p>}
