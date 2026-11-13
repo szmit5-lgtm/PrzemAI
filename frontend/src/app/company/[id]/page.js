@@ -127,7 +127,7 @@ export default function CompanyWorkspace(){
   mutate(async()=>{
    await inviteOrganizationMember(id,{email:memberEmail.trim(),role:memberRole});
    setMemberEmail("");
-  },isOwner?"Dostęp do firmy został nadany.":"Zaproszenie wysłane — pracownik musi je zaakceptować.");
+  },"Dostęp do firmy został nadany bez konieczności akceptacji przez pracownika.");
  }
  function requestDomain(e){
   e.preventDefault();
