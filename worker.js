@@ -79,8 +79,12 @@ const { buildSalesLeadReport } = require("./salesLeadPipeline");
 
 async function processKaldevaJobs() {
   const jobs = await prisma.history.findMany({
-    where: { type: "KALDEVA_SALES", ...(ownerScope ? { userId: ownerScope } : {}) },
-    orderBy: { createdAt: "asc" }, take: 100,
+    where: {
+      type: "KALDEVA_SALES",
+      report: { path: ["status"], equals: "queued" },
+      ...(ownerScope ? { userId: ownerScope } : {})
+    },
+    orderBy: { createdAt: "asc" }, take: 5,
     select: { id: true, userId: true, report: true }
   });
   let processed = 0;
@@ -89,7 +93,13 @@ async function processKaldevaJobs() {
     if (job?.status !== "queued" || job.actorId !== row.userId ||
         job.companyId !== "kaldeva:" + row.userId || typeof job.query !== "string") continue;
     const running = { ...job, status: "running" };
-    await prisma.history.update({ where: { id: row.id }, data: { report: running } });
+    // Claim only a still-queued job; cancellation or a second worker wins safely.
+    const claimed = await prisma.$executeRaw`
+      UPDATE "History" SET "report" = ${JSON.stringify(running)}::jsonb
+      WHERE "id" = ${row.id} AND "userId" = ${row.userId}
+        AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'queued'
+    `;
+    if (claimed !== 1) continue;
     let result;
     try {
       const found = await discoverPublicLeads({
