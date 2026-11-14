@@ -142,7 +142,7 @@ router.get("/organizations/:organizationId/conversations", verifyToken, async (r
 router.post("/organizations/:organizationId/draft-preview", verifyToken, async (req, res) => {
   const organizationId = req.params.organizationId;
   const contactWaId = req.body?.contactWaId;
-  if (typeof contactWaId !== "string" || !/^\\d{6,20}$/.test(contactWaId))
+  if (typeof contactWaId !== "string" || !/^\d{6,20}$/.test(contactWaId))
     return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
   try {
     const membership = await prisma.organizationMembership.findFirst({
