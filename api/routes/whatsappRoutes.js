@@ -55,6 +55,10 @@ router.post("/webhook", async (req, res) => {
         if (change.field !== "messages") continue;
         const value = change.value || {};
         const incomingPhone = value.metadata?.phone_number_id;
+        // A missing number on a message-bearing change is malformed, not another tenant.
+        // Do not acknowledge and lose messages whose tenant cannot be determined.
+        if (value.messages !== undefined &&
+            (typeof incomingPhone !== "string" || !incomingPhone)) return res.sendStatus(503);
         // A webhook can include unrelated phone numbers; never mix tenants.
         if (incomingPhone !== phoneNumberId) continue;
         if (value.messages !== undefined && !Array.isArray(value.messages)) return res.sendStatus(503);
