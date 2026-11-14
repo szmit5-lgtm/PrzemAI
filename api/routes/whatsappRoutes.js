@@ -43,42 +43,47 @@ router.post("/webhook", async (req, res) => {
       where: { id: organizationId, status: "ACTIVE" }, select: { id: true }
     });
     if (!org) return res.sendStatus(503);
-    if (!Array.isArray(req.body.entry)) return res.sendStatus(503);
-    const entries = req.body.entry;
-    // Never silently acknowledge messages dropped by an arbitrary array cap.
-    if (entries.length > 100) return res.sendStatus(503);
-    for (const entry of entries) {
-      if (!entry || !Array.isArray(entry.changes)) return res.sendStatus(503);
-      const changes = entry.changes;
-      if (changes.length > 100) return res.sendStatus(503);
-      for (const change of changes) {
+    // Validate the entire delivery before writing any message. A malformed later
+    // entry must not leave an earlier entry partially acknowledged.
+    if (!Array.isArray(req.body.entry) || req.body.entry.length > 100) return res.sendStatus(503);
+    const pending = [];
+    for (const entry of req.body.entry) {
+      if (!entry || !Array.isArray(entry.changes) || entry.changes.length > 100)
+        return res.sendStatus(503);
+      for (const change of entry.changes) {
+        if (!change || typeof change !== "object") return res.sendStatus(503);
         if (change.field !== "messages") continue;
-        const value = change.value || {};
-        const incomingPhone = value.metadata?.phone_number_id;
-        // A webhook can include unrelated phone numbers; never mix tenants.
-        if (incomingPhone !== phoneNumberId) continue;
-        if (value.messages != null && !Array.isArray(value.messages)) return res.sendStatus(503);
+        const value = change.value;
+        if (!value || typeof value !== "object" || Array.isArray(value))
+          return res.sendStatus(503);
+        if (value.metadata?.phone_number_id !== phoneNumberId) continue;
+        if (value.messages != null && !Array.isArray(value.messages))
+          return res.sendStatus(503);
         const messages = value.messages || [];
         if (messages.length > 100) return res.sendStatus(503);
         for (const message of messages) {
-          if (typeof message.id !== "string" || !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
+          if (!message || typeof message.id !== "string" ||
+              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
+              typeof message.from !== "string" || !/^\\d{6,20}$/.test(message.from))
+            return res.sendStatus(503);
+          if (pending.length >= 1000) return res.sendStatus(503);
           const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
           const body = type === "text" && typeof message.text?.body === "string"
             ? message.text.body.slice(0, 16000) : null;
           const timestamp = Number(message.timestamp);
           const receivedAt = Number.isSafeInteger(timestamp) && timestamp > 0 &&
             timestamp < 4102444800 ? new Date(timestamp * 1000) : new Date();
-          try {
-            await prisma.whatsAppMessage.create({
-              data: { organizationId, externalMessageId: message.id,
-                phoneNumberId, contactWaId: message.from, messageType: type,
-                text: body, receivedAt }
-            });
-          } catch (error) {
-            if (error?.code !== "P2002") throw error; // duplicate Meta delivery
-          }
+          pending.push({ organizationId, externalMessageId: message.id,
+            phoneNumberId, contactWaId: message.from, messageType: type,
+            text: body, receivedAt });
         }
+      }
+    }
+    for (const data of pending) {
+      try {
+        await prisma.whatsAppMessage.create({ data });
+      } catch (error) {
+        if (error?.code !== "P2002") throw error; // duplicate Meta delivery
       }
     }
     return res.sendStatus(200);
