@@ -16,12 +16,13 @@ function createWhatsAppDraft({ organizationId, contactWaId, text, createdBy }) {
       throw new TypeError(name + " must be a non-empty string");
     }
   }
-  if (text.length > 4096) throw new RangeError("WhatsApp draft exceeds 4096 characters");
+  const normalizedText = text.trim();
+  if (normalizedText.length > 4096) throw new RangeError("WhatsApp draft exceeds 4096 characters");
   return Object.freeze({
-    organizationId,
-    contactWaId,
-    text: text.trim(),
-    createdBy,
+    organizationId: organizationId.trim(),
+    contactWaId: contactWaId.trim(),
+    text: normalizedText,
+    createdBy: createdBy.trim(),
     state: STATES.DRAFT,
     approvedBy: null,
   });
@@ -29,16 +30,17 @@ function createWhatsAppDraft({ organizationId, contactWaId, text, createdBy }) {
 
 function approveWhatsAppDraft(draft, { organizationId, approvedBy }) {
   if (!draft || draft.state !== STATES.DRAFT) throw new Error("Only pending drafts can be approved");
-  if (!organizationId || draft.organizationId !== organizationId) {
+  if (typeof organizationId !== "string" || draft.organizationId !== organizationId.trim()) {
     throw new Error("Cross-organization draft approval denied");
   }
   if (typeof approvedBy !== "string" || !approvedBy.trim()) {
     throw new TypeError("approvedBy must be a non-empty string");
   }
-  if (draft.createdBy === approvedBy) {
+  const normalizedApprover = approvedBy.trim();
+  if (draft.createdBy === normalizedApprover) {
     throw new Error("Draft creator cannot self-approve");
   }
-  return Object.freeze({ ...draft, state: STATES.APPROVED, approvedBy });
+  return Object.freeze({ ...draft, state: STATES.APPROVED, approvedBy: normalizedApprover });
 }
 
 module.exports = { STATES, createWhatsAppDraft, approveWhatsAppDraft };
