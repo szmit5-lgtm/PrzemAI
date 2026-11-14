@@ -67,6 +67,15 @@ router.post("/webhook", async (req, res) => {
         const messages = Array.isArray(change.value?.messages) ? change.value.messages : [];
         messageCount += messages.length;
         if (messageCount > 100) return res.sendStatus(503);
+        // Validate the entire relevant delivery before the first database write.
+        // Otherwise a malformed later message could cause partial persistence
+        // followed by a retry, even when the earlier messages were accepted.
+        for (const message of messages) {
+          if (!message || typeof message.id !== "string" ||
+              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
+              typeof message.from !== "string" ||
+              !/^\\d{6,20}$/.test(message.from)) return res.sendStatus(503);
+        }
       }
     }
     for (const entry of entries) {
