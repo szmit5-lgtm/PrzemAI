@@ -11,7 +11,7 @@ import sys
 from decimal import Decimal
 import pdfplumber
 
-MONEY = r"-?\d{1,3}(?: \d{3})*,\d{2}"
+MONEY = r"-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+),\d{2}"
 ROW = re.compile(r"^\s*(\d{1,4})\s+(\d\d-\d\d-20\d\d)\s+(.+)$")
 ACCOUNT = re.compile(r"(\d\d(?: \d{4}){5}\s\d{4})")
 STATEMENT = re.compile(r"20\d\d/\d{3}")
