@@ -59,7 +59,7 @@ router.post("/webhook", async (req, res) => {
         if (messages.length > 100) return res.sendStatus(503);
         for (const message of messages) {
           if (typeof message.id !== "string" || !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) continue;
+              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
           const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
           const body = type === "text" && typeof message.text?.body === "string"
             ? message.text.body.slice(0, 16000) : null;
@@ -110,6 +110,59 @@ router.get("/organizations/:organizationId/messages", verifyToken, async (req, r
   } catch (error) {
     console.error("WhatsApp inbox read failed:", error?.code || "UNKNOWN");
     return res.status(503).json({ success: false, error: "Skrzynka chwilowo niedostępna." });
+  }
+});
+
+// Read-only conversation summaries for a tenant-scoped inbox.
+// No outbound API is exposed; drafts are generated locally for human review.
+router.get("/organizations/:organizationId/conversations", verifyToken, async (req, res) => {
+  const organizationId = req.params.organizationId;
+  try {
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { organizationId, userId: req.user.id, status: "ACTIVE",
+        organization: { status: "ACTIVE" } }, select: { id: true }
+    });
+    if (!membership) return res.sendStatus(403);
+    const contacts = await prisma.whatsAppMessage.groupBy({
+      by: ["contactWaId"], where: { organizationId },
+      _max: { receivedAt: true }, _count: { _all: true },
+      orderBy: { _max: { receivedAt: "desc" } }, take: 50
+    });
+    return res.json({ success: true, data: contacts.map(item => ({
+      contactWaId: item.contactWaId,
+      lastMessageAt: item._max.receivedAt,
+      messageCount: item._count._all
+    })) });
+  } catch (error) {
+    console.error("WhatsApp conversations failed:", error?.code || "UNKNOWN");
+    return res.status(503).json({ success: false, error: "Rozmowy chwilowo niedostępne." });
+  }
+});
+
+router.post("/organizations/:organizationId/draft-preview", verifyToken, async (req, res) => {
+  const organizationId = req.params.organizationId;
+  const contactWaId = req.body?.contactWaId;
+  if (typeof contactWaId !== "string" || !/^\\d{6,20}$/.test(contactWaId))
+    return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
+  try {
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { organizationId, userId: req.user.id, status: "ACTIVE",
+        organization: { status: "ACTIVE" } }, select: { id: true }
+    });
+    if (!membership) return res.sendStatus(403);
+    const last = await prisma.whatsAppMessage.findFirst({
+      where: { organizationId, contactWaId, direction: "INBOUND" },
+      orderBy: { receivedAt: "desc" },
+      select: { id: true, receivedAt: true }
+    });
+    if (!last) return res.status(404).json({ success: false, error: "Brak wiadomości kontaktu." });
+    const draft = "Dzień dobry, dziękujemy za wiadomość. Sprawdzimy temat i wrócimy z odpowiedzią.";
+    return res.json({ success: true, contactWaId, sourceMessageId: last.id,
+      draft, requiresHumanApproval: true, sent: false,
+      policy: evaluateOutbound({ text: draft, globalPaused: true }) });
+  } catch (error) {
+    console.error("WhatsApp draft preview failed:", error?.code || "UNKNOWN");
+    return res.status(503).json({ success: false, error: "Podgląd szkicu niedostępny." });
   }
 });
 
