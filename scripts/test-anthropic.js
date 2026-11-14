@@ -11,12 +11,24 @@ async function main() {
   if (process.env.CLAUDE_DEV_ENABLED !== "true") {
     throw new Error("Set CLAUDE_DEV_ENABLED=true explicitly to permit a paid API test.");
   }
+  // Railway service names are not evidence of isolation: check the actual environment.
+  const railwayEnvironment = (process.env.RAILWAY_ENVIRONMENT_NAME || "").toLowerCase();
+  if (railwayEnvironment === "production") {
+    throw new Error("Refusing paid smoke test in Railway production environment, even for a staging-named service.");
+  }
+  if (process.env.CLAUDE_TEST_ISOLATED !== "true") {
+    throw new Error("Set CLAUDE_TEST_ISOLATED=true only after independently verifying database and service isolation.");
+  }
+  const budget = Number(process.env.CLAUDE_MONTHLY_BUDGET_PLN);
+  if (!Number.isFinite(budget) || budget <= 0 || budget > 50) {
+    throw new Error("CLAUDE_MONTHLY_BUDGET_PLN must be configured between 0 and 50 PLN.");
+  }
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured.");
   const model = process.env.CLAUDE_DEV_MODEL || "claude-haiku-4-5";
   const payload = JSON.stringify({
     model,
-    max_tokens: 64,
+    max_tokens: 16,
     messages: [{ role: "user", content: "Reply with exactly: PRZEMAI_CLAUDE_OK" }]
   });
   const data = await new Promise((resolve, reject) => {
