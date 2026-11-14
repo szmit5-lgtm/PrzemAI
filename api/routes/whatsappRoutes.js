@@ -111,13 +111,30 @@ router.get("/organizations/:organizationId/messages", verifyToken, async (req, r
     if (contactWaId && !/^\d{6,20}$/.test(contactWaId))
       return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
     const take = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
-    const data = await prisma.whatsAppMessage.findMany({
+    const cursorId = req.query.cursor;
+    if (cursorId !== undefined && (typeof cursorId !== "string" || cursorId.length > 128))
+      return res.status(400).json({ success: false, error: "Nieprawidłowy kursor." });
+    // A cursor must belong to this tenant and, when filtered, this contact.
+    // Never let an arbitrary cross-tenant record influence pagination.
+    if (cursorId) {
+      const ownedCursor = await prisma.whatsAppMessage.findFirst({
+        where: { id: cursorId, organizationId, ...(contactWaId ? { contactWaId } : {}) },
+        select: { id: true }
+      });
+      if (!ownedCursor)
+        return res.status(400).json({ success: false, error: "Nieprawidłowy kursor." });
+    }
+    const rows = await prisma.whatsAppMessage.findMany({
       where: { organizationId, ...(contactWaId ? { contactWaId } : {}) },
-      orderBy: [{ receivedAt: "desc" }, { id: "desc" }], take,
+      orderBy: [{ receivedAt: "desc" }, { id: "desc" }],
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      take: take + 1,
       select: { id: true, contactWaId: true, direction: true, messageType: true,
         text: true, receivedAt: true }
     });
-    return res.json({ success: true, data });
+    const hasMore = rows.length > take;
+    const data = rows.slice(0, take);
+    return res.json({ success: true, data, nextCursor: hasMore ? data[data.length - 1].id : null });
   } catch (error) {
     console.error("WhatsApp inbox read failed:", error?.code || "UNKNOWN");
     return res.status(503).json({ success: false, error: "Skrzynka chwilowo niedostępna." });
