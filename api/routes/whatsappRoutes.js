@@ -54,7 +54,21 @@ router.post("/webhook", async (req, res) => {
     if (!org) return res.sendStatus(503);
     const entries = Array.isArray(req.body.entry) ? req.body.entry : [];
     // Never silently acknowledge messages dropped by an arbitrary array cap.
+    // Validate the complete batch before writing anything. A single Meta request
+    // can contain 100 entries × 100 changes × 100 messages; per-array limits
+    // alone permit a million inserts and partial processing before a retry.
+    let messageCount = 0;
     if (entries.length > 100) return res.sendStatus(503);
+    for (const entry of entries) {
+      const changes = Array.isArray(entry.changes) ? entry.changes : [];
+      if (changes.length > 100) return res.sendStatus(503);
+      for (const change of changes) {
+        if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
+        const messages = Array.isArray(change.value?.messages) ? change.value.messages : [];
+        messageCount += messages.length;
+        if (messageCount > 100) return res.sendStatus(503);
+      }
+    }
     for (const entry of entries) {
       const changes = Array.isArray(entry.changes) ? entry.changes : [];
       if (changes.length > 100) return res.sendStatus(503);
