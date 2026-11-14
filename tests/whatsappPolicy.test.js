@@ -44,3 +44,20 @@ test("explicit Polish consent and English approval require owner approval", () =
     assert.equal(outcome.sendAuthorized, false);
   }
 });
+
+
+test("Polish financial words with diacritics always require owner approval", () => {
+  for (const text of [
+    "Proszę o płatność jutro",
+    "Wysyłamy fakturę",
+    "Oferujemy rabatu 10%",
+    "Cena wynosi 1500 PLN",
+    "Kwota do zapłaty to 1500 PLN",
+    "Proszę o hasło",
+    "Zatwierdzamy warunki"
+  ]) {
+    const outcome = evaluateOutbound({ ...approved, text });
+    assert.ok(outcome.reasons.includes("OWNER_APPROVAL_REQUIRED"), text);
+    assert.equal(outcome.sendAuthorized, false);
+  }
+});
