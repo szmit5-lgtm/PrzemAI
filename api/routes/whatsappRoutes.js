@@ -43,11 +43,13 @@ router.post("/webhook", async (req, res) => {
       where: { id: organizationId, status: "ACTIVE" }, select: { id: true }
     });
     if (!org) return res.sendStatus(503);
-    const entries = Array.isArray(req.body.entry) ? req.body.entry : [];
+    if (!Array.isArray(req.body.entry)) return res.sendStatus(503);
+    const entries = req.body.entry;
     // Never silently acknowledge messages dropped by an arbitrary array cap.
     if (entries.length > 100) return res.sendStatus(503);
     for (const entry of entries) {
-      const changes = Array.isArray(entry.changes) ? entry.changes : [];
+      if (!entry || !Array.isArray(entry.changes)) return res.sendStatus(503);
+      const changes = entry.changes;
       if (changes.length > 100) return res.sendStatus(503);
       for (const change of changes) {
         if (change.field !== "messages") continue;
@@ -55,7 +57,8 @@ router.post("/webhook", async (req, res) => {
         const incomingPhone = value.metadata?.phone_number_id;
         // A webhook can include unrelated phone numbers; never mix tenants.
         if (incomingPhone !== phoneNumberId) continue;
-        const messages = Array.isArray(value.messages) ? value.messages : [];
+        if (value.messages != null && !Array.isArray(value.messages)) return res.sendStatus(503);
+        const messages = value.messages || [];
         if (messages.length > 100) return res.sendStatus(503);
         for (const message of messages) {
           if (typeof message.id !== "string" || !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
