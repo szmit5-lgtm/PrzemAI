@@ -63,8 +63,8 @@ router.post("/webhook", async (req, res) => {
         if (messages.length > 100) return res.sendStatus(503);
         for (const message of messages) {
           if (!message || typeof message.id !== "string" ||
-              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" || !/^\\d{6,20}$/.test(message.from))
+              !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
+              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from))
             return res.sendStatus(503);
           if (pending.length >= 1000) return res.sendStatus(503);
           const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
