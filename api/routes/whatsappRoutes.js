@@ -6,6 +6,15 @@ const verifyToken = require("../middleware/verifyToken");
 const { evaluateOutbound } = require("../services/WhatsAppPolicy");
 const router = express.Router();
 
+// Private conversations and generated drafts must never be cached by browsers,
+// shared proxies or CDNs, including on authorization failures.
+router.use((req, res, next) => {
+  res.set("Cache-Control", "private, no-store, max-age=0");
+  res.set("Pragma", "no-cache");
+  res.set("Vary", "Authorization");
+  next();
+});
+
 // Meta webhook verification. Fail closed when not configured.
 router.get("/webhook", (req, res) => {
   const expected = process.env.WHATSAPP_VERIFY_TOKEN;
