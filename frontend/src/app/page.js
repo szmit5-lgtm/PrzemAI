@@ -59,9 +59,9 @@ export default function HomePage() {
  const [companySearch,setCompanySearch]=useState("");
  const [simpleMode,setSimpleMode]=useState(false);
  const [primaryCompany,setPrimaryCompany]=useState("");
- const [companyFinance,setCompanyFinance]=useState(null);
+ const [companyFinanceState,setCompanyFinance]=useState(null);
  const [companyFinanceError,setCompanyFinanceError]=useState("");
- const [companyReport,setCompanyReport]=useState(null);
+ const [companyReportState,setCompanyReport]=useState(null);
  useEffect(()=>{try{setPrimaryCompany(window.localStorage.getItem("przemai-primary-organization")||"");}catch{}},[]);
  useEffect(()=>{try{setSimpleMode(window.localStorage.getItem("przemai-dashboard-mode")==="simple");}catch{}},[]);
  const switchMode=mode=>{setSimpleMode(mode);try{window.localStorage.setItem("przemai-dashboard-mode",mode?"simple":"full");}catch{}};
@@ -89,9 +89,9 @@ export default function HomePage() {
   const allowed=(data?.organizations||[]).some(o=>o.id===primaryCompany);
   if(!allowed){setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");return;}
   let active=true;setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");
-  getOrganizationFinanceAnnualReport(primaryCompany,new Date().getFullYear()).then(result=>{if(active)setCompanyReport(result?.data||null);}).catch(()=>{if(active)setCompanyReport(null);});
+  getOrganizationFinanceAnnualReport(primaryCompany,new Date().getFullYear()).then(result=>{if(active)setCompanyReport({organizationId:primaryCompany,data:result?.data||null});}).catch(()=>{if(active)setCompanyReport(null);});
   getOrganizationFinanceSummary(primaryCompany).then(result=>{
-   if(active)setCompanyFinance(result?.data||null);
+   if(active)setCompanyFinance({organizationId:primaryCompany,data:result?.data||null});
   }).catch(error=>{if(active)setCompanyFinanceError(error?.message||"Nie można pobrać KSeF.");});
   return()=>{active=false;};
  },[primaryCompany,data?.organizations]);
@@ -103,6 +103,8 @@ export default function HomePage() {
  const agents=Array.isArray(data?.agents)?data.agents:[];
  const personalProjects=Array.isArray(data?.projects)?data.projects:[];
  const selectedOrg=(data?.organizations||[]).find(o=>o.id===primaryCompany);
+ const companyFinance=companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
+ const companyReport=companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
  const projects=selectedOrg?personalProjects.filter(p=>{
   const label=String(p.company||"").toLocaleLowerCase("pl-PL");
   const orgName=String(selectedOrg.name||"").toLocaleLowerCase("pl-PL");
