@@ -44,14 +44,20 @@ router.post("/webhook", async (req, res) => {
     });
     if (!org) return res.sendStatus(503);
     const entries = Array.isArray(req.body.entry) ? req.body.entry : [];
-    for (const entry of entries.slice(0, 100)) {
-      for (const change of (Array.isArray(entry.changes) ? entry.changes : []).slice(0, 100)) {
+    // Never silently acknowledge messages dropped by an arbitrary array cap.
+    if (entries.length > 100) return res.sendStatus(503);
+    for (const entry of entries) {
+      const changes = Array.isArray(entry.changes) ? entry.changes : [];
+      if (changes.length > 100) return res.sendStatus(503);
+      for (const change of changes) {
         if (change.field !== "messages") continue;
         const value = change.value || {};
         const incomingPhone = value.metadata?.phone_number_id;
         // A webhook can include unrelated phone numbers; never mix tenants.
         if (incomingPhone !== phoneNumberId) continue;
-        for (const message of (Array.isArray(value.messages) ? value.messages : []).slice(0, 100)) {
+        const messages = Array.isArray(value.messages) ? value.messages : [];
+        if (messages.length > 100) return res.sendStatus(503);
+        for (const message of messages) {
           if (typeof message.id !== "string" || !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
               typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) continue;
           const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
