@@ -73,7 +73,11 @@ router.post("/webhook", async (req, res) => {
                 text: body, receivedAt }
             });
           } catch (error) {
-            if (error?.code !== "P2002") throw error; // duplicate Meta delivery
+            const target = error?.meta?.target;
+            const duplicateMessageId = error?.code === "P2002" &&
+              (Array.isArray(target) ? target.includes("externalMessageId") :
+                typeof target === "string" && target.includes("externalMessageId"));
+            if (!duplicateMessageId) throw error; // retry unrelated persistence errors
           }
         }
       }
