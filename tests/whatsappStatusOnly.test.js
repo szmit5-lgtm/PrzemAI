@@ -101,6 +101,23 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     assert.equal(saved.size, 1);
     assert.equal(writes, 2); // second insert attempts, Prisma P2002 is handled
 
+    // Messages for another Meta phone number must not enter this tenant.
+    const foreign = { object: "whatsapp_business_account", entry: [
+      { changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "999999" },
+        messages: [{ id: "wamid.foreign-123", from: "48123456789",
+          type: "text", text: { body: "Other tenant" } }]
+      } }] }
+    ] };
+    const foreignRaw = Buffer.from(JSON.stringify(foreign));
+    const foreignSignature = "sha256=" +
+      crypto.createHmac("sha256", "test-secret").update(foreignRaw).digest("hex");
+    statusCode = undefined;
+    await handler({ body: foreign, rawBody: foreignRaw, get: () => foreignSignature }, res);
+    assert.equal(statusCode, 200);
+    assert.equal(saved.size, 1);
+    assert.equal(writes, 2);
+
     delete require.cache[routePath];
   } finally {
     Module._load = originalLoad;
