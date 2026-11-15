@@ -33,6 +33,7 @@ export default function FileUpload({ mode = "document" }) {
     const [report, setReport] = useState(null);
 
     const [filename, setFilename] = useState("");
+    const [error, setError] = useState("");
 
     function selectFile(selected) {
 
@@ -46,12 +47,13 @@ export default function FileUpload({ mode = "document" }) {
 
             const kind = validateAnalysisUploadFile(selected);
             if (kind !== mode) throw new Error(mode === "meeting" ? "Wybierz nagranie audio lub wideo." : "Wybierz plik PDF, DOCX lub TXT.");
+            setError("");
             setFile(selected);
 
         } catch (err) {
 
             setFile(null);
-            alert(err.message);
+            setError(err?.message || "Nie udało się wybrać pliku.");
 
         }
 
@@ -65,6 +67,7 @@ export default function FileUpload({ mode = "document" }) {
 
         }
 
+        setError("");
         setLoading(true);
 
         try {
@@ -88,7 +91,7 @@ export default function FileUpload({ mode = "document" }) {
         }
         catch (err) {
 
-            alert(err.message);
+            setError(err?.message || "Nie udało się przeanalizować pliku.");
 
         }
         finally {
@@ -135,7 +138,7 @@ export default function FileUpload({ mode = "document" }) {
 
                         <Sparkles size={16} />
 
-                        {mode === "meeting" ? "MEETING ANALYSIS" : "DOCUMENT ANALYSIS"}
+                        {mode === "meeting" ? "ANALIZA SPOTKANIA" : "ANALIZA DOKUMENTU"}
 
                     </div>
 
@@ -187,7 +190,17 @@ export default function FileUpload({ mode = "document" }) {
 
                 }}
 
-                onClick={() => inputRef.current.click()}
+                onClick={() => !loading && inputRef.current?.click()}
+                onKeyDown={(event) => {
+                    if ((event.key === "Enter" || event.key === " ") && !loading) {
+                        event.preventDefault();
+                        inputRef.current?.click();
+                    }
+                }}
+                role="button"
+                tabIndex={loading ? -1 : 0}
+                aria-label={mode === "meeting" ? "Wybierz plik nagrania spotkania" : "Wybierz dokument do analizy"}
+                aria-disabled={loading}
 
                 className={`mt-7 cursor-pointer rounded-2xl border-2 border-dashed p-6 transition-all duration-300 sm:p-12 ${
                     dragging
@@ -217,16 +230,16 @@ export default function FileUpload({ mode = "document" }) {
 
                     </p>
 
-                    <button
-                        type="button"
-                        className="mt-7 flex items-center gap-3 rounded-xl bg-violet-400 px-6 py-3 text-sm font-bold text-slate-950 hover:bg-violet-300"
+                    <span
+                        aria-hidden="true"
+                        className="mt-7 flex items-center gap-3 rounded-xl bg-violet-400 px-6 py-3 text-sm font-bold text-slate-950"
                     >
 
                         <ArrowUp size={20} />
 
                         Wybierz plik
 
-                    </button>
+                    </span>
 
                 </div>
 
@@ -244,6 +257,8 @@ export default function FileUpload({ mode = "document" }) {
 
                 }}
             />
+
+            {error && <p role="alert" className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</p>}
 
             {file && (
 
