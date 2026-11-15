@@ -144,3 +144,29 @@ test("a malformed later message cannot partially persist an earlier valid one", 
   assert.equal(await deliver(payload([first, { ...first, from: "bad-number" }])), 503);
   assert.equal(writes.length, 0);
 });
+
+
+test("Meta status-only delivery is acknowledged without database writes", async () => {
+  const { deliver, writes } = setup();
+  const statusPayload = {
+    object: "whatsapp_business_account",
+    entry: [{ changes: [{ field: "messages", value: {
+      metadata: { phone_number_id: "phone-allowed" },
+      statuses: [{ id: first.id, status: "delivered" }]
+    } }] }]
+  };
+  assert.equal(await deliver(statusPayload), 200);
+  assert.equal(writes.length, 0);
+});
+
+test("malformed callback missing both messages and status data is retried", async () => {
+  const { deliver, writes } = setup();
+  const badPayload = {
+    object: "whatsapp_business_account",
+    entry: [{ changes: [{ field: "messages", value: {
+      metadata: { phone_number_id: "phone-allowed" }
+    } }] }]
+  };
+  assert.equal(await deliver(badPayload), 503);
+  assert.equal(writes.length, 0);
+});
