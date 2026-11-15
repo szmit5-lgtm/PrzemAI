@@ -122,6 +122,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
+    "./scripts/sendSpecpozOnce": () => Promise.resolve(),
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
