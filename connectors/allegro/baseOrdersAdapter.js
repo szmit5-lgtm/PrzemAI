@@ -77,4 +77,13 @@ async function fetchAllegroOrdersPage({ organizationId, token, sinceUnix, fetchI
   });
 }
 
-module.exports = { BASE_API_URL, normalizeAllegroOrder, fetchAllegroOrdersPage };
+// Do not publish a partial sales report when Base.com may have truncated the response.
+// Safe cursor pagination needs a provider-verified continuation contract; advancing
+// by timestamp alone can silently skip orders confirmed in the same second.
+async function fetchCompleteAllegroOrders(options) {
+  const page = await fetchAllegroOrdersPage(options);
+  if (!page.complete) throw new Error('base_incomplete_page_requires_safe_pagination');
+  return page;
+}
+
+module.exports = { BASE_API_URL, normalizeAllegroOrder, fetchAllegroOrdersPage, fetchCompleteAllegroOrders };
