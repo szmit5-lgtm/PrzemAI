@@ -112,6 +112,8 @@ async function processKaldevaJobs() {
   });
   let processed = 0;
   for (const row of jobs) {
+    // SIGTERM may arrive during the queued-job scan. Do not claim new work.
+    if (stopping) break;
     const job = row.report;
     if (job?.status !== "queued" || job.actorId !== row.userId ||
         job.companyId !== "kaldeva:" + row.userId || typeof job.query !== "string") continue;
