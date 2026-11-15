@@ -165,3 +165,65 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   assert.equal(events.disconnects, 1);
   assert.deepEqual(events.exits, [0]);
 });
+
+test("SIGTERM during stale-agent scan skips Kaldeva and user queue reads", async () => {
+  let releaseScan;
+  const blockedScan = new Promise(resolve => { releaseScan = resolve; });
+  const handlers = {};
+  const events = { staleReads: 0, historyReads: 0, userReads: 0, disconnects: 0, exits: [] };
+  const prisma = {
+    agent: {
+      async findMany() {
+        events.staleReads++;
+        await blockedScan;
+        return [];
+      },
+      async updateMany() { throw new Error("no claim after SIGTERM"); }
+    },
+    history: {
+      async findMany() { events.historyReads++; return []; }
+    },
+    user: {
+      async findMany() { events.userReads++; return []; }
+    },
+    agentRun: { async updateMany() { throw new Error("unexpected audit"); } },
+    async $disconnect() { events.disconnects++; }
+  };
+  const dependencies = {
+    dotenv: { config() {} },
+    "./lib/prisma": prisma,
+    "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected run"); } },
+    "./api/services/AgentService": class { async ensureDefaults() { throw new Error("unexpected provisioning"); } },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": () => async () => {}
+  };
+  vm.runInNewContext(source, {
+    require(name) {
+      if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
+      return dependencies[name];
+    },
+    console: { log() {}, warn() {}, error(message) { throw new Error(message); } },
+    process: {
+      env: {},
+      on(signal, handler) { handlers[signal] = handler; },
+      exit(code) { events.exits.push(code); }
+    },
+    Date,
+    setInterval() { return 1; },
+    clearInterval() {},
+    setTimeout
+  }, { filename: "worker.js" });
+
+  await settled();
+  assert.equal(events.staleReads, 1);
+  const shutdown = handlers.SIGTERM();
+  assert.equal(events.disconnects, 0, "active stale scan must finish before disconnect");
+  releaseScan();
+  await shutdown;
+  assert.equal(events.historyReads, 0, "do not scan Kaldeva after SIGTERM");
+  assert.equal(events.userReads, 0, "do not scan users after SIGTERM");
+  assert.equal(events.disconnects, 1);
+  assert.deepEqual(events.exits, [0]);
+});
