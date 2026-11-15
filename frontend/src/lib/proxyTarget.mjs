@@ -23,6 +23,8 @@ export function resolveApiProxyTarget(env = {}) {
   }
   // A public Vercel/Railway build must never proxy authentication requests to
   // its own loopback interface or a local network address by misconfiguration.
+  // IPv6 literals are rejected for hosted rewrites to avoid mapped IPv4,
+  // unique-local and link-local bypasses. Public IPv6 remains available via DNS.
   // Internal Railway DNS is intentionally not rejected: it may be used when
   // the frontend and API share a genuinely isolated private network.
   if (hosted) {
@@ -31,12 +33,13 @@ export function resolveApiProxyTarget(env = {}) {
     const privateV4 = ipv4 && (() => {
       const a = ipv4.slice(1).map(Number);
       return a.every(x => x <= 255) && (a[0] === 10 || a[0] === 127 ||
-        a[0] === 0 || (a[0] === 169 && a[1] === 254) ||
+        a[0] === 0 || (a[0] === 100 && a[1] >= 64 && a[1] <= 127) ||
+        (a[0] === 169 && a[1] === 254) ||
         (a[0] === 192 && a[1] === 168) ||
         (a[0] === 172 && a[1] >= 16 && a[1] <= 31));
     })();
     if (host === "localhost" || host.endsWith(".localhost") ||
-        host === "[::1]" || host === "[::]" || privateV4) {
+        host.startsWith("[") || privateV4) {
       throw new Error("API_PROXY_TARGET cannot target a loopback or private IP on hosted builds.");
     }
   }
