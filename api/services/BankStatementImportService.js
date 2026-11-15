@@ -4,10 +4,11 @@ const prisma=require("../../lib/prisma");
 const {OrganizationFinanceService}=require("./OrganizationFinanceService");
 const {OrganizationError}=require("./OrganizationService");
 const finance=new OrganizationFinanceService();
+const {parsePolishAmount}=require("../lib/bankStatementCsv");
 function money(v){
- const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");
- if(!/^-?\d+(?:\.\d{1,2})?$/.test(s))throw new Error("Nieprawidłowa kwota.");
- return Number(s).toFixed(2);
+ const cents=parsePolishAmount(v);
+ if(!Number.isSafeInteger(cents))throw new Error("Kwota jest poza dozwolonym zakresem.");
+ return (cents/100).toFixed(2);
 }
 function date(v){
  const s=String(v??"").trim();
