@@ -31,7 +31,12 @@ test("SIGTERM lets an already-running agent finish before disconnecting and neve
     agentRun: { async updateMany() { throw new Error("unexpected stale audit"); } },
     async $disconnect() { events.disconnected += 1; }
   };
+  // Kaldeva is mocked: QA must never access live company-search services or a real DB.
+  prisma.history ??= { findMany: async () => [] };
   const dependencies = {
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
