@@ -22,3 +22,13 @@ test("reject unsafe or ambiguous targets", () => {
   }
   assert.throws(() => resolveApiProxyTarget({ VERCEL: "1", API_PROXY_TARGET: "http://example.test" }), /HTTPS/);
 });
+
+test("hosted builds reject loopback and private IP origins even with HTTPS", () => {
+  for (const host of ["localhost", "api.localhost", "127.0.0.1", "10.0.0.1", "172.16.0.2", "192.168.1.2", "169.254.169.254", "[::1]"]) {
+    assert.throws(() => resolveApiProxyTarget({ VERCEL: "1", API_PROXY_TARGET: `https://${host}` }), /loopback or private/);
+  }
+});
+
+test("private targets remain configurable in local development", () => {
+  assert.equal(resolveApiProxyTarget({ API_PROXY_TARGET: "http://127.0.0.1:3000" }), "http://127.0.0.1:3000");
+});
