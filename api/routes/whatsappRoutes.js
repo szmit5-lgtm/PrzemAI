@@ -67,6 +67,7 @@ router.post("/webhook", async (req, res) => {
       if (changes.length > 100) return res.sendStatus(503);
       for (const change of changes) {
         if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
+        if (change.value && !Object.prototype.hasOwnProperty.call(change.value, "messages")) continue; // Meta status-only callback
         if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
         const messages = change.value.messages;
         messageCount += messages.length;
