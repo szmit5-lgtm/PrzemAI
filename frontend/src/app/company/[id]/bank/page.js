@@ -5,7 +5,7 @@ import {useEffect,useState} from "react";
 import {ArrowLeft,Landmark,FileUp,ShieldAlert,Wallet} from "lucide-react";
 import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
-import {getOrganizationFinanceStatus,getOrganizationWorkspace,getOrganizationBankSummary,importOrganizationBankStatement,getOrganizationBankStatements} from "@/lib/api";
+import {getOrganizationFinanceStatus,getOrganizationWorkspace,getOrganizationBankSummary,importOrganizationBankStatement,getOrganizationBankStatements,getOrganizationBankTransactions} from "@/lib/api";
 
 function parseCsv(text){
  const lines=[];let row=[],cell="",quoted=false;
@@ -42,6 +42,10 @@ export default function CompanyBankPage(){
  const [owner,setOwner]=useState(false);
  const [statements,setStatements]=useState([]);
  const [transactions,setTransactions]=useState([]);
+ const [bankRecords,setBankRecords]=useState([]);
+ const [recordsOffset,setRecordsOffset]=useState(0);
+ const [recordsHasMore,setRecordsHasMore]=useState(false);
+ const [recordsLoading,setRecordsLoading]=useState(false);
  const [iban,setIban]=useState("");
  const [statementNumber,setStatementNumber]=useState("");
  const [periodStart,setPeriodStart]=useState("");
@@ -81,8 +85,9 @@ export default function CompanyBankPage(){
    const r=await importOrganizationBankStatement(id,{iban,statementNumber,periodStart,periodEnd,openingBalance,closingBalance,transactions});
    setNotice("Zaimportowano "+r.data.transactionCount+" transakcji. Salda zapisano na podstawie wyciągu.");
    setTransactions([]);setFileName("");
-   const [history,summary]=await Promise.all([getOrganizationBankStatements(id),getOrganizationBankSummary(id)]);
+   const [history,summary,records]=await Promise.all([getOrganizationBankStatements(id),getOrganizationBankSummary(id),getOrganizationBankTransactions(id)]);
    setStatements(history?.data||[]);setAccounts(summary?.data?.accounts||[]);
+   setBankRecords(records?.data?.items||[]);setRecordsHasMore(Boolean(records?.data?.hasMore));setRecordsOffset(records?.data?.items?.length||0);
   }catch(err){setError(err.message||"Nie udało się zaimportować wyciągu.");}
   finally{setImporting(false);}
  }
@@ -109,15 +114,19 @@ export default function CompanyBankPage(){
     if(message)setError(message);
     return;
    }
-   const [summaryResult,statementsResult]=await Promise.allSettled([
-    getOrganizationBankSummary(id),getOrganizationBankStatements(id)
+   const [summaryResult,statementsResult,recordsResult]=await Promise.allSettled([
+    getOrganizationBankSummary(id),getOrganizationBankStatements(id),getOrganizationBankTransactions(id)
    ]);
    if(!alive)return;
    if(summaryResult.status==="fulfilled")setAccounts(summaryResult.value?.data?.accounts||[]);
    if(statementsResult.status==="fulfilled")setStatements(statementsResult.value?.data||[]);
-   if(summaryResult.status==="rejected"||statementsResult.status==="rejected"){
+   if(recordsResult.status==="fulfilled"){
+    const page=recordsResult.value?.data;
+    setBankRecords(page?.items||[]);setRecordsOffset(page?.items?.length||0);setRecordsHasMore(Boolean(page?.hasMore));
+   }
+   if(summaryResult.status==="rejected"||statementsResult.status==="rejected"||recordsResult.status==="rejected"){
     setError("Nie udało się pobrać sald lub historii wyciągów. Formularz importu pozostaje dostępny. "+[
-     summaryResult,statementsResult].filter(x=>x.status==="rejected").map(x=>x.reason?.message||"Błąd API").join("; "));
+     summaryResult,statementsResult,recordsResult].filter(x=>x.status==="rejected").map(x=>x.reason?.message||"Błąd API").join("; "));
    }
   })().catch(e=>{if(alive)setError(e.message||"Nie udało się pobrać danych bankowych.");})
    .finally(()=>{if(alive)setLoading(false);});
@@ -175,6 +184,28 @@ export default function CompanyBankPage(){
       <button type="submit" disabled={importing||transactions.length===0} className="min-h-12 rounded-xl bg-violet-600 px-6 font-semibold disabled:opacity-40">{importing?"Importowanie…":"Zatwierdź import "+transactions.length+" transakcji"}</button>
      </form>:<p className="mt-4 text-sm text-slate-400">Import może wykonać właściciel firmy.</p>}
      {notice&&<p role="status" className="mt-4 text-sm text-emerald-300">{notice}</p>}
+     <h3 className="mt-7 font-bold">Operacje bankowe</h3>
+     <p className="mt-2 text-xs text-slate-400">Zapisane operacje wybranej spółki. Dopasowanie do faktur wymaga osobnego zatwierdzenia.</p>
+     {bankRecords.length===0?<p className="mt-3 text-sm text-slate-400">Brak zaimportowanych operacji.</p>:
+      <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
+       <table className="w-full min-w-[620px] text-left text-sm">
+        <thead className="bg-white/5 text-slate-300"><tr><th className="p-3">Data</th><th className="p-3">Opis</th><th className="p-3">Rachunek</th><th className="p-3 text-right">Kwota (PLN)</th></tr></thead>
+        <tbody>{bankRecords.map(item=><tr key={item.id} className="border-t border-white/10">
+         <td className="whitespace-nowrap p-3">{new Date(item.bookedAt).toLocaleDateString("pl-PL")}</td>
+         <td className="max-w-sm break-words p-3"><strong>{item.description||"Operacja bankowa"}</strong>{item.counterparty&&<p className="text-xs text-slate-400">{item.counterparty}</p>}</td>
+         <td className="whitespace-nowrap p-3">•••• {item.ibanSuffix}</td>
+         <td className="whitespace-nowrap p-3 text-right font-semibold">{new Intl.NumberFormat("pl-PL",{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(item.amount))}</td>
+        </tr>)}</tbody>
+       </table>
+      </div>}
+     {recordsHasMore&&<button type="button" disabled={recordsLoading}
+      onClick={async()=>{setRecordsLoading(true);setError("");try{
+       const next=await getOrganizationBankTransactions(id,{offset:recordsOffset});
+       const items=next?.data?.items||[];
+       setBankRecords(old=>[...old,...items]);setRecordsOffset(old=>old+items.length);setRecordsHasMore(Boolean(next?.data?.hasMore));
+      }catch(err){setError(err.message||"Nie można pobrać kolejnych operacji.");}finally{setRecordsLoading(false);}}}
+      className="mt-4 rounded-xl border border-violet-400/40 px-5 py-3 text-sm font-semibold disabled:opacity-50">
+      {recordsLoading?"Wczytywanie…":"Pokaż kolejne operacje"}</button>}
      <h3 className="mt-7 font-bold">Zaimportowane wyciągi</h3>
      {statements.length===0?<p className="mt-2 text-sm text-slate-400">Brak wyciągów.</p>:<div className="mt-3 space-y-2">{statements.map(s=><div key={s.id} className="rounded-xl border border-white/10 p-3 text-sm">
       <strong>{s.statementNumber}</strong> · rachunek •••• {s.bankAccount?.ibanSuffix} · {s.transactionCount} operacji
