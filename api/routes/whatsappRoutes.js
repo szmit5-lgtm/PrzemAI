@@ -78,7 +78,7 @@ router.post("/webhook", async (req, res) => {
           if (!message || typeof message.id !== "string" ||
               !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
               typeof message.from !== "string" ||
-              !/^\\d{6,20}$/.test(message.from)) return res.sendStatus(503);
+              !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
         }
       }
     }
