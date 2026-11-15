@@ -59,6 +59,7 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
+    "./scripts/sendSpecpozOnce": () => Promise.resolve(),
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
