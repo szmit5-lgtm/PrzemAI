@@ -181,9 +181,9 @@ class OrganizationService{
       where:{organizationId_userId:{organizationId:orgId,userId:user.id}}
     });
     if(old?.status==="ACTIVE")throw new OrganizationError("Użytkownik należy już do firmy.",409);
-    // Authorized company OWNER or ADMIN can assign an existing account immediately.
+    // Invitation is not access: the invited account must explicitly accept.
     // Finance permission is separate and never granted by an invitation.
-    const status="ACTIVE";
+    const status="PENDING";
     return this.db.organizationMembership.upsert({
       where:{organizationId_userId:{organizationId:orgId,userId:user.id}},
       create:{organizationId:orgId,userId:user.id,role,status,financeAccess:false},
