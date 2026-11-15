@@ -254,8 +254,8 @@ export default function ChatPage(){
  const busy=loading||loadingConversation;
  const voiceReady=voiceSupported&&!busy;
  const displayTitle=conversations.find(c=>c.id===activeConversationId)?.title;
- return <main className="h-[100dvh] min-h-[400px] min-w-0 overflow-hidden bg-[#080e20] text-slate-100 sm:h-auto sm:min-h-screen sm:overflow-x-clip">
-  <div className="mx-auto flex h-full min-h-0 w-full max-w-[1900px] min-w-0 flex-col px-0 pb-0 pt-0 sm:h-auto sm:min-h-screen sm:px-6 sm:pb-6 sm:pt-4 lg:px-8">
+ return <main className="h-[calc(100dvh-82px-env(safe-area-inset-bottom))] min-h-[320px] min-w-0 overflow-hidden bg-[#080e20] text-slate-100 lg:h-auto lg:min-h-screen lg:overflow-x-clip">
+  <div className="mx-auto flex h-full min-h-0 w-full max-w-[1900px] min-w-0 flex-col px-0 pb-0 pt-0 sm:px-6 sm:pt-4 lg:h-auto lg:min-h-screen lg:pb-6 lg:px-8">
    <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#111c35] px-3 py-2 sm:gap-3 sm:rounded-2xl sm:border sm:px-5 sm:py-3">
     <div className="flex min-w-0 items-center gap-3">
      <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 font-black text-white">P</Link>
@@ -266,7 +266,7 @@ export default function ChatPage(){
     <UserMenu/>
    </header>
    <div className="shrink-0 px-3 sm:px-0 [&>div]:!mb-2 [&>div]:!mt-2"><Navbar/></div>
-   <div className="relative mt-0 grid min-h-0 min-w-0 flex-1 overflow-hidden border-y border-white/10 bg-[#101a33] shadow-[0_25px_65px_rgba(0,0,0,.28)] sm:mt-3 sm:h-[min(840px,calc(100dvh-200px))] sm:min-h-[580px] sm:flex-none sm:rounded-[24px] sm:border lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
+   <div className="relative mt-0 grid min-h-0 min-w-0 flex-1 overflow-hidden border-y border-white/10 bg-[#101a33] shadow-[0_25px_65px_rgba(0,0,0,.28)] sm:mt-3 sm:rounded-[24px] sm:border lg:h-[min(840px,calc(100dvh-200px))] lg:min-h-[580px] lg:flex-none lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
     {sidebarOpen&&<button type="button" onClick={()=>setSidebarOpen(false)} aria-label="Zamknij panel rozmów" className="absolute inset-0 z-20 bg-black/60 lg:hidden"/>}
     <aside className={(sidebarOpen?"flex":"hidden")+" absolute inset-y-0 left-0 z-30 w-[min(86vw,320px)] min-h-0 min-w-0 flex-col border-r border-white/10 bg-[#0d1730] shadow-2xl lg:static lg:z-auto lg:flex lg:w-auto lg:shadow-none"}>
      <div className="border-b border-white/10 p-4">
