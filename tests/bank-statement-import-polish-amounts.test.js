@@ -28,7 +28,14 @@ function mockDb(){
    if(!a){a={...create,id:"account-"+state.accounts.length};state.accounts.push(a);}return a;
   }},
   bankStatement:{
-   async findFirst({where}){return state.statements.find(x=>x.organizationId===where.organizationId&&x.bankAccountId===where.bankAccountId&&x.statementNumber===where.statementNumber)||null;},
+   async findFirst({where}){
+    return state.statements.find(x=>{
+     if(x.organizationId!==where.organizationId||x.bankAccountId!==where.bankAccountId)return false;
+     if(where.statementNumber!==undefined)return x.statementNumber===where.statementNumber;
+     if(where.periodEnd?.gte && x.periodEnd<where.periodEnd.gte)return false;
+     return where.OR?.some(p=>p.periodStart===null?x.periodStart===null:x.periodStart!==null&&x.periodStart<=p.periodStart.lte)||false;
+    })||null;
+   },
    async create({data}){const a={id:"statement-"+state.statements.length,...data};state.statements.push(a);return a;}
   },
   bankTransaction:{async createMany({data}){state.transactions.push(...data);return{count:data.length};}}
@@ -54,4 +61,28 @@ test("bank import enforces balance, tenant and owner boundary",async()=>{
  assert.equal(db.state.statements.length,0);
  await importStatement("owner","deh",payload());
  assert.equal(db.state.statements[0].organizationId,"deh");
+});
+
+test("same-account overlapping periods are rejected even when statement number changes",async()=>{
+ const db=mockDb(),importStatement=loadWithDb(db);
+ await importStatement("owner","dek",payload());
+ const replay={...payload(),statementNumber:"TEST/2026/11/REPLAY"};
+ await assert.rejects(importStatement("owner","dek",replay),e=>e.status===409&&/pokrywa/.test(e.message));
+ assert.equal(db.state.transactions.length,1);
+});
+test("disjoint periods and different organizations remain independent",async()=>{
+ const db=mockDb(),importStatement=loadWithDb(db);
+ await importStatement("owner","dek",payload());
+ const december={...payload(),statementNumber:"TEST/2026/12",periodStart:"2026-12-01",periodEnd:"2026-12-31",
+  transactions:[{date:"2026-12-05",amount:"1 234,56",description:"Synthetic December"}]};
+ await importStatement("owner","dek",december);
+ await importStatement("owner","deh",payload());
+ assert.equal(db.state.statements.length,3);
+ assert.deepEqual(db.state.statements.map(x=>x.organizationId),["dek","dek","deh"]);
+});
+test("missing statement start date is rejected before persistence",async()=>{
+ const db=mockDb(),importStatement=loadWithDb(db);
+ const noStart=payload();delete noStart.periodStart;
+ await assert.rejects(importStatement("owner","dek",noStart),/Data musi mieć format/);
+ assert.equal(db.state.statements.length,0);
 });
