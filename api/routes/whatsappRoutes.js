@@ -67,7 +67,11 @@ router.post("/webhook", async (req, res) => {
       if (changes.length > 100) return res.sendStatus(503);
       for (const change of changes) {
         if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
-        if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
+        // Delivery/read receipts have statuses but no messages; acknowledge without persistence.
+        if (!Array.isArray(change.value?.messages)) {
+          if (Array.isArray(change.value?.statuses)) continue;
+          return res.sendStatus(503);
+        }
         const messages = change.value.messages;
         messageCount += messages.length;
         if (messageCount > 100) return res.sendStatus(503);
