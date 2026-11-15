@@ -119,6 +119,6 @@ test("out-of-range decimal or excessive precision is rejected before writes", as
 
 test("account owner from another tenant cannot import statement", async () => {
   const { importStatement, writes } = sandbox();
-  await assert.rejects(importStatement("owner-a", "deherus", base), /Forbidden finance scope/);
+  await assert.rejects(importStatement("owner-a", "deherus", base), /Import wyciągów wymaga roli właściciela/);
   assert.equal(writes.accounts.length, 0);
 });
