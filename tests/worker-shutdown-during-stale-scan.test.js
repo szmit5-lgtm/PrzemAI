@@ -44,7 +44,12 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
     },
     async $disconnect() { events.disconnects += 1; }
   };
+  // Kaldeva is mocked: QA must never access live company-search services or a real DB.
+  prisma.history ??= { findMany: async () => [] };
   const dependencies = {
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
