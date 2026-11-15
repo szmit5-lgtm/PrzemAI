@@ -187,6 +187,17 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 
+const {listBankTransactions}=require("../services/BankTransactionReadService");
+router.get("/:id/bank/transactions",verifyToken,async(req,res)=>{
+ try{
+  const data=await listBankTransactions(req.user.id,req.params.id,req.query);
+  return res.json({success:true,data});
+ }catch(error){
+  const status=error instanceof OrganizationError?error.status||403:500;
+  return res.status(status).json({success:false,
+   error:status===500?"Nie udało się pobrać operacji bankowych.":error.message});
+ }
+});
 const {importStatement}=require("../services/BankStatementImportService");
 router.post("/:id/bank/statements",verifyToken,async(req,res)=>{
  try{
