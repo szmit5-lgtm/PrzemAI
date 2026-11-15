@@ -19,6 +19,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
 
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -43,6 +44,9 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults() { events.ensured += 1; }
     }
@@ -98,6 +102,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   const handlers = {};
   const events = { provisioned: [], dueReads: 0, runs: 0, disconnects: 0, exits: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "user-1" }, { id: "user-2" }]; } },
     agent: {
       async findMany({ where }) {
@@ -116,6 +121,9 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults(userId) {
         events.provisioned.push(userId);
