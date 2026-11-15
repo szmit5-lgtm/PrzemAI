@@ -539,6 +539,28 @@ export async function importOrganizationBankStatement(orgId,payload){
   method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
  });
 }
+export async function importOrganizationBankCsv(orgId, file, metadata) {
+ if (typeof orgId !== "string" || !orgId.trim()) throw new Error("Wybierz spółkę.");
+ if (!file || !/\\.csv$/i.test(file.name || "") ||
+     file.size < 1 || file.size > 2 * 1024 * 1024) {
+  throw new Error("Wybierz plik CSV do 2 MB.");
+ }
+ const form = new FormData();
+ form.append("file", file);
+ for (const key of ["iban", "statementNumber", "openingBalance", "closingBalance", "periodStart", "periodEnd"]) {
+  const value = metadata?.[key];
+  if (typeof value !== "string" || !value.trim()) {
+   throw new Error("Uzupełnij dane wyciągu i salda.");
+  }
+  form.append(key, value.trim());
+ }
+ return request("/api/organizations/" + encodeURIComponent(orgId) + "/bank/csv-import", {
+  method: "POST",
+  // Browser sets boundary for multipart/form-data; request adds JWT only.
+  body: form
+ });
+}
+
 export async function getOrganizationBankStatements(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/statements");
 }
