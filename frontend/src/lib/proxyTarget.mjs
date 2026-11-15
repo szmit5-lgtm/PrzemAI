@@ -41,7 +41,8 @@ export function resolveApiProxyTarget(env = {}) {
         (a[0] === 172 && a[1] >= 16 && a[1] <= 31));
     })();
     if (host === "localhost" || host.endsWith(".localhost") ||
-        host === "localhost.localdomain" || host.endsWith(".local") ||
+        host === "localhost.localdomain" || host.endsWith(".localhost.localdomain") ||
+        host === "localdomain" || host.endsWith(".local") ||
         host.startsWith("[") || privateV4) {
       throw new Error("API_PROXY_TARGET cannot target a loopback or private IP on hosted builds.");
     }
