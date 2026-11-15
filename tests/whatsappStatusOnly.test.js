@@ -118,6 +118,27 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     assert.equal(saved.size, 1);
     assert.equal(writes, 2);
 
+    // Validate the complete Meta batch before persisting any message.
+    const mixed = { object: "whatsapp_business_account", entry: [
+      { changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "123456" },
+        messages: [
+          { id: "wamid.valid-new", from: "48123456789", type: "text",
+            text: { body: "Safe fixture" } },
+          { id: "invalid-id", from: "48123456789", type: "text",
+            text: { body: "Malformed fixture" } }
+        ]
+      } }] }
+    ] };
+    const mixedRaw = Buffer.from(JSON.stringify(mixed));
+    const mixedSignature = "sha256=" +
+      crypto.createHmac("sha256", "test-secret").update(mixedRaw).digest("hex");
+    statusCode = undefined;
+    await handler({ body: mixed, rawBody: mixedRaw, get: () => mixedSignature }, res);
+    assert.equal(statusCode, 503);
+    assert.equal(saved.size, 1);
+    assert.equal(writes, 2);
+
     delete require.cache[routePath];
   } finally {
     Module._load = originalLoad;
