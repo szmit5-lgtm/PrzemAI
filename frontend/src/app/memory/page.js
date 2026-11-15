@@ -453,7 +453,7 @@ export default function MemoryPage() {
 
                                 <Brain className="text-slate-200" />
 
-                                <h1 className="text-3xl font-bold">
+                                <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
 
                                     Pamięć AI
 
@@ -470,12 +470,12 @@ export default function MemoryPage() {
 
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex w-full flex-wrap gap-3 md:w-auto">
 
                             <button
                                 onClick={loadMemories}
                                 disabled={loading}
-                                className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-medium hover:bg-[#111c35]/[.045] disabled:opacity-50"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 px-4 py-3 font-medium hover:bg-white/10 disabled:opacity-50"
                             >
 
                                 <RefreshCw
@@ -782,7 +782,7 @@ export default function MemoryPage() {
 
                     {(error || (!loading && loadError)) && (
 
-                        <div className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
+                        <div role="alert" className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
 
                             {error || loadError}
 
