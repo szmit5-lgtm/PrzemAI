@@ -27,11 +27,11 @@ async function importStatement(userId,orgId,payload){
  if(!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)||!number||number.length>100||
  !Array.isArray(rows)||rows.length<1||rows.length>3000)throw new Error("Podaj IBAN, numer wyciągu i 1–3000 transakcji.");
  const opening=money(payload.openingBalance),closing=money(payload.closingBalance);
- const periodEnd=date(payload.periodEnd),periodStart=payload.periodStart?date(payload.periodStart):null;
- if(periodStart&&periodStart>periodEnd)throw new Error("Nieprawidłowa kolejność dat okresu.");
+ const periodEnd=date(payload.periodEnd),periodStart=date(payload.periodStart);
+ if(periodStart>periodEnd)throw new Error("Nieprawidłowa kolejność dat okresu.");
  const transactions=rows.map((r,i)=>{
   const bookedAt=date(r.date),amount=money(r.amount);
-  if(bookedAt>periodEnd||(periodStart&&bookedAt<periodStart))throw new Error("Data transakcji jest poza okresem wyciągu.");
+  if(bookedAt>periodEnd||bookedAt<periodStart)throw new Error("Data transakcji jest poza okresem wyciągu.");
   const description=String(r.description||"").slice(0,1000);
   const counterparty=String(r.counterparty||"").slice(0,250);
   const reference=String(r.reference||"").slice(0,250);
@@ -48,6 +48,17 @@ async function importStatement(userId,orgId,payload){
    update:{}});
   const existing=await tx.bankStatement.findFirst({where:{organizationId:orgId,bankAccountId:account.id,statementNumber:number}});
   if(existing)throw new OrganizationError("Wyciąg o tym numerze już istnieje dla tego rachunku.",409);
+  // Overlapping periods can replay the same transactions under a new statement
+  // number. Fail closed until a bank-specific transaction identity is available.
+  // Legacy imports with an unknown start date are conservatively treated as
+  // overlapping if their end date falls on or after the new period start.
+  const overlap=await tx.bankStatement.findFirst({
+   where:{organizationId:orgId,bankAccountId:account.id,
+    periodEnd:{gte:periodStart},
+    OR:[{periodStart:{lte:periodEnd}},{periodStart:null}]},
+   select:{id:true}
+  });
+  if(overlap)throw new OrganizationError("Okres wyciągu pokrywa się z już zaimportowanym wyciągiem tego rachunku.",409);
   const statement=await tx.bankStatement.create({data:{organizationId:orgId,bankAccountId:account.id,statementNumber:number,
    sourceHash,openingBalance:opening,closingBalance:closing,periodStart,periodEnd,importedByUserId:userId,transactionCount:transactions.length}});
   await tx.bankTransaction.createMany({data:transactions.map(t=>({...t,organizationId:orgId,bankAccountId:account.id,bankStatementId:statement.id}))});
