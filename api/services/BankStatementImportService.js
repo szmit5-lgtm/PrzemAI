@@ -1,9 +1,7 @@
 "use strict";
 const crypto=require("crypto");
 const prisma=require("../../lib/prisma");
-const {OrganizationFinanceService}=require("./OrganizationFinanceService");
 const {OrganizationError}=require("./OrganizationService");
-const finance=new OrganizationFinanceService();
 function money(v){
  const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");
  const parsed=/^(-?)(\d{1,16})(?:\.(\d{1,2}))?$/.exec(s);
@@ -30,8 +28,9 @@ function date(v){
  return new Date(s+"T12:00:00Z");
 }
 async function importStatement(userId,orgId,payload){
- await finance.accessible(userId,orgId);
- const membership=await prisma.organizationMembership.findFirst({where:{userId,organizationId:orgId,status:"ACTIVE",role:"OWNER"}});
+ // Bank statement ownership is independent of optional KSeF enrollment.
+ // The authoritative membership and active organization are checked by Prisma.
+ const membership=await prisma.organizationMembership.findFirst({where:{userId,organizationId:orgId,status:"ACTIVE",role:"OWNER",organization:{status:"ACTIVE"}}});
  if(!membership)throw new OrganizationError("Import wyciągów wymaga roli właściciela firmy.",403);
  const rawIban=String(payload?.iban||"").replace(/[\s-]/g,"").toUpperCase();
  const iban=/^\d{26}$/.test(rawIban)?"PL"+rawIban:rawIban;
