@@ -541,7 +541,7 @@ export async function importOrganizationBankStatement(orgId,payload){
 }
 export async function importOrganizationBankCsv(orgId, file, metadata) {
  if (typeof orgId !== "string" || !orgId.trim()) throw new Error("Wybierz spółkę.");
- if (!file || !/\\.csv$/i.test(file.name || "") ||
+ if (!file || !/\.csv$/i.test(file.name || "") ||
      file.size < 1 || file.size > 2 * 1024 * 1024) {
   throw new Error("Wybierz plik CSV do 2 MB.");
  }
