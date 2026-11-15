@@ -1,0 +1,27 @@
+name: Isolated WhatsApp regression tests
+on:
+  push:
+    branches:
+      - safety/isolated-staging-20261115
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  whatsapp-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_ENV: test
+      ALLOW_PUBLIC_REGISTRATION: "false"
+      KSEF_SYNC_ENABLED: "false"
+      KSEF_DEHERUS_SYNC_ENABLED: "false"
+      CLAUDE_DEV_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Signed status-only webhook regression
+        run: node --test tests/whatsappStatusOnly.test.js
