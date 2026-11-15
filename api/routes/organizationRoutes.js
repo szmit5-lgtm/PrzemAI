@@ -251,4 +251,57 @@ router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
  });
 });
 
+
+const {parseBankCsv} = require("../services/BankCsvParser");
+const bankCsvUpload = multer({
+ storage: multer.memoryStorage(),
+ limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 12 },
+ fileFilter: (_req, file, cb) => cb(null, /\.csv$/i.test(file.originalname || ""))
+});
+// This endpoint imports only a statement with explicit bank metadata and
+// reconcilable balances. File bytes are never trusted as tenant authorization.
+router.post("/:id/bank/csv-import", verifyToken, async (req, res) => {
+ try {
+  await financeService.accessible(req.user.id, req.params.id);
+  const membership = await prisma.organizationMembership.findFirst({
+   where: { userId: req.user.id, organizationId: req.params.id,
+    status: "ACTIVE", role: "OWNER", organization: { status: "ACTIVE" } },
+   select: { id: true }
+  });
+  if (!membership) return res.status(403).json({
+   success: false, error: "Import CSV wymaga uprawnień właściciela firmy."
+  });
+ } catch (error) {
+  const status = error instanceof OrganizationError ? error.status || 403 : 503;
+  return res.status(status).json({ success: false, error: status === 503 ?
+   "Nie udało się zweryfikować uprawnień." : error.message });
+ }
+ bankCsvUpload.single("file")(req, res, async uploadError => {
+  if (uploadError || !req.file) return res.status(400).json({
+   success: false, error: "Wybierz plik CSV do 2 MB."
+  });
+  try {
+   const transactions = parseBankCsv(req.file.buffer);
+   const payload = {
+    iban: req.body?.iban,
+    statementNumber: req.body?.statementNumber,
+    openingBalance: req.body?.openingBalance,
+    closingBalance: req.body?.closingBalance,
+    periodStart: req.body?.periodStart,
+    periodEnd: req.body?.periodEnd,
+    label: req.body?.label,
+    transactions
+   };
+   const data = await importStatement(req.user.id, req.params.id, payload);
+   return res.status(201).json({ success: true, data });
+  } catch (error) {
+   const status = error?.code === "P2002" ? 409 :
+    error instanceof OrganizationError ? error.status || 403 :
+    /CSV|Nieprawidłow|Podaj |Saldo |Data musi|Wyciąg |poza okresem|Kwota/.test(error?.message || "") ? 400 : 503;
+   return res.status(status).json({ success: false, error: status === 503 ?
+    "Nie udało się zaimportować CSV." : error.message });
+  }
+ });
+});
+
 module.exports = router;
