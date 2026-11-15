@@ -67,7 +67,12 @@ router.post("/webhook", async (req, res) => {
       if (changes.length > 100) return res.sendStatus(503);
       for (const change of changes) {
         if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
-        if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
+        // Meta delivery/read status callbacks contain statuses, not messages.
+        // Acknowledge valid status-only events without attempting to persist them.
+        if (!Array.isArray(change.value?.messages)) {
+          if (Array.isArray(change.value?.statuses)) continue;
+          return res.sendStatus(503);
+        }
         const messages = change.value.messages;
         messageCount += messages.length;
         if (messageCount > 100) return res.sendStatus(503);
