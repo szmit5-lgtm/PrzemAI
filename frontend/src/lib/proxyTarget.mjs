@@ -35,10 +35,13 @@ export function resolveApiProxyTarget(env = {}) {
       return a.every(x => x <= 255) && (a[0] === 10 || a[0] === 127 ||
         a[0] === 0 || (a[0] === 100 && a[1] >= 64 && a[1] <= 127) ||
         (a[0] === 169 && a[1] === 254) ||
+        (a[0] === 198 && (a[1] === 18 || a[1] === 19)) ||
+        a[0] >= 224 ||
         (a[0] === 192 && a[1] === 168) ||
         (a[0] === 172 && a[1] >= 16 && a[1] <= 31));
     })();
     if (host === "localhost" || host.endsWith(".localhost") ||
+        host === "localhost.localdomain" || host.endsWith(".local") ||
         host.startsWith("[") || privateV4) {
       throw new Error("API_PROXY_TARGET cannot target a loopback or private IP on hosted builds.");
     }
