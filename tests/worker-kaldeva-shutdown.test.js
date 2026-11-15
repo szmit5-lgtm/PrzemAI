@@ -40,6 +40,7 @@ test("SIGTERM during Kaldeva queue scan never claims or searches queued jobs", a
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {},
     "./api/services/AgentService": class {},
+    "./scripts/sendSpecpozOnce": async () => {},
     "./publicLeadDiscovery": { discoverPublicLeads: async () => { events.searches++; return { leads: [] }; } },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) }
