@@ -6,8 +6,22 @@ const {OrganizationError}=require("./OrganizationService");
 const finance=new OrganizationFinanceService();
 function money(v){
  const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");
- if(!/^-?\d+(?:\.\d{1,2})?$/.test(s))throw new Error("Nieprawidłowa kwota.");
- return Number(s).toFixed(2);
+ const parsed=/^(-?)(\d{1,16})(?:\.(\d{1,2}))?$/.exec(s);
+ if(!parsed)throw new Error("Nieprawidłowa kwota.");
+ // BankStatement/BankTransaction columns are DECIMAL(18,2). Never round
+ // through IEEE-754 Number: doing so loses cents on large statements.
+ const units=BigInt(parsed[2]);
+ const cents=BigInt((parsed[3]||"").padEnd(2,"0"));
+ if(units>9999999999999999n)throw new Error("Kwota przekracza zakres bazy.");
+ const sign=parsed[1]==="-"&& (units!==0n||cents!==0n)?"-":"";
+ return sign+units.toString()+"."+cents.toString().padStart(2,"0");
+}
+function cents(value){
+ const negative=value.startsWith("-");
+ const raw=negative?value.slice(1):value;
+ const [units,part]=raw.split(".");
+ const amount=BigInt(units)*100n+BigInt(part);
+ return negative?-amount:amount;
 }
 function date(v){
  const s=String(v??"").trim();
@@ -37,8 +51,8 @@ async function importStatement(userId,orgId,payload){
   const fingerprint=crypto.createHash("sha256").update(JSON.stringify([i,bookedAt.toISOString(),amount,description,counterparty,reference])).digest("hex");
   return {bookedAt,amount,description,counterparty,reference,fingerprint};
  });
- const sum=transactions.reduce((a,r)=>a+Math.round(Number(r.amount)*100),0);
- if(Math.abs(Math.round(Number(opening)*100)+sum-Math.round(Number(closing)*100))>1)
+ const sum=transactions.reduce((a,r)=>a+cents(r.amount),0n);
+ if(cents(opening)+sum!==cents(closing))
   throw new Error("Saldo początkowe + suma transakcji nie zgadza się z saldem końcowym.");
  const sourceHash=crypto.createHash("sha256").update(JSON.stringify({iban,number,opening,closing,periodEnd,transactions})).digest("hex");
  return prisma.$transaction(async tx=>{
