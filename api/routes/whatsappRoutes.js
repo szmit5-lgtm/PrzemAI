@@ -52,7 +52,9 @@ router.post("/webhook", async (req, res) => {
       where: { id: organizationId, status: "ACTIVE" }, select: { id: true }
     });
     if (!org) return res.sendStatus(503);
-    const entries = Array.isArray(req.body.entry) ? req.body.entry : [];
+    const entries = req.body.entry;
+    // Reject malformed deliveries rather than acknowledging and losing messages.
+    if (!Array.isArray(entries)) return res.sendStatus(503);
     // Never silently acknowledge messages dropped by an arbitrary array cap.
     // Validate the complete batch before writing anything. A single Meta request
     // can contain 100 entries × 100 changes × 100 messages; per-array limits
@@ -60,11 +62,13 @@ router.post("/webhook", async (req, res) => {
     let messageCount = 0;
     if (entries.length > 100) return res.sendStatus(503);
     for (const entry of entries) {
-      const changes = Array.isArray(entry.changes) ? entry.changes : [];
+      if (!entry || !Array.isArray(entry.changes)) return res.sendStatus(503);
+      const changes = entry.changes;
       if (changes.length > 100) return res.sendStatus(503);
       for (const change of changes) {
         if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
-        const messages = Array.isArray(change.value?.messages) ? change.value.messages : [];
+        if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
+        const messages = change.value.messages;
         messageCount += messages.length;
         if (messageCount > 100) return res.sendStatus(503);
         // Validate the entire relevant delivery before the first database write.
