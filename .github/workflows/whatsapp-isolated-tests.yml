@@ -1,0 +1,36 @@
+name: WhatsApp isolated regression tests
+
+on:
+  push:
+    branches:
+      - safety/isolated-staging-20261115
+    paths:
+      - "api/routes/whatsappRoutes.js"
+      - "api/services/WhatsAppPolicy.js"
+      - "tests/whatsappStatusOnly.test.js"
+      - ".github/workflows/whatsapp-isolated-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webhook-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NODE_ENV: test
+      KSEF_SYNC_ENABLED: "false"
+      KSEF_DEHERUS_SYNC_ENABLED: "false"
+      CLAUDE_DEV_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify JavaScript syntax
+        run: |
+          node --check api/routes/whatsappRoutes.js
+          node --check tests/whatsappStatusOnly.test.js
+      - name: Run isolated webhook tests (no database or secrets)
+        run: node --test tests/whatsappStatusOnly.test.js
