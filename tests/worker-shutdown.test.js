@@ -47,7 +47,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
-    "./scripts/sendSpecpozOnce": () => async () => {},
+    "./scripts/sendSpecpozOnce": async () => {},
     "./api/services/AgentService": class {
       async ensureDefaults() { events.ensured += 1; }
     }
@@ -125,7 +125,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
-    "./scripts/sendSpecpozOnce": () => async () => {},
+    "./scripts/sendSpecpozOnce": async () => {},
     "./api/services/AgentService": class {
       async ensureDefaults(userId) {
         events.provisioned.push(userId);
@@ -197,7 +197,7 @@ test("SIGTERM during stale-agent scan skips Kaldeva and user queue reads", async
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
-    "./scripts/sendSpecpozOnce": () => async () => {}
+    "./scripts/sendSpecpozOnce": async () => {}
   };
   vm.runInNewContext(source, {
     require(name) {
