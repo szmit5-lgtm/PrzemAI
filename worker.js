@@ -92,6 +92,7 @@ async function processKaldevaJobs() {
     select: { id: true, userId: true, report: true }
   });
   for (const row of stale) {
+    if (stopping) break;
     if (row.report?.actorId !== row.userId || row.report?.companyId !== "kaldeva:" + row.userId) continue;
     const failed = { ...row.report, status: "failed", error: "worker_interrupted_retry_search" };
     await prisma.$executeRaw`
@@ -101,6 +102,8 @@ async function processKaldevaJobs() {
         AND "updatedAt" < ${new Date(Date.now() - 15 * 60000)}
     `;
   }
+  // A shutdown may start while stale jobs are being scanned. Avoid new queue reads.
+  if (stopping) return 0;
   const jobs = await prisma.history.findMany({
     where: {
       type: "KALDEVA_SALES",
