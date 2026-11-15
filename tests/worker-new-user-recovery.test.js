@@ -28,7 +28,12 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
     agentRun: { async updateMany() { return { count: 0 }; } },
     async $disconnect() {}
   };
+  // Kaldeva is mocked: QA must never access live company-search services or a real DB.
+  prisma.history ??= { findMany: async () => [] };
   const dependencies = {
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
