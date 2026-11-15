@@ -9,6 +9,11 @@ function assessClaudeSafety(config = {}) {
   const amount = String(config.CLAUDE_MONTHLY_BUDGET_PLN ?? "").trim();
   const budget = /^\d+(?:\.\d{1,2})?$/.test(amount) ? Number(amount) : NaN;
   if (env !== "staging") reasons.push("environment_not_verified_staging");
+  const actualId = String(config.RAILWAY_ENVIRONMENT_ID || "").trim();
+  const approvedId = String(config.CLAUDE_APPROVED_STAGING_ENVIRONMENT_ID || "").trim();
+  if (!actualId || !approvedId || actualId !== approvedId ||
+      approvedId === "93d636bd-faba-4a8e-8522-b7b75be2de6c")
+    reasons.push("environment_id_not_verified");
   if (!Number.isFinite(budget) || budget <= 0 || budget > MAX_BUDGET_PLN)
     reasons.push("invalid_monthly_budget");
   if (!config.ANTHROPIC_API_KEY) reasons.push("missing_api_key");
