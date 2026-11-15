@@ -32,7 +32,12 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
     agentRun: { async updateMany() { throw new Error("unexpected audit update"); } },
     async $disconnect() { events.disconnects += 1; }
   };
+  // Kaldeva is mocked: QA must never access live company-search services or a real DB.
+  prisma.history ??= { findMany: async () => [] };
   const dependencies = {
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
