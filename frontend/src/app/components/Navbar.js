@@ -44,6 +44,14 @@ export default function Navbar({ vertical = false }) {
     return () => { active = false; };
   }, []);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = event => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
   const visible = links.filter(link => link.href !== "/administracja" || showAdministration);
   const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company","/administracja"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
 
@@ -81,6 +89,7 @@ export default function Navbar({ vertical = false }) {
         </button>
       </div>
     </nav>
+    {mobileOpen && <button type="button" aria-label="Zamknij menu" className="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" onClick={() => setMobileOpen(false)} />}
     {mobileOpen && <div id="przemai-more-navigation" className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-50 max-h-[min(65vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-[#111c35] p-3 text-white shadow-2xl lg:hidden">
       <div className="mb-2 flex items-center justify-between px-2">
         <strong className="text-sm">Pozostałe moduły</strong>
