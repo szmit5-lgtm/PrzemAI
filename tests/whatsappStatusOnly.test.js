@@ -53,6 +53,22 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     await handler({ body: payload, rawBody, get: () => signature }, res);
     assert.equal(statusCode, 200);
     assert.equal(writes, 0);
+
+    // Malformed callbacks must not be acknowledged or written to the database.
+    const malformed = { object: "whatsapp_business_account", entry: [
+      { changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "123456" }
+      } }] }
+    ] };
+    const malformedRaw = Buffer.from(JSON.stringify(malformed));
+    const malformedSignature = "sha256=" +
+      crypto.createHmac("sha256", "test-secret").update(malformedRaw).digest("hex");
+    statusCode = undefined;
+    await handler({
+      body: malformed, rawBody: malformedRaw, get: () => malformedSignature
+    }, res);
+    assert.equal(statusCode, 503);
+    assert.equal(writes, 0);
     delete require.cache[routePath];
   } finally {
     Module._load = originalLoad;
