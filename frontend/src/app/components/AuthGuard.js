@@ -24,7 +24,7 @@ export default function AuthGuard({ children }) {
 
     // Do not call the backend when this browser has no session.
     // In particular, an unavailable preview API must not hide the login page.
-    if (!hasUsableSessionToken(window.localStorage)) {
+    if (!hasUsableSessionToken({ getItem: key => window.localStorage.getItem(key) })) {
       router.replace("/login");
       return () => { active = false; };
     }
