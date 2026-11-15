@@ -78,6 +78,7 @@ const { discoverPublicLeads } = require("./publicLeadDiscovery");
 const { searchPublicCompanies } = require("./publicCompanySearch");
 const { buildSalesLeadReport } = require("./salesLeadPipeline");
 const { isKaldevaJobRow } = require("./lib/kaldevaJobGuard");
+const { claimKaldevaJob, finishKaldevaJob } = require("./lib/kaldevaQueueTransitions");
 
 async function processKaldevaJobs() {
   if (stopping) return 0;
@@ -121,11 +122,7 @@ async function processKaldevaJobs() {
     if (!isKaldevaJobRow(row, "queued")) continue;
     const running = { ...job, status: "running" };
     // Claim only a still-queued job; cancellation or a second worker wins safely.
-    const claimed = await prisma.$executeRaw`
-      UPDATE "History" SET "report" = ${JSON.stringify(running)}::jsonb, "updatedAt" = NOW()
-      WHERE "id" = ${row.id} AND "userId" = ${row.userId}
-        AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'queued'
-    `;
+    const claimed = await claimKaldevaJob(prisma, row);
     if (claimed !== 1) continue;
     let result;
     try {
@@ -144,12 +141,7 @@ async function processKaldevaJobs() {
       result = { ...running, status: "failed", error: String(error?.message || "search_failed").slice(0, 150) };
     }
     // Do not overwrite a cancellation or a newer recovery decision made while searching.
-    const saved = await prisma.$executeRaw`
-      UPDATE "History" SET "report" = ${JSON.stringify(result)}::jsonb, "updatedAt" = NOW()
-      WHERE "id" = ${row.id} AND "userId" = ${row.userId}
-        AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
-        AND "report"->>'actorId' = ${row.userId}
-    `;
+    const saved = await finishKaldevaJob(prisma, row, result);
     if (saved !== 1) {
       console.warn("[Worker] Kaldeva result discarded: job no longer running", row.id);
       continue;
