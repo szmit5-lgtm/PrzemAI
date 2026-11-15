@@ -7,6 +7,7 @@ const Module = require("node:module");
 test("Meta status-only callback is acknowledged without writing a message", async () => {
   const routes = [];
   let writes = 0;
+  let failNextWrite = false;
   const saved = new Set();
   const router = {
     use() {},
@@ -17,6 +18,7 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     organization: { findFirst: async () => ({ id: "test-org" }) },
     whatsAppMessage: { create: async ({ data }) => {
       writes++;
+      if (failNextWrite) { failNextWrite = false; throw { code: "P1001" }; }
       if (saved.has(data.externalMessageId)) throw { code: "P2002" };
       saved.add(data.externalMessageId);
     } }
@@ -138,6 +140,28 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     assert.equal(statusCode, 503);
     assert.equal(saved.size, 1);
     assert.equal(writes, 2);
+
+    // Transient database failure must trigger Meta retry, not silent message loss.
+    const retryPayload = { object: "whatsapp_business_account", entry: [
+      { changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "123456" },
+        messages: [{ id: "wamid.retry-1", from: "48123456789",
+          type: "text", text: { body: "Retry fixture" } }]
+      } }] }
+    ] };
+    const retryRaw = Buffer.from(JSON.stringify(retryPayload));
+    const retrySignature = "sha256=" +
+      crypto.createHmac("sha256", "test-secret").update(retryRaw).digest("hex");
+    failNextWrite = true;
+    statusCode = undefined;
+    await handler({ body: retryPayload, rawBody: retryRaw, get: () => retrySignature }, res);
+    assert.equal(statusCode, 503);
+    assert.equal(saved.size, 1);
+    statusCode = undefined;
+    await handler({ body: retryPayload, rawBody: retryRaw, get: () => retrySignature }, res);
+    assert.equal(statusCode, 200);
+    assert.equal(saved.size, 2);
+    assert.equal(writes, 4);
 
     delete require.cache[routePath];
   } finally {
