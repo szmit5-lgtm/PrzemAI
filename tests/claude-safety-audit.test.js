@@ -2,7 +2,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { assessClaudeSafety } = require("../scripts/claude-safety-audit");
-const safe = { RAILWAY_ENVIRONMENT_NAME: "staging", CLAUDE_DEV_ENABLED: "true",
+const safe = { RAILWAY_ENVIRONMENT_NAME: "staging",
+  RAILWAY_ENVIRONMENT_ID: "64404202-9c65-4076-a917-111e6448281a",
+  CLAUDE_APPROVED_STAGING_ENVIRONMENT_ID: "64404202-9c65-4076-a917-111e6448281a",
+  CLAUDE_DEV_ENABLED: "true",
   CLAUDE_MONTHLY_BUDGET_PLN: "50", ANTHROPIC_API_KEY: "fake-not-real",
   CLAUDE_ISOLATION_VERIFIED: "true", CLAUDE_PROVIDER_SPEND_CAP_VERIFIED: "true" };
 test("refuses production even if service is called staging", () => {
@@ -24,4 +27,16 @@ test("passing offline preflight still never authorizes an API call",()=>{
   assert.equal(r.eligibleForHumanReview,true);
   assert.equal(r.automaticApiCallAllowed,false);
   assert.equal(r.budgetPln,50);
+});
+
+test("environment ID mismatch or missing approval fails closed", () => {
+  for(const env of [
+    {RAILWAY_ENVIRONMENT_ID:"93d636bd-faba-4a8e-8522-b7b75be2de6c"},
+    {CLAUDE_APPROVED_STAGING_ENVIRONMENT_ID:""},
+    {RAILWAY_ENVIRONMENT_ID:""}
+  ]) {
+    const r=assessClaudeSafety({...safe,...env});
+    assert.equal(r.eligibleForHumanReview,false);
+    assert.ok(r.reasons.includes("environment_id_not_verified"));
+  }
 });
