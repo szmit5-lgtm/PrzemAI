@@ -76,7 +76,7 @@ router.post("/webhook", async (req, res) => {
         // followed by a retry, even when the earlier messages were accepted.
         for (const message of messages) {
           if (!message || typeof message.id !== "string" ||
-              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
+              !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
               typeof message.from !== "string" ||
               !/^\\d{6,20}$/.test(message.from)) return res.sendStatus(503);
         }
