@@ -141,6 +141,27 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     assert.equal(saved.size, 1);
     assert.equal(writes, 2);
 
+    // A valid but oversized batch must be rejected before any DB writes.
+    // The handler caps the total relevant message count, not only array sizes.
+    const oversized = { object: "whatsapp_business_account", entry: [
+      { changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "123456" },
+        messages: Array.from({ length: 101 }, (_, i) => ({
+          id: "wamid.bulk-" + i, from: "48123456789", type: "text",
+          text: { body: "Synthetic batch item " + i }
+        }))
+      } }] }
+    ] };
+    const oversizedRaw = Buffer.from(JSON.stringify(oversized));
+    const oversizedSignature = "sha256=" +
+      crypto.createHmac("sha256", "test-secret").update(oversizedRaw).digest("hex");
+    statusCode = undefined;
+    await handler({ body: oversized, rawBody: oversizedRaw,
+      get: () => oversizedSignature }, res);
+    assert.equal(statusCode, 503);
+    assert.equal(saved.size, 1);
+    assert.equal(writes, 2);
+
     // Transient database failure must trigger Meta retry, not silent message loss.
     const retryPayload = { object: "whatsapp_business_account", entry: [
       { changes: [{ field: "messages", value: {
