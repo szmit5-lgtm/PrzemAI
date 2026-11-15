@@ -1,64 +1,32 @@
+"use strict";
 const jwt = require("jsonwebtoken");
 
 function verifyToken(req, res, next) {
-
-    const header = req.headers.authorization;
-
-    if (!header) {
-
-        return res.status(401).json({
-
-            success: false,
-
-            error: "Brak tokena."
-
-        });
-
+  const header = req.headers?.authorization;
+  if (typeof header !== "string" || !/^Bearer [^\s]+$/.test(header)) {
+    return res.status(401).json({
+      success: false,
+      error: header ? "Nieprawidłowy format tokena." : "Brak tokena."
+    });
+  }
+  // Fail closed on absent server secret; never accept a caller-provided key.
+  if (!process.env.JWT_SECRET) {
+    return res.status(503).json({ success: false, error: "Uwierzytelnianie niedostępne." });
+  }
+  try {
+    const decoded = jwt.verify(header.slice(7), process.env.JWT_SECRET, {
+      algorithms: ["HS256"]
+    });
+    if (!decoded || typeof decoded !== "object" ||
+        typeof decoded.id !== "string" || !decoded.id.trim()) {
+      return res.status(401).json({ success: false, error: "Token jest nieważny." });
     }
-
-    const parts = header.split(" ");
-
-    if (parts.length !== 2 || parts[0] !== "Bearer") {
-
-        return res.status(401).json({
-
-            success: false,
-
-            error: "Nieprawidłowy format tokena."
-
-        });
-
-    }
-
-    const token = parts[1];
-
-    try {
-
-        const decoded = jwt.verify(
-
-            token,
-
-            process.env.JWT_SECRET
-
-        );
-
-        req.user = decoded;
-
-        next();
-
-    }
-    catch {
-
-        return res.status(401).json({
-
-            success: false,
-
-            error: "Token jest nieważny."
-
-        });
-
-    }
-
+    // Controllers must re-check roles/tenant membership in the database.
+    req.user = decoded;
+    return next();
+  } catch {
+    return res.status(401).json({ success: false, error: "Token jest nieważny." });
+  }
 }
 
 module.exports = verifyToken;
