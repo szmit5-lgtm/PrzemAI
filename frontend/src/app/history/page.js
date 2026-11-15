@@ -130,9 +130,9 @@ export default function HistoryPage() {
 
                     {loading && (
 
-                        <div className="mt-10 text-slate-300">
+                        <div role="status" aria-live="polite" className="mt-10 text-slate-300">
 
-                            Ładowanie...
+                            Pobieranie historii analiz…
 
                         </div>
 
@@ -146,9 +146,9 @@ export default function HistoryPage() {
 
                     {!loading && !loadError && items.length === 0 && (
 
-                        <div className="mt-10 rounded-2xl border-2 border-dashed border-white/15 p-8 text-center sm:p-16">
+                        <div className="mt-10 rounded-2xl border-2 border-dashed border-white/15 p-6 text-center sm:p-16">
 
-                            <div className="text-6xl">
+                            <div aria-hidden="true" className="text-5xl">
 
                                 📂
 
@@ -205,11 +205,11 @@ export default function HistoryPage() {
 
                                     </div>
 
-                                    <div className="flex flex-wrap gap-3">
+                                    <div className="flex w-full flex-wrap gap-3 sm:w-auto">
 
                                         <Link
                                             href={`/history/${item.id}`}
-                                            className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-500"
+                                            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-500 sm:flex-none"
                                         >
 
                                             Otwórz
@@ -221,7 +221,7 @@ export default function HistoryPage() {
                                             disabled={pendingId !== null}
                                             aria-label={`Usuń analizę: ${item.title}`}
                                             onClick={() => remove(item.id)}
-                                            className="rounded-xl border border-rose-400/25 px-5 py-3 text-sm text-rose-200 hover:bg-rose-400/10 disabled:opacity-50"
+                                            className="min-h-11 flex-1 rounded-xl border border-rose-400/25 px-5 py-3 text-sm text-rose-200 hover:bg-rose-400/10 disabled:opacity-50 sm:flex-none"
                                         >
 
                                             Usuń
