@@ -247,3 +247,29 @@ test("finance expense classification rejects missing tenant before database acce
     assert.equal(calls.length, 0, "missing tenant must not read or update expense invoices");
   }
 });
+
+test("KSeF backfill rejects disabled sync and a different account before any Prisma access", async () => {
+  const previousEnabled = process.env.KSEF_SYNC_ENABLED;
+  const previousOwner = process.env.KSEF_OWNER_USER_ID;
+  try {
+    process.env.KSEF_SYNC_ENABLED = "true";
+    process.env.KSEF_OWNER_USER_ID = "synthetic-dekonica-owner";
+    calls.length = 0;
+    await assert.rejects(
+      () => new FinanceService().queueKsefBackfill("synthetic-deherus-user"),
+      /Integracja KSeF nie jest aktywna/
+    );
+    assert.equal(calls.length, 0, "foreign tenant must not query finance data");
+    process.env.KSEF_SYNC_ENABLED = "false";
+    await assert.rejects(
+      () => new FinanceService().queueKsefBackfill("synthetic-dekonica-owner"),
+      /Integracja KSeF nie jest aktywna/
+    );
+    assert.equal(calls.length, 0, "disabled KSeF must not query finance data");
+  } finally {
+    if (previousEnabled === undefined) delete process.env.KSEF_SYNC_ENABLED;
+    else process.env.KSEF_SYNC_ENABLED = previousEnabled;
+    if (previousOwner === undefined) delete process.env.KSEF_OWNER_USER_ID;
+    else process.env.KSEF_OWNER_USER_ID = previousOwner;
+  }
+});
