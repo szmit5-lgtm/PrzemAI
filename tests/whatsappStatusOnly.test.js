@@ -69,6 +69,12 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     }, res);
     assert.equal(statusCode, 503);
     assert.equal(writes, 0);
+
+    // Reject unsigned or incorrectly signed deliveries before any DB lookup/write.
+    statusCode = undefined;
+    await handler({ body: payload, rawBody, get: () => "sha256=" + "0".repeat(64) }, res);
+    assert.equal(statusCode, 403);
+    assert.equal(writes, 0);
     delete require.cache[routePath];
   } finally {
     Module._load = originalLoad;
