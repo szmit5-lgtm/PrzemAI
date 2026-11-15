@@ -265,7 +265,7 @@ export default function SettingsPage() {
 
                         <div>
 
-                            <h1 className="text-3xl font-bold">
+                            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
 
                                 Ustawienia
 
@@ -279,7 +279,7 @@ export default function SettingsPage() {
 
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex w-full flex-wrap gap-3 md:w-auto">
 
                             <button
                                 onClick={loadData}
@@ -320,7 +320,7 @@ export default function SettingsPage() {
 
                     {error && (
 
-                        <div className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
+                        <div role="alert" className="mt-6 rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-200">
 
                             {error}
 
@@ -330,7 +330,7 @@ export default function SettingsPage() {
 
                     {success && (
 
-                        <div className="mt-6 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-200">
+                        <div role="status" className="mt-6 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-200">
 
                             {success}
 
@@ -340,7 +340,7 @@ export default function SettingsPage() {
 
                     <div className="mt-8 grid gap-6 lg:grid-cols-2">
 
-                        <section className="rounded-2xl border p-6">
+                        <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4 sm:p-6">
 
                             <div className="flex items-center gap-3">
 
