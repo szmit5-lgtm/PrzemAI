@@ -10,9 +10,9 @@ class SpeechToText {
 
     constructor() {
 
-        this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
+        // An isolated staging healthcheck must not need an OpenAI key.
+        // Instantiate a paid provider only for an authorized transcription request.
+        this.client = null;
 
         /*
          * Jeżeli plik jest mniejszy niż ten limit,
@@ -92,6 +92,13 @@ class SpeechToText {
     }
 
     async transcribeSingleFile(filePath) {
+
+        if (!process.env.OPENAI_API_KEY) {
+            throw new Error("OpenAI transcription is not configured for this environment.");
+        }
+        if (!this.client) {
+            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        }
 
         const transcript =
             await this.client.audio.transcriptions.create({

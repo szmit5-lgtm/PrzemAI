@@ -5,14 +5,18 @@ const OpenAI = require("openai");
 class AIEngine {
 
     constructor() {
-
-        this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-
+        // Do not require a paid-provider credential just to start the API.
+        // An isolated staging healthcheck must work without any AI token.
+        this.client = null;
     }
 
     async ask(options) {
+        if (!process.env.OPENAI_API_KEY) {
+            throw new Error("OpenAI is not configured for this environment.");
+        }
+        if (!this.client) {
+            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        }
 
         if (typeof options === "string") {
 

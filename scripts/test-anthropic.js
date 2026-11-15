@@ -16,6 +16,15 @@ async function main() {
   if (railwayEnvironment === "production") {
     throw new Error("Refusing paid smoke test in Railway production environment, even for a staging-named service.");
   }
+  // A local shell, an unset environment or a staging-named SERVICE is not proof
+  // of staging isolation. Restrict diagnostics to this project's real staging ID.
+  const expectedProject = "8b898b94-7bca-4a34-af28-8f114d776825";
+  const expectedStaging = "64404202-9c65-4076-a917-111e6448281a";
+  if (railwayEnvironment !== "staging" ||
+      process.env.RAILWAY_ENVIRONMENT_ID !== expectedStaging ||
+      process.env.RAILWAY_PROJECT_ID !== expectedProject) {
+    throw new Error("Claude diagnostic requires the verified PrzemAI staging environment and project IDs.");
+  }
   if (process.env.CLAUDE_TEST_ISOLATED !== "true") {
     throw new Error("Set CLAUDE_TEST_ISOLATED=true only after independently verifying database and service isolation.");
   }
@@ -23,9 +32,18 @@ async function main() {
   if (!Number.isFinite(budget) || budget <= 0 || budget > 50) {
     throw new Error("CLAUDE_MONTHLY_BUDGET_PLN must be configured between 0 and 50 PLN.");
   }
+  // Budget ceiling alone is not a spend tracker. Require a freshly checked
+  // remaining balance; the check must be supplied by an authorized operator.
+  const remaining = Number(process.env.CLAUDE_VERIFIED_REMAINING_PLN);
+  if (!Number.isFinite(remaining) || remaining < 0.10 || remaining > budget) {
+    throw new Error("Claude smoke test requires a verified remaining budget of at least 0.10 PLN.");
+  }
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured.");
   const model = process.env.CLAUDE_DEV_MODEL || "claude-haiku-4-5";
+  if (model !== "claude-haiku-4-5") {
+    throw new Error("Claude smoke test only permits the reviewed low-cost model.");
+  }
   const payload = JSON.stringify({
     model,
     max_tokens: 16,
