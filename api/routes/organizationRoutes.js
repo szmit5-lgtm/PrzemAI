@@ -229,26 +229,9 @@ const bankPdfUpload = multer({
  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
  fileFilter: (_req,file,cb) => cb(null, file.mimetype === "application/pdf" || /\.pdf$/i.test(file.originalname))
 });
-router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
- bankPdfUpload.single("file")(req,res,async error=>{
-  if(error)return res.status(400).json({success:false,error:"PDF jest za duży lub nieprawidłowy (limit 15 MB)."});
-  if(!req.file)return res.status(400).json({success:false,error:"Wybierz plik PDF."});
-  try{
-   await financeService.accessible(req.user.id,req.params.id);
-   const membership=await prisma.organizationMembership.findFirst({where:{userId:req.user.id,organizationId:req.params.id,status:"ACTIVE",role:"OWNER"}});
-   if(!membership)return res.status(403).json({success:false,error:"Import wymaga roli właściciela."});
-   if(req.file.buffer.subarray(0,5).toString()!=="%PDF-")return res.status(400).json({success:false,error:"Plik nie jest dokumentem PDF."});
-   const parsed=await pdfParse(req.file.buffer,{max:150});
-   const lines=String(parsed.text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,15000);
-   if(!lines.length)return res.status(422).json({success:false,error:"PDF nie zawiera tekstu. Skan wymaga OCR i ręcznej weryfikacji."});
-   const source=String(parsed.text||"");
-   // Preview only: extract candidates without writing any financial records.
-    const statementNumbers = Array.from(new Set((source.match(/\b\d{4}\s*\/\s*\d{1,5}\b/g) || []).map(v => v.replace(/\s/g, "")))).slice(0, 50);
-    const accountNumbers = Array.from(new Set((source.match(/(?:PL\s*)?(?:\d[\s-]*){26}/g) || []).map(v => v.replace(/[\s-]/g, "")).filter(v => /^(?:PL)?\d{26}$/.test(v)))).slice(0, 50);
-   return res.json({success:true,data:{pages:parsed.numpages,lines,statementNumbers,accountNumbers,
-    requiresReview:true,warning:"Wykryto "+statementNumbers.length+" numerów wyciągów i "+accountNumbers.length+" rachunków. Automatyczny zapis jest zablokowany do czasu zgodności liczby operacji i sald każdego wyciągu."}});
-  }catch(e){return res.status(422).json({success:false,error:"Nie udało się odczytać PDF. Sprawdź format i zabezpieczenia dokumentu."});}
- });
-});
+const {createBankPdfPreviewHandler}=require("../services/BankPdfPreview");
+router.post("/:id/bank/pdf-preview",verifyToken,createBankPdfPreviewHandler({
+ financeService,prisma,upload:bankPdfUpload.single("file"),parsePdf:pdfParse,OrganizationError
+}));
 
 module.exports = router;
