@@ -1,0 +1,93 @@
+name: QA regression (isolated, synthetic data)
+
+on:
+  push:
+    branches:
+      - qa/regression-tests-20261115
+  pull_request:
+    paths:
+      - 'tests/**'
+      - 'api/tests/**'
+      - 'frontend/**'
+      - '.github/workflows/qa-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-regression:
+    name: JWT, tenancy, PDF/CSV, KSeF, WhatsApp, agents, API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      KSEF_SYNC_ENABLED: 'false'
+      KSEF_DEHERUS_SYNC_ENABLED: 'false'
+      CLAUDE_DEV_ENABLED: 'false'
+      DATABASE_URL: 'postgresql://qa_dummy:qa_dummy@127.0.0.1:65432/qa_nonexistent'
+      JWT_SECRET: 'qa-only-fake-jwt-secret-not-for-production'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate Prisma client (offline, no database access)
+        run: npx prisma generate
+      - name: Run isolated regression suites
+        run: |
+          node --test \
+            tests/auth-token-middleware.test.js \
+            tests/auth-controller-login.test.js \
+            tests/adminRoutes.test.js \
+            tests/company-accounts-isolation.test.js \
+            tests/agentIntegrationAccess.test.js \
+            tests/financial-agent-tenant-guard.test.js \
+            tests/ksefOrganizationAccess.test.js \
+            tests/ksef-deherus-isolation.test.js \
+            tests/ksef-import.test.js \
+            tests/whatsappPersistenceContract.test.js \
+            tests/whatsappMigrationConsistency.test.js \
+            tests/whatsappDraftPolicy.test.js \
+            tests/agent-runtime-security.test.js \
+            tests/worker-owner-scope.test.js \
+            api/tests/bankStatementCsv.test.js \
+            api/tests/bankStatementImport.test.js
+      - name: Full backend test suite
+        run: npm test
+
+  frontend-regression:
+    name: Frontend contracts and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      API_PROXY_TARGET: http://127.0.0.1:65431
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Frontend unit and contract tests
+        working-directory: frontend
+        run: npm test
+      - name: Frontend production build (no deployment)
+        working-directory: frontend
+        run: npm run build
