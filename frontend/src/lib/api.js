@@ -542,3 +542,7 @@ export async function importOrganizationBankStatement(orgId,payload){
 export async function getOrganizationBankStatements(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/statements");
 }
+
+export async function getOrganizationBankTransactions(orgId,{limit=50,offset=0}={}){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/transactions?limit="+encodeURIComponent(limit)+"&offset="+encodeURIComponent(offset));
+}
