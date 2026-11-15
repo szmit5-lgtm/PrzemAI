@@ -176,8 +176,8 @@ export default function HomePage() {
     <div className="mt-6 flex min-w-0 flex-wrap items-start justify-between gap-4">
      <div className="min-w-0 flex-1">
       <p className="text-xs font-bold uppercase tracking-[.17em] text-violet-300">PrzemAI / Pulpit</p>
-      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Dzień dobry <span aria-hidden="true">👋</span></h1>
-      <p className="mt-2 text-sm text-slate-400">Bieżące informacje z konta osobistego i działających agentów. Przestrzenie firmowe otwieraj osobno.</p>
+      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Centrum dowodzenia</h1>
+      <p className="mt-2 text-sm leading-6 text-slate-400">Najważniejsze informacje i działania w jednym miejscu. Wybierz spółkę, aby zobaczyć dostępne dane w jej kontekście.</p>
      </div>
      <button type="button" onClick={()=>setRefresh(v=>v+1)} disabled={loading}
        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50">
@@ -235,7 +235,7 @@ export default function HomePage() {
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
-    {simpleMode&&<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    {<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
      <SmallLink href="/chat" title="Porozmawiaj z asystentem" icon={MessageSquareText}/>
      <SmallLink href="/agents" title="Agenci AI" icon={Bot}/>
      <SmallLink href="/finance" title="Finanse i KSeF" icon={Wallet}/>
