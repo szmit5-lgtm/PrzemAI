@@ -53,7 +53,12 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
       events.disconnects += 1;
     }
   };
+  // Kaldeva is mocked: QA must never access live company-search services or a real DB.
+  prisma.history ??= { findMany: async () => [] };
   const dependencies = {
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({ scanned: 0, accepted: [], rejected: [] }) },
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
