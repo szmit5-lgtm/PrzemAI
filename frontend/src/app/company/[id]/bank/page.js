@@ -172,7 +172,21 @@ export default function CompanyBankPage(){
       </label>
       <p className="text-xs text-slate-400">Wymagane nagłówki CSV oddzielone średnikami: date;amount;description;counterparty;reference. Daty RRRR-MM-DD, kwoty ze znakiem minus dla wydatków.</p>
       {pdfLoading&&<p className="text-sm text-slate-300">Odczytywanie PDF…</p>}
-      {pdfPreview&&<div className="rounded-xl border border-amber-400/30 p-4"><p className="text-sm text-amber-200">{pdfPreview.warning}</p><p className="mt-2 text-xs">Strony: {pdfPreview.pages}</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{pdfPreview.lines.join("\n")}</pre></div>}
+      {pdfPreview&&<div className="rounded-xl border border-amber-400/30 p-4">
+       <p className="text-sm text-amber-200">{pdfPreview.warning}</p>
+       <p className="mt-2 text-xs">Strony: {pdfPreview.pages}</p>
+       {pdfPreview.structuredPreview&&<>
+        <p className="mt-3 text-sm">Wykryto {pdfPreview.structuredPreview.transactionCount} operacji. Saldo początkowe: {pdfPreview.structuredPreview.openingBalance} PLN, końcowe: {pdfPreview.structuredPreview.closingBalance} PLN.</p>
+        <button type="button" onClick={()=>{
+         const p=pdfPreview.structuredPreview;
+         setIban(p.iban);setStatementNumber(p.statementNumber);
+         setOpeningBalance(p.openingBalance);setClosingBalance(p.closingBalance);
+         setTransactions(p.transactions.map(t=>({date:t.date,amount:t.amount,description:t.description,counterparty:"",reference:""})));
+         setNotice("Uzupełniono formularz na podstawie podglądu PDF. Sprawdź każdą operację, daty okresu i salda przed zatwierdzeniem.");
+        }} className="mt-3 rounded-lg border border-amber-200/40 px-4 py-2 text-sm font-semibold">Przenieś rozpoznane operacje do formularza</button>
+       </>}
+       <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{pdfPreview.lines.join("\n")}</pre>
+      </div>}
       {fileName&&<p className="text-sm text-emerald-300">Wczytano {fileName}: {transactions.length ? transactions.length+" operacji do sprawdzenia" : "podgląd PDF bez zapisu transakcji"}.</p>}
       <div className="grid gap-3 sm:grid-cols-2">
        {[[iban,setIban,"IBAN rachunku"],[statementNumber,setStatementNumber,"Numer wyciągu"],[openingBalance,setOpeningBalance,"Saldo początkowe PLN"],[closingBalance,setClosingBalance,"Saldo końcowe PLN"]].map(([value,setValue,label])=><label key={label} className="text-sm">{label}
