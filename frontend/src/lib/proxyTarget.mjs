@@ -21,5 +21,24 @@ export function resolveApiProxyTarget(env = {}) {
   if (hosted && parsed.protocol !== "https:") {
     throw new Error("API_PROXY_TARGET must use HTTPS on hosted builds.");
   }
+  // A public Vercel/Railway build must never proxy authentication requests to
+  // its own loopback interface or a local network address by misconfiguration.
+  // Internal Railway DNS is intentionally not rejected: it may be used when
+  // the frontend and API share a genuinely isolated private network.
+  if (hosted) {
+    const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
+    const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+    const privateV4 = ipv4 && (() => {
+      const a = ipv4.slice(1).map(Number);
+      return a.every(x => x <= 255) && (a[0] === 10 || a[0] === 127 ||
+        a[0] === 0 || (a[0] === 169 && a[1] === 254) ||
+        (a[0] === 192 && a[1] === 168) ||
+        (a[0] === 172 && a[1] >= 16 && a[1] <= 31));
+    })();
+    if (host === "localhost" || host.endsWith(".localhost") ||
+        host === "[::1]" || host === "[::]" || privateV4) {
+      throw new Error("API_PROXY_TARGET cannot target a loopback or private IP on hosted builds.");
+    }
+  }
   return parsed.origin;
 }
