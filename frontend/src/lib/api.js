@@ -7,7 +7,13 @@ function getToken() {
         return null;
     }
 
-    return localStorage.getItem("token");
+    try {
+        return window.localStorage.getItem("token");
+    } catch {
+        // Private browsing or browser privacy policies may block storage.
+        // Treat this as an unauthenticated request, not a frontend crash.
+        return null;
+    }
 }
 
 async function request(endpoint, options = {}) {
@@ -51,7 +57,11 @@ async function request(endpoint, options = {}) {
 
     if (response.status === 401 && !isCredentialRequest) {
         if (typeof window !== "undefined") {
-            localStorage.removeItem("token");
+            try {
+                window.localStorage.removeItem("token");
+            } catch {
+                // Preserve the 401 and login redirect if storage is blocked.
+            }
             if (!window.location.pathname.startsWith("/login")) {
                 window.location.href = "/login";
             }
