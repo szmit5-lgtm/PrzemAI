@@ -8,6 +8,7 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
   const routes = [];
   let writes = 0;
   let failNextWrite = false;
+  let orgActive = true;
   const saved = new Set();
   const router = {
     use() {},
@@ -15,7 +16,7 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
     post(path, ...handlers) { routes.push({ path, handler: handlers.at(-1) }); }
   };
   const prisma = {
-    organization: { findFirst: async () => ({ id: "test-org" }) },
+    organization: { findFirst: async () => orgActive ? { id: "test-org" } : null },
     whatsAppMessage: { create: async ({ data }) => {
       writes++;
       if (failNextWrite) { failNextWrite = false; throw { code: "P1001" }; }
@@ -43,6 +44,33 @@ test("Meta status-only callback is acknowledged without writing a message", asyn
       return originalLoad.call(this, request, parent, isMain);
     };
     const routePath = require.resolve("../api/routes/whatsappRoutes");
+    // Fail closed when the tenant was disabled between deliveries.
+    // No message should be persisted until the organization is ACTIVE again.
+    const disabledOrgPayload = { object: "whatsapp_business_account", entry: [
+      { changes: [{ field: "messages", value: {
+        metadata: { phone_number_id: "123456" },
+        messages: [{ id: "wamid.disabled-org", from: "48123456789",
+          type: "text", text: { body: "Synthetic disabled tenant" } }]
+      } }] }
+    ] };
+    const disabledOrgRaw = Buffer.from(JSON.stringify(disabledOrgPayload));
+    const disabledOrgSignature = "sha256=" +
+      crypto.createHmac("sha256", "test-secret").update(disabledOrgRaw).digest("hex");
+    orgActive = false;
+    statusCode = undefined;
+    await handler({ body: disabledOrgPayload, rawBody: disabledOrgRaw,
+      get: () => disabledOrgSignature }, res);
+    assert.equal(statusCode, 503);
+    assert.equal(saved.size, 2);
+    assert.equal(writes, 4);
+    orgActive = true;
+    statusCode = undefined;
+    await handler({ body: disabledOrgPayload, rawBody: disabledOrgRaw,
+      get: () => disabledOrgSignature }, res);
+    assert.equal(statusCode, 200);
+    assert.equal(saved.size, 3);
+    assert.equal(writes, 5);
+
     delete require.cache[routePath];
     require(routePath);
     const handler = routes.find(x => x.path === "/webhook")?.handler;
