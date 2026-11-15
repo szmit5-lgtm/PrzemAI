@@ -77,6 +77,7 @@ async function recoverStaleRuns() {
 const { discoverPublicLeads } = require("./publicLeadDiscovery");
 const { searchPublicCompanies } = require("./publicCompanySearch");
 const { buildSalesLeadReport } = require("./salesLeadPipeline");
+const { isKaldevaJobRow } = require("./lib/kaldevaJobGuard");
 
 async function processKaldevaJobs() {
   if (stopping) return 0;
@@ -94,7 +95,7 @@ async function processKaldevaJobs() {
   });
   for (const row of stale) {
     if (stopping) return 0;
-    if (row.report?.actorId !== row.userId || row.report?.companyId !== "kaldeva:" + row.userId) continue;
+    if (!isKaldevaJobRow(row, "running")) continue;
     const failed = { ...row.report, status: "failed", error: "worker_interrupted_retry_search" };
     await prisma.$executeRaw`
       UPDATE "History" SET "report" = ${JSON.stringify(failed)}::jsonb, "updatedAt" = NOW()
@@ -117,8 +118,7 @@ async function processKaldevaJobs() {
   for (const row of jobs) {
     if (stopping) break;
     const job = row.report;
-    if (job?.status !== "queued" || job.actorId !== row.userId ||
-        job.companyId !== "kaldeva:" + row.userId || typeof job.query !== "string") continue;
+    if (!isKaldevaJobRow(row, "queued")) continue;
     const running = { ...job, status: "running" };
     // Claim only a still-queued job; cancellation or a second worker wins safely.
     const claimed = await prisma.$executeRaw`
