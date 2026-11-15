@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeAllegroOrder, fetchAllegroOrdersPage, BASE_API_URL } = require('../connectors/allegro/baseOrdersAdapter');
+const { normalizeAllegroOrder, fetchAllegroOrdersPage, fetchCompleteAllegroOrders, BASE_API_URL } = require('../connectors/allegro/baseOrdersAdapter');
 
 const sample = {
   order_id: 1234, order_source: 'allegro', order_source_id: 50, order_status_id: 7,
@@ -66,4 +66,27 @@ test('reports possible truncation on exactly 100 orders rather than silently cla
   assert.equal(result.orders.length, 100);
   assert.equal(result.complete, false);
   assert.equal(result.morePagesPossible, true);
+});
+
+test('complete reporting fails closed for capped Base.com pages, without guessing a cursor', async () => {
+  const orders = Array.from({ length: 100 }, (_, i) => ({ ...sample, order_id: i + 1, date_confirmed: 1763200000 }));
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls++;
+    return { ok: true, json: async () => ({ status: 'SUCCESS', orders }) };
+  };
+  await assert.rejects(
+    fetchCompleteAllegroOrders({ organizationId: 'synthetic-tenant', token: 'FAKE', sinceUnix: 1, fetchImpl }),
+    /base_incomplete_page_requires_safe_pagination/
+  );
+  assert.equal(calls, 1, 'must not guess a timestamp cursor and silently skip same-second orders');
+});
+
+test('complete reporting accepts an uncapped synthetic page', async () => {
+  const result = await fetchCompleteAllegroOrders({
+    organizationId: 'synthetic-tenant', token: 'FAKE', sinceUnix: 1,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ status: 'SUCCESS', orders: [sample] }) })
+  });
+  assert.equal(result.complete, true);
+  assert.equal(result.orders.length, 1);
 });
