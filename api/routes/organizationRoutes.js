@@ -234,8 +234,7 @@ router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
   if(error)return res.status(400).json({success:false,error:"PDF jest za duży lub nieprawidłowy (limit 15 MB)."});
   if(!req.file)return res.status(400).json({success:false,error:"Wybierz plik PDF."});
   try{
-   await financeService.accessible(req.user.id,req.params.id);
-   const membership=await prisma.organizationMembership.findFirst({where:{userId:req.user.id,organizationId:req.params.id,status:"ACTIVE",role:"OWNER"}});
+   const membership=await prisma.organizationMembership.findFirst({where:{userId:req.user.id,organizationId:req.params.id,status:"ACTIVE",role:"OWNER",organization:{status:"ACTIVE"}}});
    if(!membership)return res.status(403).json({success:false,error:"Import wymaga roli właściciela."});
    if(req.file.buffer.subarray(0,5).toString()!=="%PDF-")return res.status(400).json({success:false,error:"Plik nie jest dokumentem PDF."});
    const parsed=await pdfParse(req.file.buffer,{max:150});
@@ -262,7 +261,7 @@ const bankCsvUpload = multer({
 // reconcilable balances. File bytes are never trusted as tenant authorization.
 router.post("/:id/bank/csv-import", verifyToken, async (req, res) => {
  try {
-  await financeService.accessible(req.user.id, req.params.id);
+  // Bank imports are authorized by the organization owner role, not KSeF.
   const membership = await prisma.organizationMembership.findFirst({
    where: { userId: req.user.id, organizationId: req.params.id,
     status: "ACTIVE", role: "OWNER", organization: { status: "ACTIVE" } },
