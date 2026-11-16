@@ -5,7 +5,11 @@
 const BASE_API_URL = 'https://api.base.com/connector.php';
 
 const isMoney = n => typeof n === 'number' && Number.isFinite(n) && n >= 0;
-const cents = n => Math.round((n + Number.EPSILON) * 100);
+function cents(n) {
+  const value = Math.round((n + Number.EPSILON) * 100);
+  if (!Number.isSafeInteger(value)) throw new Error('base_amount_out_of_range');
+  return value;
+}
 const MAX_UNIX_SECONDS = 8640000000000000 / 1000;
 function normalizeAllegroOrder(organizationId, order) {
   if (!order || order.order_source !== 'allegro' || order.confirmed !== true) return null;
