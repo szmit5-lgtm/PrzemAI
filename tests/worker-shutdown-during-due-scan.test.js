@@ -38,6 +38,10 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {},
     "./api/services/AgentService": class {
       async ensureDefaults() {}
     }
