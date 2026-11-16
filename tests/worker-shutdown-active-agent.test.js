@@ -19,6 +19,7 @@ test("SIGTERM lets an already-running agent finish before disconnecting and neve
   };
   const agent = { id: "active-agent", key: "financial", userId: "staging-user", enabled: true };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "staging-user" }]; } },
     agent: {
       async findMany({ where }) {
