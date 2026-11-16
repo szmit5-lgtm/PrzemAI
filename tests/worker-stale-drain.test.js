@@ -40,6 +40,7 @@ function boot(staleCount, lostClaims = new Set()) {
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./scripts/sendSpecpozOnce": { sendSpecpozOnce: async () => { throw new Error("unexpected specpoz"); } },
     "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
     "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
     "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
