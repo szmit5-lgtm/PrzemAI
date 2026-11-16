@@ -19,6 +19,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
 
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -39,6 +40,9 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
@@ -98,6 +102,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   const handlers = {};
   const events = { provisioned: [], dueReads: 0, runs: 0, disconnects: 0, exits: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "user-1" }, { id: "user-2" }]; } },
     agent: {
       async findMany({ where }) {
@@ -112,6 +117,9 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
