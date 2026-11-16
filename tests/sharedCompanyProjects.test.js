@@ -6,6 +6,7 @@ const Module = require("node:module");
 const calls = [];
 let memberships = [];
 let adminAllowed = false;
+let updatedCount = 1;
 const prisma = {
   organizationMembership: {
     async findFirst(query) { calls.push(["adminMembership", query]); return adminAllowed ? { id: "membership" } : null; },
@@ -18,7 +19,7 @@ const prisma = {
     async findMany(query) { calls.push(["projects", query]); return []; },
     async findFirst(query) { calls.push(["existing", query]); return null; },
     async create(query) { calls.push(["create", query]); return query.data; },
-    async updateMany(query) { calls.push(["mapLegacy", query]); return { count: 1 }; }
+    async updateMany(query) { calls.push(["mapLegacy", query]); return { count: updatedCount }; }
   }
 };
 const load = Module._load;
@@ -167,4 +168,21 @@ test("legacy mapping cannot transfer a project owned by another user", async () 
   assert.equal(update.where.organizationId, null);
   assert.equal(update.where.status, "ACTIVE");
   adminAllowed = false;
+});
+
+
+test("legacy mapping fails closed when project was already mapped or belongs to someone else", async () => {
+  calls.length = 0;
+  adminAllowed = true;
+  updatedCount = 0;
+  try {
+    await assert.rejects(
+      () => new FinanceService().shareLegacyProject("owner", "missing-or-mapped", "dekonica"),
+      /Projekt nie istnieje lub został już przypisany/
+    );
+    assert.equal(calls.filter(([type]) => type === "mapLegacy").length, 1);
+  } finally {
+    updatedCount = 1;
+    adminAllowed = false;
+  }
 });
