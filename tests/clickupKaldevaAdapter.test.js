@@ -28,3 +28,13 @@ test("missing credentials, malformed data and HTTP errors fail closed", async ()
   await assert.rejects(() => denied.checkList(), /HTTP 401/);
   await assert.rejects(() => bad.listTasks({ maxPages: 11 }), /page limit/);
 });
+
+test("bounded pagination never returns incomplete lead list", async () => {
+  const client = createClickUpKaldevaClient({
+    token: "synthetic-token", listId: "123",
+    fetchImpl: async () => ({
+      ok: true, json: async () => ({ tasks: [{ id: "fixture", name: "Lead" }], last_page: false })
+    })
+  });
+  await assert.rejects(() => client.listTasks({ maxPages: 2 }), /pagination limit reached/);
+});
