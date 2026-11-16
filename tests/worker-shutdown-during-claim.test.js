@@ -16,6 +16,7 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
   const events = { updates: [], runs: 0, disconnects: 0, exits: [], errors: [] };
   const agent = { id: "claimed-agent", key: "financial", userId: "staging-user", enabled: true };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "staging-user" }]; } },
     agent: {
       async findMany({ where }) {
