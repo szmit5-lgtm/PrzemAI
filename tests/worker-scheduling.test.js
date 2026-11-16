@@ -13,6 +13,7 @@ const workerSource = fs.readFileSync(path.join(__dirname, "../worker.js"), "utf8
 function startWorker(overrides = {}) {
   const events = { logs: [], warnings: [], errors: [], runs: [], ensured: [], tick: null };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { findMany: async () => [] },
     agent: {
       findMany: async () => [],
