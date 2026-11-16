@@ -126,6 +126,21 @@ async function processKaldevaJobs() {
         AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'queued'
     `;
     if (claimed !== 1) continue;
+    // SIGTERM may arrive while the atomic claim is in flight. Return this
+    // unstarted job to the queue instead of beginning an external search.
+    if (stopping) {
+      try {
+        await prisma.$executeRaw`
+          UPDATE "History" SET "report" = ${JSON.stringify(job)}::jsonb, "updatedAt" = NOW()
+          WHERE "id" = ${row.id} AND "userId" = ${row.userId}
+            AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
+            AND "report"->>'actorId' = ${row.userId}
+        `;
+      } catch (error) {
+        console.error("[Worker] Failed to release Kaldeva claim during shutdown", row.id, error?.message);
+      }
+      break;
+    }
     let result;
     try {
       const found = await discoverPublicLeads({
