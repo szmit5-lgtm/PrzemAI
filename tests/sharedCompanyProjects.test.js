@@ -142,3 +142,29 @@ test("member without admin role cannot map a legacy project", async () => {
   );
   assert.equal(calls.some(([type]) => type === "mapLegacy"), false);
 });
+
+test("legacy mapping rejects malformed identifiers before querying the database", async () => {
+  calls.length = 0;
+  adminAllowed = true;
+  await assert.rejects(
+    () => new FinanceService().shareLegacyProject("owner", " ", "dekonica"),
+    /Nieprawidłowe dane/
+  );
+  await assert.rejects(
+    () => new FinanceService().shareLegacyProject("owner", "mielno", "x".repeat(129)),
+    /Nieprawidłowe dane/
+  );
+  assert.equal(calls.length, 0);
+  adminAllowed = false;
+});
+
+test("legacy mapping cannot transfer a project owned by another user", async () => {
+  calls.length = 0;
+  adminAllowed = true;
+  await new FinanceService().shareLegacyProject("owner", "legacy-other-owner", "dekonica");
+  const update = calls.find(([type]) => type === "mapLegacy")[1];
+  assert.equal(update.where.userId, "owner");
+  assert.equal(update.where.organizationId, null);
+  assert.equal(update.where.status, "ACTIVE");
+  adminAllowed = false;
+});
