@@ -108,13 +108,30 @@ class FinanceService {
             : { queued: false, status: "RUNNING" };
     }
 
+    // Company projects are shared with ACTIVE members; legacy personal projects
+    // remain visible only to their creator until explicitly assigned to a tenant.
+    async accessibleProjectOrganizations(userId) {
+        const memberships = await prisma.organizationMembership.findMany({
+            where: { userId, status: "ACTIVE", organization: { status: "ACTIVE" } },
+            select: { organizationId: true }
+        });
+        return memberships.map(member => member.organizationId);
+    }
+
     async listProjects(userId) {
         if (typeof userId !== "string" || !userId.trim()) {
             throw new Error("Brak identyfikatora użytkownika.");
         }
+        const organizationIds = await this.accessibleProjectOrganizations(userId);
         return prisma.project.findMany({
-            where: { userId, status: "ACTIVE" },
-            select: { id: true, name: true, aliases: true, company: true },
+            where: {
+                status: "ACTIVE",
+                OR: [
+                    { userId, organizationId: null },
+                    { organizationId: { in: organizationIds } }
+                ]
+            },
+            select: { id: true, name: true, aliases: true, company: true, organizationId: true },
             orderBy: { name: "asc" },
             take: 300
         });
@@ -126,6 +143,8 @@ class FinanceService {
         }
         const name = typeof payload?.name === "string" ? payload.name.trim() : "";
         const company = typeof payload?.company === "string" ? payload.company.trim() : "";
+        const organizationId = typeof payload?.organizationId === "string"
+            ? payload.organizationId.trim() : "";
         const aliases = Array.isArray(payload?.aliases)
             ? [...new Set(payload.aliases.map(x=>typeof x === "string" ? x.trim() : "")
                 .filter(x=>x.length >= 3 && x.length <= 100))].slice(0,10)
@@ -133,13 +152,24 @@ class FinanceService {
         if (name.length < 3 || name.length > 120 || company.length > 100) {
             throw new Error("Nazwa projektu musi mieć 3–120 znaków.");
         }
+        if (organizationId.length > 128) throw new Error("Nieprawidłowa spółka.");
+        if (organizationId) {
+            const allowed = await this.accessibleProjectOrganizations(userId);
+            if (!allowed.includes(organizationId)) {
+                throw new Error("Brak dostępu do wybranej spółki.");
+            }
+        }
         const existing = await prisma.project.findFirst({
-            where: { userId, name, status: "ACTIVE" },
+            where: {
+                name, status: "ACTIVE",
+                ...(organizationId ? { organizationId } : { userId, organizationId: null })
+            },
             select: { id: true }
         });
         if (existing) throw new Error("Projekt o tej nazwie już istnieje.");
         return prisma.project.create({ data: {
-            userId, name, company: company || null, aliases, status: "ACTIVE"
+            userId, name, company: company || null, aliases, status: "ACTIVE",
+            organizationId: organizationId || null
         } });
     }
 
