@@ -77,3 +77,24 @@ test("legacy projects stay personal until explicitly mapped to an organization",
   });
   assert.equal(calls.find(([type]) => type === "create")[1].data.organizationId, null);
 });
+
+test("inactive membership cannot list another user's company projects", async () => {
+  calls.length = 0;
+  memberships = [];
+  await new FinanceService().listProjects("outsider");
+  const query = calls.find(([type]) => type === "projects")[1];
+  assert.deepEqual(query.where.OR, [
+    { userId: "outsider", organizationId: null },
+    { organizationId: { in: [] } }
+  ]);
+});
+
+test("company membership does not grant access to financial documents", async () => {
+  calls.length = 0;
+  memberships = ["dekonica"];
+  prisma.financialDocument = {
+    async findMany(query) { calls.push(["documents", query]); return []; }
+  };
+  await new FinanceService().list("leszek");
+  assert.deepEqual(calls.find(([type]) => type === "documents")[1].where, { userId: "leszek" });
+});
