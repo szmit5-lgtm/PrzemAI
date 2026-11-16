@@ -5,11 +5,19 @@ const OpenAI = require("openai");
 class AIEngine {
 
     constructor() {
+        // Initialize only when an AI request is made. Healthchecks, bank imports,
+        // and webhook persistence must start without a paid AI API credential.
+        this.client = null;
+    }
 
-        this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-
+    getClient() {
+        if (!process.env.OPENAI_API_KEY) {
+            throw new Error("OpenAI API is not configured for this environment.");
+        }
+        if (!this.client) {
+            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        }
+        return this.client;
     }
 
     async ask(options) {
@@ -35,7 +43,7 @@ class AIEngine {
 
         } = options;
 
-        const response = await this.client.responses.create({
+        const response = await this.getClient().responses.create({
 
             model,
 

@@ -10,9 +10,8 @@ class SpeechToText {
 
     constructor() {
 
-        this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
+        // Do not require a paid API credential merely to start the web server.
+        this.client = null;
 
         /*
          * Jeżeli plik jest mniejszy niż ten limit,
@@ -28,6 +27,16 @@ class SpeechToText {
         this.chunkDurationSeconds =
             20 * 60;
 
+    }
+
+    getClient() {
+        if (!process.env.OPENAI_API_KEY) {
+            throw new Error("Transkrypcja jest niedostępna: brak konfiguracji OpenAI.");
+        }
+        if (!this.client) {
+            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        }
+        return this.client;
     }
 
     async transcribe(filePath) {
@@ -94,7 +103,7 @@ class SpeechToText {
     async transcribeSingleFile(filePath) {
 
         const transcript =
-            await this.client.audio.transcriptions.create({
+            await this.getClient().audio.transcriptions.create({
 
                 file:
                     fs.createReadStream(filePath),

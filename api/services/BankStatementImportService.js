@@ -7,7 +7,9 @@ const finance=new OrganizationFinanceService();
 function money(v){
  const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");
  if(!/^-?\d+(?:\.\d{1,2})?$/.test(s))throw new Error("Nieprawidłowa kwota.");
- return Number(s).toFixed(2);
+ const n=Number(s);
+ if(!Number.isFinite(n)||!Number.isSafeInteger(Math.round(n*100)))throw new Error("Kwota przekracza bezpieczny zakres.");
+ return n.toFixed(2);
 }
 function date(v){
  const s=String(v??"").trim();
@@ -37,8 +39,10 @@ async function importStatement(userId,orgId,payload){
   const fingerprint=crypto.createHash("sha256").update(JSON.stringify([i,bookedAt.toISOString(),amount,description,counterparty,reference])).digest("hex");
   return {bookedAt,amount,description,counterparty,reference,fingerprint};
  });
- const sum=transactions.reduce((a,r)=>a+Math.round(Number(r.amount)*100),0);
- if(Math.abs(Math.round(Number(opening)*100)+sum-Math.round(Number(closing)*100))>1)
+ const toCents=v=>BigInt(Math.round(Number(v)*100));
+ const sum=transactions.reduce((a,r)=>a+toCents(r.amount),0n);
+ const balanceDifference=toCents(opening)+sum-toCents(closing);
+ if(balanceDifference>1n||balanceDifference< -1n)
   throw new Error("Saldo początkowe + suma transakcji nie zgadza się z saldem końcowym.");
  const sourceHash=crypto.createHash("sha256").update(JSON.stringify({iban,number,opening,closing,periodEnd,transactions})).digest("hex");
  return prisma.$transaction(async tx=>{
