@@ -129,3 +129,15 @@ test('rejects unsafe monetary precision and overflow in synthetic orders', () =>
     /base_amount_out_of_range/
   );
 });
+
+test('rejects cursor outside JavaScript Date range before contacting Base.com', async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchAllegroOrdersPage({
+      organizationId: 'synthetic-tenant', token: 'FAKE', sinceUnix: 8640000000001,
+      fetchImpl: async () => { calls++; throw new Error('unexpected_network_call'); }
+    }),
+    /base_invalid_cursor/
+  );
+  assert.equal(calls, 0);
+});
