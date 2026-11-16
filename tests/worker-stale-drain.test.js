@@ -13,6 +13,7 @@ function boot(staleCount, lostClaims = new Set()) {
   const pending = Array.from({ length: staleCount }, (_, index) => ({ id: `stale-${index}` }));
   const events = { claims: [], audits: [], scans: [], logs: [], tick: null };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { findMany: async () => [] },
     agent: {
       async findMany(args) {
