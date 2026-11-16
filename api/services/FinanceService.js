@@ -177,6 +177,31 @@ class FinanceService {
         } });
     }
 
+    // Explicit owner-initiated mapping for existing legacy projects. No automatic
+    // migration based on the display-only company field.
+    async shareLegacyProject(userId, projectId, organizationId) {
+        if (typeof userId !== "string" || !userId.trim() ||
+            typeof projectId !== "string" || !projectId.trim() || projectId.length > 128 ||
+            typeof organizationId !== "string" || !organizationId.trim() || organizationId.length > 128) {
+            throw new Error("Nieprawidłowe dane przypisania projektu.");
+        }
+        const membership = await prisma.organizationMembership.findFirst({
+            where: {
+                userId, organizationId, status: "ACTIVE",
+                role: { in: ["OWNER", "ADMIN"] },
+                organization: { status: "ACTIVE" }
+            },
+            select: { id: true }
+        });
+        if (!membership) throw new Error("Brak uprawnień administratora spółki.");
+        const updated = await prisma.project.updateMany({
+            where: { id: projectId, userId, organizationId: null, status: "ACTIVE" },
+            data: { organizationId }
+        });
+        if (updated.count !== 1) throw new Error("Projekt nie istnieje lub został już przypisany.");
+        return { id: projectId, organizationId };
+    }
+
     async assignProject(userId, id, projectId) {
         if (typeof userId !== "string" || !userId.trim()) {
             throw new Error("Brak identyfikatora użytkownika.");
