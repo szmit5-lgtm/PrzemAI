@@ -23,3 +23,14 @@ test("same email with different phone is duplicate; invalid identities fail clos
   assert.throws(() => deduplicateLeads([{ organizationId: "tenant-a", phone: "++" }]), /invalid phone/);
   assert.throws(() => deduplicateLeads([{ organizationId: "tenant-a", email: "invalid" }]), /invalid email/);
 });
+
+test("rejects whitespace in email and letters in phone, accepts formatted international phone", () => {
+  assert.throws(() => deduplicateLeads([{ organizationId: "tenant-a", email: "a b@example.test" }]), /invalid email/);
+  assert.throws(() => deduplicateLeads([{ organizationId: "tenant-a", phone: "abc1234567" }]), /invalid phone/);
+  const result = deduplicateLeads([
+    { organizationId: "tenant-a", phone: "+48 500 600 700" },
+    { organizationId: "tenant-a", phone: "48500600700" }
+  ]);
+  assert.equal(result.unique.length, 1);
+  assert.equal(result.duplicates.length, 1);
+});
