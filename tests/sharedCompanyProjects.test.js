@@ -5,8 +5,10 @@ const Module = require("node:module");
 
 const calls = [];
 let memberships = [];
+let adminAllowed = false;
 const prisma = {
   organizationMembership: {
+    async findFirst(query) { calls.push(["adminMembership", query]); return adminAllowed ? { id: "membership" } : null; },
     async findMany(query) {
       calls.push(["memberships", query]);
       return memberships.map(organizationId => ({ organizationId }));
@@ -15,7 +17,8 @@ const prisma = {
   project: {
     async findMany(query) { calls.push(["projects", query]); return []; },
     async findFirst(query) { calls.push(["existing", query]); return null; },
-    async create(query) { calls.push(["create", query]); return query.data; }
+    async create(query) { calls.push(["create", query]); return query.data; },
+    async updateMany(query) { calls.push(["mapLegacy", query]); return { count: 1 }; }
   }
 };
 const load = Module._load;
@@ -114,4 +117,28 @@ test("user without company membership retains private project creation", async (
   memberships = [];
   await new FinanceService().createProject("personal", { name: "Prywatny projekt" });
   assert.equal(calls.find(([type]) => type === "create")[1].data.organizationId, null);
+});
+
+test("only an active company admin can share their own legacy project", async () => {
+  calls.length = 0;
+  adminAllowed = true;
+  const result = await new FinanceService().shareLegacyProject("owner", "mielno", "dekonica");
+  assert.deepEqual(result, { id: "mielno", organizationId: "dekonica" });
+  const membership = calls.find(([type]) => type === "adminMembership")[1];
+  assert.deepEqual(membership.where.role.in, ["OWNER", "ADMIN"]);
+  const update = calls.find(([type]) => type === "mapLegacy")[1];
+  assert.deepEqual(update.where, {
+    id: "mielno", userId: "owner", organizationId: null, status: "ACTIVE"
+  });
+  adminAllowed = false;
+});
+
+test("member without admin role cannot map a legacy project", async () => {
+  calls.length = 0;
+  adminAllowed = false;
+  await assert.rejects(
+    () => new FinanceService().shareLegacyProject("member", "mielno", "dekonica"),
+    /Brak uprawnień/
+  );
+  assert.equal(calls.some(([type]) => type === "mapLegacy"), false);
 });
