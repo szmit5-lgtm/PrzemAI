@@ -267,3 +267,33 @@ test("finance list ignores injected Prisma operators in status and source filter
     userId: "authorized-user", status: "NEW", source: "KSEF"
   });
 });
+
+test("KSeF period report is tenant-scoped and never presented as bank cash flow", async () => {
+  calls.length = 0;
+  const result = await new FinanceService().reportPeriods("synthetic-dekonica", 2026);
+  const reads = calls.filter(call => call.method === "findMany");
+  assert.equal(reads.length, 1);
+  assert.deepEqual(reads[0].options.where, {
+    userId: "synthetic-dekonica",
+    source: "KSEF",
+    issueDate: {
+      gte: new Date("2026-01-01T00:00:00.000Z"),
+      lt: new Date("2027-01-01T00:00:00.000Z")
+    }
+  });
+  assert.equal(reads[0].options.take, 500);
+  assert.equal(result.year, 2026);
+  assert.equal(result.cashFlowAvailable, false);
+  assert.equal(result.source, "KSEF_INVOICES");
+});
+
+test("KSeF period report rejects invalid years before database access", async () => {
+  for (const year of [2019, 2101, "not-a-year", 2026.5, null]) {
+    calls.length = 0;
+    await assert.rejects(
+      new FinanceService().reportPeriods("synthetic-deherus", year),
+      /Nieprawidłowy rok/
+    );
+    assert.equal(calls.length, 0);
+  }
+});
