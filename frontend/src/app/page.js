@@ -59,9 +59,9 @@ export default function HomePage() {
  const [companySearch,setCompanySearch]=useState("");
  const [simpleMode,setSimpleMode]=useState(false);
  const [primaryCompany,setPrimaryCompany]=useState("");
- const [companyFinance,setCompanyFinance]=useState(null);
+ const [companyFinanceState,setCompanyFinance]=useState(null);
  const [companyFinanceError,setCompanyFinanceError]=useState("");
- const [companyReport,setCompanyReport]=useState(null);
+ const [companyReportState,setCompanyReport]=useState(null);
  useEffect(()=>{try{setPrimaryCompany(window.localStorage.getItem("przemai-primary-organization")||"");}catch{}},[]);
  useEffect(()=>{try{setSimpleMode(window.localStorage.getItem("przemai-dashboard-mode")==="simple");}catch{}},[]);
  const switchMode=mode=>{setSimpleMode(mode);try{window.localStorage.setItem("przemai-dashboard-mode",mode?"simple":"full");}catch{}};
@@ -89,9 +89,9 @@ export default function HomePage() {
   const allowed=(data?.organizations||[]).some(o=>o.id===primaryCompany);
   if(!allowed){setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");return;}
   let active=true;setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");
-  getOrganizationFinanceAnnualReport(primaryCompany,new Date().getFullYear()).then(result=>{if(active)setCompanyReport(result?.data||null);}).catch(()=>{if(active)setCompanyReport(null);});
+  getOrganizationFinanceAnnualReport(primaryCompany,new Date().getFullYear()).then(result=>{if(active)setCompanyReport({organizationId:primaryCompany,data:result?.data||null});}).catch(()=>{if(active)setCompanyReport(null);});
   getOrganizationFinanceSummary(primaryCompany).then(result=>{
-   if(active)setCompanyFinance(result?.data||null);
+   if(active)setCompanyFinance({organizationId:primaryCompany,data:result?.data||null});
   }).catch(error=>{if(active)setCompanyFinanceError(error?.message||"Nie można pobrać KSeF.");});
   return()=>{active=false;};
  },[primaryCompany,data?.organizations]);
@@ -103,6 +103,8 @@ export default function HomePage() {
  const agents=Array.isArray(data?.agents)?data.agents:[];
  const personalProjects=Array.isArray(data?.projects)?data.projects:[];
  const selectedOrg=(data?.organizations||[]).find(o=>o.id===primaryCompany);
+ const companyFinance=companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
+ const companyReport=companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
  const projects=selectedOrg?personalProjects.filter(p=>{
   const label=String(p.company||"").toLocaleLowerCase("pl-PL");
   const orgName=String(selectedOrg.name||"").toLocaleLowerCase("pl-PL");
@@ -116,12 +118,12 @@ export default function HomePage() {
  const purchasePLN=amounts.find(a=>a.currency==="PLN"&&a.direction==="INCOMING");
  const salesPLN=amounts.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING");
  const enabled=agents.filter(a=>a.enabled).length;
- const reportRows=selectedOrg?(companyReport?.rows||[]):(Array.isArray(data?.report?.rows)?data.report.rows:[]);
+ const reportRows=primaryCompany?(selectedOrg?(companyReport?.rows||[]):[]):(Array.isArray(data?.report?.rows)?data.report.rows:[]);
  const chart=useMemo(()=>months.map((label,index)=>{
-   const rows=reportRows.filter(r=>r.currency==="PLN"&&(selectedOrg?r.month===index+1:r.period==="MONTH"&&r.number===index+1));
-   const total=group=>rows.filter(r=>selectedOrg?r.direction===group:r.group===group).reduce((s,r)=>s+Number(r.gross||0),0);
-   return {label,sales:total(selectedOrg?"OUTGOING":"INVOICED_SALES"),purchase:total(selectedOrg?"INCOMING":"INVOICED_PURCHASES")};
- }),[reportRows,selectedOrg]);
+   const rows=reportRows.filter(r=>r.currency==="PLN"&&(primaryCompany?r.month===index+1:r.period==="MONTH"&&r.number===index+1));
+   const total=group=>rows.filter(r=>primaryCompany?r.direction===group:r.group===group).reduce((s,r)=>s+Number(r.gross||0),0);
+   return {label,sales:total(primaryCompany?"OUTGOING":"INVOICED_SALES"),purchase:total(primaryCompany?"INCOMING":"INVOICED_PURCHASES")};
+ }),[reportRows,primaryCompany]);
  const chartMax=Math.max(1,...chart.flatMap(r=>[r.sales,r.purchase]));
  const nowMonth=new Date().getMonth();
  const shownMonths=chart.slice(0,Math.max(3,nowMonth+1));
@@ -243,9 +245,9 @@ export default function HomePage() {
      <SmallLink href="/agents/sales" title="Agent sprzedażowy" icon={Handshake}/>
     </section>}
     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-     <Metric label="Faktury z KSeF" value={ready?(selectedOrg?(companyFinance?.count??"—"):(finance.ksef??"—")):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
-     <Metric label="Faktury zakupowe PLN" value={ready?(selectedOrg?(companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross??0):"—"):(data?.finance?money(purchasePLN?.gross??0):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
-     <Metric label="Faktury sprzedażowe PLN" value={ready?(selectedOrg?(companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross??0):"—"):(data?.finance?money(salesPLN?.gross??0):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
+     <Metric label="Faktury z KSeF" value={ready?(primaryCompany?(selectedOrg?(companyFinance?.count??"—"):"—"):(finance.ksef??"—")):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
+     <Metric label="Faktury zakupowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross??0):"—"):(data?.finance?money(purchasePLN?.gross??0):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
+     <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross??0):"—"):(data?.finance?money(salesPLN?.gross??0):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
      <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
     </section>
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#111c35] px-4 py-3 text-xs leading-5 text-slate-400">
@@ -257,7 +259,7 @@ export default function HomePage() {
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/finance/reports" link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">{new Date().getFullYear()} · miesiące · brutto · nie są to przepływy pieniężne</p>
-      {reportRows.length===0?<div className="mt-7 flex min-h-[208px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{loading?"Pobieranie zestawienia…":(selectedOrg&&!companyReport?"Nie udało się pobrać zestawienia KSeF firmy lub brak uprawnień.":"Brak danych faktur do wykresu.")}</div>:
+      {reportRows.length===0?<div className="mt-7 flex min-h-[208px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{loading?"Pobieranie zestawienia…":(primaryCompany&&!companyReport?"Nie udało się pobrać zestawienia KSeF wybranej firmy lub brak uprawnień.":"Brak danych faktur do wykresu.")}</div>:
       <div className="mt-7 min-w-0 overflow-x-auto">
        <div className="flex h-52 min-w-[390px] items-end gap-1.5 border-b border-white/15 pb-3 sm:gap-2">
         {shownMonths.map(v=><div key={v.label} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
