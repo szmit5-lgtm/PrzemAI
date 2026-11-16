@@ -73,6 +73,20 @@ class FinanceController {
         }
     }
 
+    async shareLegacyProject(req, res) {
+        try {
+            const result = await this.service.shareLegacyProject(
+                req.user.id, req.params.id, req.body?.organizationId
+            );
+            return res.json({ success: true, item: result });
+        } catch (error) {
+            const denied = error.message === "Brak uprawnień administratora spółki.";
+            return res.status(denied ? 403 : 400).json({
+                success: false, error: error.message || "Nie udało się przypisać projektu."
+            });
+        }
+    }
+
     async assignProject(req, res) {
         try {
             const { projectId } = req.body || {};
