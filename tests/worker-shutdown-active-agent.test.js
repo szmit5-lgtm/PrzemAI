@@ -41,6 +41,10 @@ test("SIGTERM lets an already-running agent finish before disconnecting and neve
         events.finished.push(item.id);
       }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {},
     "./api/services/AgentService": class { async ensureDefaults() {} }
   };
 
