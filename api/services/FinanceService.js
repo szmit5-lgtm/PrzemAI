@@ -153,23 +153,27 @@ class FinanceService {
             throw new Error("Nazwa projektu musi mieć 3–120 znaków.");
         }
         if (organizationId.length > 128) throw new Error("Nieprawidłowa spółka.");
-        if (organizationId) {
-            const allowed = await this.accessibleProjectOrganizations(userId);
-            if (!allowed.includes(organizationId)) {
-                throw new Error("Brak dostępu do wybranej spółki.");
-            }
+        const allowed = await this.accessibleProjectOrganizations(userId);
+        // A single-company member creates shared projects by default.
+        // Multiple-company members must choose explicitly to avoid cross-tenant mistakes.
+        const selectedOrganizationId = organizationId || (allowed.length === 1 ? allowed[0] : "");
+        if (organizationId && !allowed.includes(organizationId)) {
+            throw new Error("Brak dostępu do wybranej spółki.");
+        }
+        if (!organizationId && allowed.length > 1) {
+            throw new Error("Wybierz spółkę dla nowego projektu.");
         }
         const existing = await prisma.project.findFirst({
             where: {
                 name, status: "ACTIVE",
-                ...(organizationId ? { organizationId } : { userId, organizationId: null })
+                ...(selectedOrganizationId ? { organizationId: selectedOrganizationId } : { userId, organizationId: null })
             },
             select: { id: true }
         });
         if (existing) throw new Error("Projekt o tej nazwie już istnieje.");
         return prisma.project.create({ data: {
             userId, name, company: company || null, aliases, status: "ACTIVE",
-            organizationId: organizationId || null
+            organizationId: selectedOrganizationId || null
         } });
     }
 
