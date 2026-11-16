@@ -46,6 +46,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {},
     "./api/services/AgentService": class {
       async ensureDefaults() { events.ensured += 1; }
     }
