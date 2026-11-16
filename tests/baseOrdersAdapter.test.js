@@ -90,3 +90,26 @@ test('complete reporting accepts an uncapped synthetic page', async () => {
   assert.equal(result.complete, true);
   assert.equal(result.orders.length, 1);
 });
+
+test('rejects duplicate confirmed Allegro order IDs before publishing a page', async () => {
+  await assert.rejects(
+    fetchCompleteAllegroOrders({
+      organizationId: 'synthetic-tenant', token: 'FAKE', sinceUnix: 1,
+      fetchImpl: async () => ({ ok: true, json: async () => ({
+        status: 'SUCCESS', orders: [sample, { ...sample, order_status_id: 9 }]
+      }) })
+    }),
+    /base_duplicate_order_id/
+  );
+});
+
+test('rejects impossible timestamps and fractional quantities without publishing invalid totals', () => {
+  assert.throws(
+    () => normalizeAllegroOrder('synthetic-tenant', { ...sample, date_confirmed: 999999999999999 }),
+    /base_invalid_confirmation_date/
+  );
+  assert.throws(
+    () => normalizeAllegroOrder('synthetic-tenant', { ...sample, products: [{ price_brutto: 9.99, quantity: 0.5 }] }),
+    /base_invalid_line_amount/
+  );
+});
