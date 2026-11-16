@@ -19,6 +19,7 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
   };
 
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
