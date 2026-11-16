@@ -25,6 +25,7 @@ function leadIdentityKeys(lead) {
     keys.push(leadFingerprint({ organizationId, email: value }));
   }
   if (typeof phone === "string" && phone.trim()) {
+    if (/[A-Za-z]/.test(phone)) throw new TypeError("invalid phone");
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 7 || digits.length > 15) throw new TypeError("invalid phone");
     keys.push(leadFingerprint({ organizationId, phone: digits }));
