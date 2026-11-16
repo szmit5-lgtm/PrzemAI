@@ -6,18 +6,19 @@ const BASE_API_URL = 'https://api.base.com/connector.php';
 
 const isMoney = n => typeof n === 'number' && Number.isFinite(n) && n >= 0;
 const cents = n => Math.round((n + Number.EPSILON) * 100);
+const MAX_UNIX_SECONDS = 8640000000000000 / 1000;
 function normalizeAllegroOrder(organizationId, order) {
   if (!order || order.order_source !== 'allegro' || order.confirmed !== true) return null;
   if (!Number.isSafeInteger(order.order_id) || order.order_id <= 0) throw new Error('base_invalid_order_id');
   if (!Number.isSafeInteger(order.order_source_id) || order.order_source_id < 0) throw new Error('base_invalid_source_id');
   if (!Number.isSafeInteger(order.order_status_id) || order.order_status_id < 0) throw new Error('base_invalid_status_id');
-  if (!Number.isSafeInteger(order.date_confirmed) || order.date_confirmed < 0) throw new Error('base_invalid_confirmation_date');
+  if (!Number.isSafeInteger(order.date_confirmed) || order.date_confirmed < 0 || order.date_confirmed > MAX_UNIX_SECONDS) throw new Error('base_invalid_confirmation_date');
   if (!/^[A-Z]{3}$/.test(order.currency || '')) throw new Error('base_invalid_currency');
   if (!Array.isArray(order.products)) throw new Error('base_invalid_products');
   if (!isMoney(order.delivery_price)) throw new Error('base_invalid_delivery');
   let totalItemCents = 0;
   for (const p of order.products) {
-    if (!isMoney(p.price_brutto) || !isMoney(p.quantity)) throw new Error('base_invalid_line_amount');
+    if (!isMoney(p.price_brutto) || !Number.isSafeInteger(p.quantity) || p.quantity <= 0) throw new Error('base_invalid_line_amount');
     const amount = Math.round(cents(p.price_brutto) * p.quantity);
     if (!Number.isSafeInteger(amount)) throw new Error('base_amount_out_of_range');
     totalItemCents += amount;
@@ -67,6 +68,10 @@ async function fetchAllegroOrdersPage({ organizationId, token, sinceUnix, fetchI
   if (payload.orders.length > 100) throw new Error('base_page_limit_exceeded');
   // Validate entire page before publishing even one entry.
   const orders = payload.orders.map(order => normalizeAllegroOrder(organizationId, order)).filter(Boolean);
+  // Duplicate IDs would inflate totals and make an apparently complete report unsafe.
+  if (new Set(orders.map(order => order.orderId)).size !== orders.length) {
+    throw new Error('base_duplicate_order_id');
+  }
   return Object.freeze({
     organizationId,
     orders,
