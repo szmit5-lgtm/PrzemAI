@@ -18,6 +18,7 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
     runs: 0, disconnects: 0, exits: [], errors: []
   };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
