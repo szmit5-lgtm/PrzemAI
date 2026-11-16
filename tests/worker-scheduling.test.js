@@ -13,6 +13,7 @@ const workerSource = fs.readFileSync(path.join(__dirname, "../worker.js"), "utf8
 function startWorker(overrides = {}) {
   const events = { logs: [], warnings: [], errors: [], runs: [], ensured: [], tick: null };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { findMany: async () => [] },
     agent: {
       findMany: async () => [],
@@ -40,6 +41,10 @@ function startWorker(overrides = {}) {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": AgentRunner,
+    "./scripts/sendSpecpozOnce": async () => {},
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": AgentService
   };
 
