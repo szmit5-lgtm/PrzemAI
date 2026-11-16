@@ -18,6 +18,7 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
     runs: 0, disconnects: 0, exits: [], errors: []
   };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -50,6 +51,10 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {},
     "./api/services/AgentService": class {
       async ensureDefaults() { throw new Error("unexpected provisioning"); }
     }

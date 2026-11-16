@@ -124,17 +124,15 @@ test("non-owner cannot assign admin role, configure domain or remove another mem
  await assert.rejects(svc.changeBranding("member","a",{displayName:"Nowa marka"}),/Brak uprawnień/);
  await assert.rejects(svc.revoke("owner","a","m1"),/Nie można odebrać/);
 });
-test("invitation remains pending until invited person explicitly accepts",async()=>{
- const env=environment(),svc=service(env);
- const invitation=await svc.invite("owner","a",{email:"visitor@example.org",role:"MEMBER"});
- assert.equal(invitation.status,"PENDING");
- await assert.rejects(svc.workspace("visitor","a"),/Brak uprawnień/);
- const pending=await svc.pendingInvites("visitor");
- assert.equal(pending.length,1);
- const accepted=await svc.acceptInvite("visitor","a");
- assert.equal(accepted.status,"ACTIVE");
- assert.equal((await svc.workspace("visitor","a")).company.role,"MEMBER");
- await assert.rejects(svc.invite("owner","a",{email:"visitor@example.org"}),/już/);
+test("owner assigns an existing account immediately without granting finance access",async()=>{
+  const env=environment(),svc=service(env);
+  const invitation=await svc.invite("owner","a",{email:"visitor@example.org",role:"MEMBER"});
+  assert.equal(invitation.status,"ACTIVE");
+  assert.equal((await svc.workspace("visitor","a")).company.role,"MEMBER");
+  assert.equal(env.memberships.find(m=>m.userId==="visitor"&&m.organizationId==="a").financeAccess,false);
+  assert.equal((await svc.pendingInvites("visitor")).length,0);
+  await assert.rejects(svc.acceptInvite("visitor","a"),/nieaktualne/);
+  await assert.rejects(svc.invite("owner","a",{email:"visitor@example.org"}),/już/);
 });
 test("DNS ownership uses exact HMAC token; verification does not activate hosting",async()=>{
  const env=environment();
