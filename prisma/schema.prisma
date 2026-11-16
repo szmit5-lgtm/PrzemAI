@@ -259,7 +259,10 @@ model Project {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   financialDocuments FinancialDocument[]
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
+  @@index([organizationId])
   @@index([userId])
   @@index([status])
   @@index([name])
@@ -331,6 +334,7 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  projects Project[]
   memberships OrganizationMembership[]
   domains     OrganizationDomain[]
   financeLink OrganizationFinanceLink?
