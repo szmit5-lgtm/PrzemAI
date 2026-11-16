@@ -14,15 +14,34 @@ function leadFingerprint({ organizationId, email, phone }) {
   return crypto.createHash("sha256").update(JSON.stringify([organizationId, identifier])).digest("hex");
 }
 
+function leadIdentityKeys(lead) {
+  if (!lead || typeof lead !== "object") throw new TypeError("lead required");
+  const { organizationId, email, phone } = lead;
+  if (typeof organizationId !== "string" || !organizationId.trim()) throw new TypeError("organizationId required");
+  const keys = [];
+  if (typeof email === "string" && email.trim()) {
+    const value = email.trim().toLowerCase();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) throw new TypeError("invalid email");
+    keys.push(leadFingerprint({ organizationId, email: value }));
+  }
+  if (typeof phone === "string" && phone.trim()) {
+    const digits = phone.replace(/\\D/g, "");
+    if (digits.length < 7 || digits.length > 15) throw new TypeError("invalid phone");
+    keys.push(leadFingerprint({ organizationId, phone: digits }));
+  }
+  if (!keys.length) throw new TypeError("email or phone required");
+  return keys;
+}
+
 function deduplicateLeads(leads) {
   if (!Array.isArray(leads)) throw new TypeError("leads must be an array");
   const seen = new Set();
   const unique = [];
   const duplicates = [];
   for (const lead of leads) {
-    const fingerprint = leadFingerprint(lead);
-    if (seen.has(fingerprint)) duplicates.push(lead);
-    else { seen.add(fingerprint); unique.push(lead); }
+    const keys = leadIdentityKeys(lead);
+    if (keys.some(key => seen.has(key))) duplicates.push(lead);
+    else { keys.forEach(key => seen.add(key)); unique.push(lead); }
   }
   return { unique, duplicates };
 }
