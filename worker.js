@@ -224,7 +224,7 @@ async function cycle() {
 
     // Explicit deployment-only kick-off for the verified production KSeF owner.
     // This never runs for ordinary users, the staging worker, or disabled KSeF.
-    if (!ownerBootRunQueued && ownerScope &&
+    if (!stopping && !ownerBootRunQueued && ownerScope &&
         process.env.KSEF_OWNER_BOOT_RUN === "true" &&
         process.env.KSEF_SYNC_ENABLED === "true" &&
         process.env.KSEF_OWNER_USER_ID === ownerScope) {
