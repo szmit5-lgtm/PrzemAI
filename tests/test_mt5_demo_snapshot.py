@@ -89,5 +89,26 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(fake.shutdowns, 1)
 
 
+    def test_unavailable_positions_fail_closed_and_close_terminal(self):
+        fake = FakeMT5()
+        fake._positions = None
+        with self.assertRaisesRegex(RuntimeError, "mt5_positions_unavailable"):
+            build_demo_snapshot(fake)
+        self.assertEqual(fake.position_reads, 1)
+        self.assertEqual(fake.shutdowns, 1)
+
+    def test_invalid_currency_never_reads_positions(self):
+        fake = FakeMT5()
+        original = fake.account_info
+        def invalid_account():
+            account = original()
+            account.currency = "PLN-PRIVATE"
+            return account
+        fake.account_info = invalid_account
+        with self.assertRaisesRegex(ValueError, "mt5_invalid_currency"):
+            build_demo_snapshot(fake)
+        self.assertEqual(fake.position_reads, 0)
+        self.assertEqual(fake.shutdowns, 1)
+
 if __name__ == "__main__":
     unittest.main()
