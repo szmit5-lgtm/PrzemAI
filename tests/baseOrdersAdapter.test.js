@@ -113,3 +113,19 @@ test('rejects impossible timestamps and fractional quantities without publishing
     /base_invalid_line_amount/
   );
 });
+
+
+test('rejects unsafe monetary precision and overflow in synthetic orders', () => {
+  assert.throws(
+    () => normalizeAllegroOrder('synthetic-tenant', { ...sample, delivery_price: 100000000000000 }),
+    /base_amount_out_of_range/
+  );
+  assert.throws(
+    () => normalizeAllegroOrder('synthetic-tenant', { ...sample, products: [{ price_brutto: 100000000000000, quantity: 1 }] }),
+    /base_amount_out_of_range/
+  );
+  assert.throws(
+    () => normalizeAllegroOrder('synthetic-tenant', { ...sample, commissions: [{ cost_brutto: 100000000000000, cost_currency: 'PLN' }] }),
+    /base_amount_out_of_range/
+  );
+});
