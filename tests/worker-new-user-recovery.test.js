@@ -17,6 +17,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   let tick;
   const events = { defaults: [], runs: [], warnings: [], cycles: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return users; } },
     agent: {
       async findMany({ where }) {
