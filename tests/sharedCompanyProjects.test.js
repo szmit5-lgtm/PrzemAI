@@ -68,14 +68,14 @@ test("authorized company project is scoped to its organization", async () => {
   });
 });
 
-test("legacy projects stay personal until explicitly mapped to an organization", async () => {
+test("new projects are shared automatically when user has one active company", async () => {
   calls.length = 0;
   memberships = ["dekonica"];
   await new FinanceService().createProject("leszek", { name: "Prywatny projekt" });
   assert.deepEqual(calls.find(([type]) => type === "existing")[1].where, {
-    name: "Prywatny projekt", status: "ACTIVE", userId: "leszek", organizationId: null
+    name: "Prywatny projekt", status: "ACTIVE", organizationId: "dekonica"
   });
-  assert.equal(calls.find(([type]) => type === "create")[1].data.organizationId, null);
+  assert.equal(calls.find(([type]) => type === "create")[1].data.organizationId, "dekonica");
 });
 
 test("inactive membership cannot list another user's company projects", async () => {
@@ -97,4 +97,21 @@ test("company membership does not grant access to financial documents", async ()
   };
   await new FinanceService().list("leszek");
   assert.deepEqual(calls.find(([type]) => type === "documents")[1].where, { userId: "leszek" });
+});
+
+test("multi-company member must select company explicitly", async () => {
+  calls.length = 0;
+  memberships = ["dekonica", "deherus"];
+  await assert.rejects(
+    () => new FinanceService().createProject("member", { name: "Nowy projekt" }),
+    /Wybierz spółkę/
+  );
+  assert.equal(calls.some(([type]) => type === "create"), false);
+});
+
+test("user without company membership retains private project creation", async () => {
+  calls.length = 0;
+  memberships = [];
+  await new FinanceService().createProject("personal", { name: "Prywatny projekt" });
+  assert.equal(calls.find(([type]) => type === "create")[1].data.organizationId, null);
 });
