@@ -52,7 +52,7 @@ function normalizeAllegroOrder(organizationId, order) {
 async function fetchAllegroOrdersPage({ organizationId, token, sinceUnix, fetchImpl = globalThis.fetch, timeoutMs = 15000 } = {}) {
   if (typeof organizationId !== 'string' || !organizationId.trim()) throw new Error('company_scope_required');
   if (typeof token !== 'string' || !token.trim()) throw new Error('base_token_required');
-  if (!Number.isSafeInteger(sinceUnix) || sinceUnix < 0) throw new Error('base_invalid_cursor');
+  if (!Number.isSafeInteger(sinceUnix) || sinceUnix < 0 || sinceUnix > MAX_UNIX_SECONDS) throw new Error('base_invalid_cursor');
   if (typeof fetchImpl !== 'function') throw new Error('base_fetch_unavailable');
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 60000) throw new Error('base_invalid_timeout');
   const body = new URLSearchParams({
