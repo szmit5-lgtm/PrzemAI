@@ -8,7 +8,7 @@ const STAGES = Object.freeze(["NEW", "CONTACTED", "OFFER", "NEGOTIATION", "SIGNE
 function leadFingerprint({ organizationId, email, phone }) {
   if (typeof organizationId !== "string" || !organizationId.trim()) throw new TypeError("organizationId required");
   const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-  const normalizedPhone = typeof phone === "string" ? phone.replace(/[^0-9+]/g, "") : "";
+  const normalizedPhone = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
   if (!normalizedEmail && !normalizedPhone) throw new TypeError("email or phone required");
   const identifier = normalizedEmail ? "email:" + normalizedEmail : "phone:" + normalizedPhone;
   return crypto.createHash("sha256").update(JSON.stringify([organizationId, identifier])).digest("hex");
@@ -21,11 +21,11 @@ function leadIdentityKeys(lead) {
   const keys = [];
   if (typeof email === "string" && email.trim()) {
     const value = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) throw new TypeError("invalid email");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new TypeError("invalid email");
     keys.push(leadFingerprint({ organizationId, email: value }));
   }
   if (typeof phone === "string" && phone.trim()) {
-    const digits = phone.replace(/\\D/g, "");
+    const digits = phone.replace(/\D/g, "");
     if (digits.length < 7 || digits.length > 15) throw new TypeError("invalid phone");
     keys.push(leadFingerprint({ organizationId, phone: digits }));
   }
