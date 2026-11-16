@@ -22,11 +22,12 @@ class FinanceService {
             userId
         };
 
-        if (options.status) {
+        // Query parameters are untrusted: never forward Prisma filter objects.
+        if (typeof options.status === "string" && /^[A-Z_]{1,32}$/.test(options.status)) {
             where.status = options.status;
         }
 
-        if (options.source) {
+        if (typeof options.source === "string" && /^[A-Z_]{1,32}$/.test(options.source)) {
             where.source = options.source;
         }
 
