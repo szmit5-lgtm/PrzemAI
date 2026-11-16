@@ -24,12 +24,17 @@ function createClickUpKaldevaClient({ token, listId, fetchImpl = globalThis.fetc
     async listTasks({ maxPages = 3 } = {}) {
       if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 10) throw new Error("Invalid page limit");
       const tasks = [];
+      let complete = false;
       for (let page = 0; page < maxPages; page++) {
         const data = await request("/list/" + listId + "/task?page=" + page + "&include_closed=true");
         if (!Array.isArray(data.tasks)) throw new Error("Malformed ClickUp response");
         tasks.push(...data.tasks.map(t => ({ id: String(t.id), name: t.name, status: t.status?.status ?? null })));
-        if (data.last_page === true || data.tasks.length === 0) break;
+        if (data.last_page === true || data.tasks.length === 0) {
+          complete = true;
+          break;
+        }
       }
+      if (!complete) throw new Error("ClickUp pagination limit reached; refusing partial lead list");
       return tasks;
     }
   };
