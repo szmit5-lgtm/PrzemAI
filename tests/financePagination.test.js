@@ -270,7 +270,13 @@ test("finance list ignores injected Prisma operators in status and source filter
 
 test("KSeF period report is tenant-scoped and never presented as bank cash flow", async () => {
   calls.length = 0;
-  const result = await new FinanceService().reportPeriods("synthetic-dekonica", 2026);
+  nextDocuments = [];
+  let result;
+  try {
+    result = await new FinanceService().reportPeriods("synthetic-dekonica", 2026);
+  } finally {
+    nextDocuments = null;
+  }
   const reads = calls.filter(call => call.method === "findMany");
   assert.equal(reads.length, 1);
   assert.deepEqual(reads[0].options.where, {
