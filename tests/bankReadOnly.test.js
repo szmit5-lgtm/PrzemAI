@@ -33,3 +33,14 @@ test("booking dates reject impossible calendar dates and ambiguous timestamps", 
     assert.equal(normalizeBankTransaction({ ...sample, bookedAt }).bookedAt, bookedAt);
   }
 });
+
+test("account references reject control characters and unbounded input before deduplication", () => {
+  for (const accountRef of ["acc\\nother", "acc\\u0000other", "x".repeat(257)]) {
+    assert.throws(() => normalizeBankTransaction({ ...sample, accountRef }), /Invalid accountRef/);
+    assert.throws(() => transactionDeduplicationKey("company-a", { ...sample, accountRef }), /Invalid accountRef/);
+  }
+  assert.equal(
+    transactionDeduplicationKey("company-a", { ...sample, accountRef: " acc-1 " }),
+    transactionDeduplicationKey("company-a", sample)
+  );
+});
