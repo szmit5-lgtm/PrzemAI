@@ -17,6 +17,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   let tick;
   const events = { defaults: [], runs: [], warnings: [], cycles: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return users; } },
     agent: {
       async findMany({ where }) {
@@ -30,6 +31,10 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./scripts/sendSpecpozOnce": async () => { throw new Error("unexpected specpoz"); },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
       async run(item, trigger) { events.runs.push([item.id, trigger]); }
