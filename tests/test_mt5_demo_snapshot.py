@@ -110,5 +110,32 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(fake.position_reads, 0)
         self.assertEqual(fake.shutdowns, 1)
 
+
+    def test_boolean_account_balance_fails_closed(self):
+        fake = FakeMT5()
+        original = fake.account_info
+        def invalid_account():
+            account = original()
+            account.balance = True
+            return account
+        fake.account_info = invalid_account
+        with self.assertRaisesRegex(ValueError, "mt5_invalid_balance"):
+            build_demo_snapshot(fake)
+        self.assertEqual(fake.shutdowns, 1)
+
+    def test_naive_timestamp_fails_closed(self):
+        fake = FakeMT5()
+        with self.assertRaisesRegex(ValueError, "mt5_invalid_timestamp"):
+            build_demo_snapshot(fake, now=datetime(2026, 11, 17))
+        self.assertEqual(fake.shutdowns, 1)
+
+    def test_invalid_position_symbol_fails_closed_without_leak(self):
+        fake = FakeMT5(positions=[SimpleNamespace(
+            symbol="EURUSD PRIVATE", type=0, volume=0.1,
+            price_open=1.0, price_current=1.0, profit=0.0, swap=0.0)])
+        with self.assertRaisesRegex(ValueError, "mt5_invalid_symbol"):
+            build_demo_snapshot(fake)
+        self.assertEqual(fake.shutdowns, 1)
+
 if __name__ == "__main__":
     unittest.main()
