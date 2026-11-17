@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getProfile } from "@/lib/api";
 import {
   LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare,
@@ -35,6 +35,7 @@ const isActive = (pathname, href) => href === "/"
 export default function Navbar({ vertical = false }) {
   const pathname = usePathname() || "/";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const moreButtonRef = useRef(null);
   const [showAdministration, setShowAdministration] = useState(false);
   useEffect(() => {
     let active = true;
@@ -47,7 +48,10 @@ export default function Navbar({ vertical = false }) {
   useEffect(() => {
     if (!mobileOpen) return;
     const onKeyDown = event => {
-      if (event.key === "Escape") setMobileOpen(false);
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        moreButtonRef.current?.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -81,7 +85,7 @@ export default function Navbar({ vertical = false }) {
     <nav aria-label="Nawigacja mobilna" className="fixed inset-x-0 bottom-0 z-50 border-t border-white/15 bg-[#0b1530]/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 text-white shadow-[0_-12px_32px_rgba(0,0,0,.3)] backdrop-blur-xl lg:hidden">
       <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
         {visible.filter(link => mobilePrimary.includes(link.href)).map(link => navLink(link, true))}
-        <button type="button" aria-expanded={mobileOpen} aria-controls="przemai-more-navigation"
+        <button ref={moreButtonRef} type="button" aria-expanded={mobileOpen} aria-controls="przemai-more-navigation"
           aria-label={mobileOpen ? "Zamknij więcej opcji" : "Więcej opcji"}
           onClick={() => setMobileOpen(value => !value)}
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold ${mobileOpen || visible.some(link => !mobilePrimary.includes(link.href) && isActive(pathname, link.href)) ? "bg-violet-600/20 text-violet-200" : "text-slate-300"}`}>
