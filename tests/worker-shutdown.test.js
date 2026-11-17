@@ -43,6 +43,9 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults() { events.ensured += 1; }
     }
@@ -116,6 +119,9 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults(userId) {
         events.provisioned.push(userId);
