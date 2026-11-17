@@ -30,6 +30,7 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
       }
     },
     agentRun: { async updateMany() { throw new Error("unexpected audit update"); } },
+    history: { async findMany() { return []; } },
     async $disconnect() { events.disconnects += 1; }
   };
   const dependencies = {
@@ -40,7 +41,11 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
     },
     "./api/services/AgentService": class {
       async ensureDefaults() {}
-    }
+    },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: async () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(source, {

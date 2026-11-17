@@ -61,7 +61,11 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
     },
     "./api/services/AgentService": class {
       async ensureDefaults() { throw new Error("unexpected provisioning"); }
-    }
+    },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: async () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(source, {
