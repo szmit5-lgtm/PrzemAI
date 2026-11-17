@@ -22,12 +22,15 @@ class FinanceService {
             userId
         };
 
-        if (options.status) {
-            where.status = options.status;
-        }
-
-        if (options.source) {
-            where.source = options.source;
+        // Only scalar filter values may reach Prisma. Reject nested filter objects
+        // so callers cannot inject operators such as { not: ... }.
+        for (const key of ["status", "source"]) {
+            const value = options[key];
+            if (value === undefined || value === null || value === "") continue;
+            if (typeof value !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(value)) {
+                throw new Error("Nieprawidłowy filtr finansów.");
+            }
+            where[key] = value;
         }
 
         const items = await prisma.financialDocument.findMany({

@@ -256,3 +256,19 @@ test("finance expense classification rejects missing tenant before database acce
     assert.equal(calls.length, 0, "missing tenant must not read or update expense invoices");
   }
 });
+
+
+test("finance list rejects Prisma operator injection in status and source filters", async () => {
+  const service = new FinanceService();
+  for (const options of [
+    { status: { not: "NEW" } },
+    { source: { in: ["KSEF", "MAIL"] } },
+    { status: ["NEW"] },
+    { source: "KSEF\\n" },
+    { status: 123 }
+  ]) {
+    calls.length = 0;
+    await assert.rejects(service.list("user-1", options), /Nieprawidłowy filtr finansów/);
+    assert.equal(calls.length, 0, "invalid filters must never reach Prisma");
+  }
+});
