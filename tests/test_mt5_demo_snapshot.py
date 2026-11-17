@@ -80,6 +80,14 @@ class SnapshotTests(unittest.TestCase):
             build_demo_snapshot(fake)
         self.assertEqual(fake.shutdowns, 1)
 
+    def test_rejects_boolean_position_type_and_closes_terminal(self):
+        fake = FakeMT5(positions=[SimpleNamespace(
+            symbol="EURUSD", type=True, volume=0.1,
+            price_open=1.0, price_current=1.0, profit=0, swap=0)])
+        with self.assertRaisesRegex(ValueError, "mt5_invalid_position_type"):
+            build_demo_snapshot(fake)
+        self.assertEqual(fake.shutdowns, 1)
+
     def test_rejects_large_unbounded_response(self):
         pos = SimpleNamespace(symbol="EURUSD", type=0, volume=0.01,
                               price_open=1.0, price_current=1.0, profit=0.0, swap=0.0)
