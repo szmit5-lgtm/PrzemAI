@@ -19,6 +19,7 @@ test("SIGTERM lets an already-running agent finish before disconnecting and neve
   };
   const agent = { id: "active-agent", key: "financial", userId: "staging-user", enabled: true };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "staging-user" }]; } },
     agent: {
       async findMany({ where }) {
@@ -33,6 +34,10 @@ test("SIGTERM lets an already-running agent finish before disconnecting and neve
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./scripts/sendSpecpozOnce": async () => { throw new Error("unexpected specpoz"); },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
       async run(item) {

@@ -28,6 +28,8 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
       }
     },
     agentRun: { async updateMany() { throw new Error("unexpected audit"); } },
+    // No Kaldeva jobs in this isolated shutdown scenario; keep the queue scan deterministic.
+    history: { async findMany() { return []; } },
     async $disconnect() { events.disconnects += 1; }
   };
   const dependencies = {
@@ -36,7 +38,11 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
-    "./api/services/AgentService": class { async ensureDefaults() {} }
+    "./api/services/AgentService": class { async ensureDefaults() {} },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: async () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(source, {

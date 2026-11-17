@@ -19,6 +19,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
 
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -39,6 +40,10 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./scripts/sendSpecpozOnce": async () => { throw new Error("unexpected specpoz"); },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
@@ -98,6 +103,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   const handlers = {};
   const events = { provisioned: [], dueReads: 0, runs: 0, disconnects: 0, exits: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "user-1" }, { id: "user-2" }]; } },
     agent: {
       async findMany({ where }) {
@@ -112,6 +118,10 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   };
   const dependencies = {
     dotenv: { config() {} },
+    "./scripts/sendSpecpozOnce": async () => { throw new Error("unexpected specpoz"); },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
@@ -152,6 +162,53 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   assert.deepEqual(events.provisioned, ["user-1"], "do not provision another user after SIGTERM");
   assert.equal(events.dueReads, 0, "do not scan due agents after SIGTERM");
   assert.equal(events.runs, 0);
+  assert.equal(events.disconnects, 1);
+  assert.deepEqual(events.exits, [0]);
+});
+
+test("SIGTERM during stale recovery never starts a Kaldeva queue scan", async () => {
+  let releaseStale;
+  const staleRead = new Promise(resolve => { releaseStale = resolve; });
+  const handlers = {};
+  const events = { historyReads: 0, userReads: 0, disconnects: 0, exits: [] };
+  const prisma = {
+    agent: { async findMany() { await staleRead; return []; } },
+    history: { async findMany() { events.historyReads++; return []; } },
+    user: { async findMany() { events.userReads++; return []; } },
+    async $disconnect() { events.disconnects++; }
+  };
+  const dependencies = {
+    dotenv: { config() {} },
+    "./lib/prisma": prisma,
+    "./core/agents/AgentRunner": class {},
+    "./api/services/AgentService": class {},
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {}
+  };
+  vm.runInNewContext(source, {
+    require(name) {
+      if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
+      return dependencies[name];
+    },
+    console: { log() {}, warn() {}, error() {} },
+    process: {
+      env: {},
+      on(signal, handler) { handlers[signal] = handler; },
+      exit(code) { events.exits.push(code); }
+    },
+    Date,
+    setInterval() { return 1; },
+    clearInterval() {},
+    setTimeout
+  }, { filename: "worker.js" });
+  await settled();
+  const shutdown = handlers.SIGTERM();
+  releaseStale();
+  await shutdown;
+  assert.equal(events.historyReads, 0, "Kaldeva queue must not be read after SIGTERM");
+  assert.equal(events.userReads, 0, "user provisioning must not start after SIGTERM");
   assert.equal(events.disconnects, 1);
   assert.deepEqual(events.exits, [0]);
 });

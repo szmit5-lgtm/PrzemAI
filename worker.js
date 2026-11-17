@@ -175,6 +175,8 @@ async function cycle() {
       // A failed stale-run scan must not prevent healthy agents from running.
       console.error("[Worker] Stale run scan failed", error.message);
     }
+    // A SIGTERM received during stale-run recovery must not start a new Kaldeva scan.
+    if (stopping) return;
     try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }
     catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }
     // A SIGTERM during the stale scan must not start user provisioning.
