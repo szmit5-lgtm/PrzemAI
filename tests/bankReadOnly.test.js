@@ -44,3 +44,11 @@ test("account references reject control characters and unbounded input before de
     transactionDeduplicationKey("company-a", sample)
   );
 });
+
+
+test("deduplication rejects malformed company scope identifiers", () => {
+  for (const companyId of ["\ncompany", "company\u0000other", "company\tother", "x".repeat(257), {}, ["company"]]) {
+    assert.throws(() => transactionDeduplicationKey(companyId, sample), /Company scope required/);
+  }
+  assert.equal(transactionDeduplicationKey(" company-a ", sample), transactionDeduplicationKey("company-a", sample));
+});
