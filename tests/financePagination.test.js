@@ -7,6 +7,12 @@ const Module = require("node:module");
 const calls = [];
 let nextDocuments = null;
 const fakePrisma = {
+  organizationMembership: {
+    async findMany(options) {
+      calls.push({ method: "organizationMembership.findMany", options });
+      return [];
+    }
+  },
   project: {
     async findMany(options) {
       calls.push({ method: "project.findMany", options });
@@ -197,11 +203,14 @@ test("finance project list rejects missing tenant without database reads", async
   }
   calls.length = 0;
   assert.deepEqual(await service.listProjects("user-7"), []);
-  assert.deepEqual(calls[0], {
+  assert.deepEqual(calls.find(call => call.method === "project.findMany"), {
     method: "project.findMany",
     options: {
-      where: { userId: "user-7", status: "ACTIVE" },
-      select: { id: true, name: true, aliases: true, company: true },
+      where: { status: "ACTIVE", OR: [
+        { userId: "user-7", organizationId: null },
+        { organizationId: { in: [] } }
+      ] },
+      select: { id: true, name: true, aliases: true, company: true, organizationId: true },
       orderBy: { name: "asc" },
       take: 300
     }
