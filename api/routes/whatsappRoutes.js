@@ -67,6 +67,10 @@ router.post("/webhook", async (req, res) => {
       if (changes.length > 100) return res.sendStatus(503);
       for (const change of changes) {
         if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
+        if (change.value && !Object.prototype.hasOwnProperty.call(change.value, "messages")) {
+          if (Array.isArray(change.value.statuses)) continue; // Meta status-only callback
+          return res.sendStatus(503);
+        }
         if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
         const messages = change.value.messages;
         messageCount += messages.length;
@@ -76,9 +80,9 @@ router.post("/webhook", async (req, res) => {
         // followed by a retry, even when the earlier messages were accepted.
         for (const message of messages) {
           if (!message || typeof message.id !== "string" ||
-              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
+              !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
               typeof message.from !== "string" ||
-              !/^\\d{6,20}$/.test(message.from)) return res.sendStatus(503);
+              !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
         }
       }
     }

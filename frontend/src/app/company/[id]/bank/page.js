@@ -5,33 +5,9 @@ import {useEffect,useState} from "react";
 import {ArrowLeft,Landmark,FileUp,ShieldAlert,Wallet} from "lucide-react";
 import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
-import {getOrganizationFinanceStatus,getOrganizationWorkspace,getOrganizationBankSummary,importOrganizationBankStatement,getOrganizationBankStatements} from "@/lib/api";
+import {getOrganizationFinanceStatus,getOrganizationWorkspace,getOrganizationBankSummary,importOrganizationBankCsv,getOrganizationBankStatements} from "@/lib/api";
 
-function parseCsv(text){
- const lines=[];let row=[],cell="",quoted=false;
- for(let i=0;i<text.length;i++){
-  const ch=text[i];
-  if(ch==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
-  else if(ch===";"&&!quoted){row.push(cell.trim());cell="";}
-  else if((ch==="\n"||ch==="\r")&&!quoted){if(ch==="\r"&&text[i+1]==="\n")i++;row.push(cell.trim());if(row.some(Boolean))lines.push(row);row=[];cell="";}
-  else cell+=ch;
- }
- if(quoted)throw Error("Nieprawidłowe cudzysłowy w CSV.");
- row.push(cell.trim());if(row.some(Boolean))lines.push(row);
- const header=lines.shift()?.map(x=>x.toLowerCase().replace(/^\uFEFF/,""))||[];
- const required=["date","amount","description"];
- if(required.some(x=>!header.includes(x)))throw Error("CSV wymaga kolumn: date;amount;description (opcjonalnie counterparty;reference).");
- if(lines.length<1||lines.length>3000)throw Error("CSV musi zawierać od 1 do 3000 transakcji.");
- return lines.map((values,i)=>{
-  const obj=Object.fromEntries(header.map((key,j)=>[key,values[j]||""]));
-  const polish=/^(\d{2})[.\-/](\d{2})[.\-/](\d{4})$/.exec(obj.date.trim());
-  if(polish)obj.date=`${polish[3]}-${polish[2]}-${polish[1]}`;
-  const parsed=/^(\d{4})-(\d{2})-(\d{2})$/.exec(obj.date);
-  const checked=parsed?new Date(`${obj.date}T12:00:00Z`):null;
-  if(!parsed||!checked||Number.isNaN(checked.getTime())||checked.toISOString().slice(0,10)!==obj.date||!obj.amount)throw Error("Nieprawidłowa data lub kwota w wierszu "+(i+2));
-  return {date:obj.date,amount:obj.amount,description:obj.description,counterparty:obj.counterparty||"",reference:obj.reference||""};
- });
-}
+
 export default function CompanyBankPage(){
  const {id}=useParams();
  const [name,setName]=useState("");
@@ -41,7 +17,7 @@ export default function CompanyBankPage(){
  const [loading,setLoading]=useState(true);
  const [owner,setOwner]=useState(false);
  const [statements,setStatements]=useState([]);
- const [transactions,setTransactions]=useState([]);
+ const [csvFile,setCsvFile]=useState(null);
  const [iban,setIban]=useState("");
  const [statementNumber,setStatementNumber]=useState("");
  const [periodStart,setPeriodStart]=useState("");
@@ -56,7 +32,7 @@ export default function CompanyBankPage(){
  async function readFile(e){
   const file=e.target.files?.[0];e.target.value="";
   if(!file)return;
-  setError("");setNotice("");setTransactions([]);setFileName("");setPdfPreview(null);
+  setError("");setNotice("");setCsvFile(null);setFileName("");setPdfPreview(null);
   if(/\.pdf$/i.test(file.name)){
    if(file.size>15*1024*1024){setError("PDF może mieć maksymalnie 15 MB.");return;}
    setPdfLoading(true);
@@ -70,17 +46,16 @@ export default function CompanyBankPage(){
    }catch(err){setError(err.message);}finally{setPdfLoading(false);}
    return;
   }
-  if(!/\.csv$/i.test(file.name)||file.size>1024*1024){setError("Wybierz plik CSV do 1 MB.");return;}
-  try{const rows=parseCsv(await file.text());setTransactions(rows);setFileName(file.name);}
-  catch(err){setError(err.message);}
+  if(!/\.csv$/i.test(file.name)||file.size<1||file.size>2*1024*1024){setError("Wybierz plik CSV do 2 MB.");return;}
+  setCsvFile(file);setFileName(file.name);
  }
  async function submitImport(e){
-  e.preventDefault();if(importing||!transactions.length)return;
+  e.preventDefault();if(importing||!csvFile||!owner)return;
   setImporting(true);setError("");setNotice("");
   try{
-   const r=await importOrganizationBankStatement(id,{iban,statementNumber,periodStart,periodEnd,openingBalance,closingBalance,transactions});
+   const r=await importOrganizationBankCsv(id,csvFile,{iban,statementNumber,periodStart,periodEnd,openingBalance,closingBalance});
    setNotice("Zaimportowano "+r.data.transactionCount+" transakcji. Salda zapisano na podstawie wyciągu.");
-   setTransactions([]);setFileName("");
+   setCsvFile(null);setFileName("");
    const [history,summary]=await Promise.all([getOrganizationBankStatements(id),getOrganizationBankSummary(id)]);
    setStatements(history?.data||[]);setAccounts(summary?.data?.accounts||[]);
   }catch(err){setError(err.message||"Nie udało się zaimportować wyciągu.");}
@@ -158,13 +133,13 @@ export default function CompanyBankPage(){
      {owner?<form onSubmit={submitImport} className="mt-5 space-y-4">
       <label className="block rounded-xl border border-dashed border-violet-400/40 p-5 text-sm">
        <FileUp size={24} className="mb-3 text-violet-300"/>
-       Wybierz wyciąg CSV (do 1 MB) lub PDF (do 15 MB)
+       Wybierz wyciąg CSV (do 2 MB) lub PDF (do 15 MB)
        <input type="file" accept=".csv,.pdf,text/csv,application/pdf" onChange={readFile} className="mt-3 block w-full text-sm"/>
       </label>
-      <p className="text-xs text-slate-400">Wymagane nagłówki CSV oddzielone średnikami: date;amount;description;counterparty;reference. Daty RRRR-MM-DD, kwoty ze znakiem minus dla wydatków.</p>
+      <p className="text-xs text-slate-400">CSV może mieć nagłówki polskie lub angielskie (co najmniej data i kwota), oddzielone średnikiem lub przecinkiem. Salda sprawdza serwer; nic nie zostanie zapisane przy rozbieżności.</p>
       {pdfLoading&&<p className="text-sm text-slate-300">Odczytywanie PDF…</p>}
       {pdfPreview&&<div className="rounded-xl border border-amber-400/30 p-4"><p className="text-sm text-amber-200">{pdfPreview.warning}</p><p className="mt-2 text-xs">Strony: {pdfPreview.pages}</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{pdfPreview.lines.join("\n")}</pre></div>}
-      {fileName&&<p className="text-sm text-emerald-300">Wczytano {fileName}: {transactions.length ? transactions.length+" operacji do sprawdzenia" : "podgląd PDF bez zapisu transakcji"}.</p>}
+      {fileName&&<p className="text-sm text-emerald-300">Wczytano {fileName}: {csvFile ? "CSV gotowy do zatwierdzenia; liczba operacji zostanie sprawdzona na serwerze" : "podgląd PDF bez zapisu transakcji"}.</p>}
       <div className="grid gap-3 sm:grid-cols-2">
        {[[iban,setIban,"IBAN rachunku"],[statementNumber,setStatementNumber,"Numer wyciągu"],[openingBalance,setOpeningBalance,"Saldo początkowe PLN"],[closingBalance,setClosingBalance,"Saldo końcowe PLN"]].map(([value,setValue,label])=><label key={label} className="text-sm">{label}
         <input required value={value} onChange={e=>setValue(e.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#0a162d] p-3" placeholder={label}/>
@@ -172,7 +147,7 @@ export default function CompanyBankPage(){
        <label className="text-sm">Początek okresu<input required type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#0a162d] p-3"/></label>
        <label className="text-sm">Koniec okresu<input required type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#0a162d] p-3"/></label>
       </div>
-      <button type="submit" disabled={importing||transactions.length===0} className="min-h-12 rounded-xl bg-violet-600 px-6 font-semibold disabled:opacity-40">{importing?"Importowanie…":"Zatwierdź import "+transactions.length+" transakcji"}</button>
+      <button type="submit" disabled={importing||!csvFile} className="min-h-12 rounded-xl bg-violet-600 px-6 font-semibold disabled:opacity-40">{importing?"Importowanie…":"Zatwierdź import CSV"}</button>
      </form>:<p className="mt-4 text-sm text-slate-400">Import może wykonać właściciel firmy.</p>}
      {notice&&<p role="status" className="mt-4 text-sm text-emerald-300">{notice}</p>}
      <h3 className="mt-7 font-bold">Zaimportowane wyciągi</h3>

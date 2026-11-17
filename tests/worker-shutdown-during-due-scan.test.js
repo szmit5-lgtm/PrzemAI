@@ -16,6 +16,7 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
   const events = { dueScans: 0, claims: 0, runs: 0, disconnects: 0, exits: [], errors: [] };
   const agent = { id: "due-agent", key: "financial", userId: "staging-user", enabled: true };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "staging-user" }]; } },
     agent: {
       async findMany({ where }) {
@@ -38,6 +39,10 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./scripts/sendSpecpozOnce": async () => {},
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults() {}
     }

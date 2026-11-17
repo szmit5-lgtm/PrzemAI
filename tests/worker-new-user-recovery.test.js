@@ -17,6 +17,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   let tick;
   const events = { defaults: [], runs: [], warnings: [], cycles: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return users; } },
     agent: {
       async findMany({ where }) {
@@ -34,6 +35,10 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
     "./core/agents/AgentRunner": class {
       async run(item, trigger) { events.runs.push([item.id, trigger]); }
     },
+    "./scripts/sendSpecpozOnce": async () => {},
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults(userId) {
         events.defaults.push(userId);
