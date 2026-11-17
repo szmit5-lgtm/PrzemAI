@@ -28,8 +28,8 @@ function createClickUpKaldevaClient({ token, listId, fetchImpl = globalThis.fetc
       let complete = false;
       for (let page = 0; page < maxPages; page++) {
         const data = await request("/list/" + listId + "/task?page=" + page + "&include_closed=true");
-        if (!Array.isArray(data.tasks)) throw new Error("Malformed ClickUp response");
-        if (!data.tasks.every(t => t && (typeof t.id === "string" || typeof t.id === "number") && String(t.id).trim() && typeof t.name === "string" && t.name.trim())) {
+        if (!data || !Array.isArray(data.tasks)) throw new Error("Malformed ClickUp response");
+        if (!data.tasks.every(t => t && (typeof t.id === "string" || typeof t.id === "number") && String(t.id).trim() && typeof t.name === "string" && t.name.trim() && (t.status == null || (typeof t.status === "object" && !Array.isArray(t.status) && (t.status.status == null || (typeof t.status.status === "string" && t.status.status.trim())))))) {
           throw new Error("Malformed ClickUp task: missing id or name");
         }
         for (const task of data.tasks) {
