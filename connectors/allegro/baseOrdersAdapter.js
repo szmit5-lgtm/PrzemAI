@@ -11,7 +11,14 @@ function cents(n) {
   return value;
 }
 const MAX_UNIX_SECONDS = 8640000000000000 / 1000;
+function requireOrganizationId(value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) {
+    throw new Error('company_scope_required');
+  }
+  return value;
+}
 function normalizeAllegroOrder(organizationId, order) {
+  requireOrganizationId(organizationId);
   if (!order || order.order_source !== 'allegro' || order.confirmed !== true) return null;
   if (!Number.isSafeInteger(order.order_id) || order.order_id <= 0) throw new Error('base_invalid_order_id');
   if (!Number.isSafeInteger(order.order_source_id) || order.order_source_id < 0) throw new Error('base_invalid_source_id');
@@ -50,7 +57,7 @@ function normalizeAllegroOrder(organizationId, order) {
 }
 
 async function fetchAllegroOrdersPage({ organizationId, token, sinceUnix, fetchImpl = globalThis.fetch, timeoutMs = 15000 } = {}) {
-  if (typeof organizationId !== 'string' || !organizationId.trim()) throw new Error('company_scope_required');
+  requireOrganizationId(organizationId);
   if (typeof token !== 'string' || !token.trim()) throw new Error('base_token_required');
   if (!Number.isSafeInteger(sinceUnix) || sinceUnix < 0 || sinceUnix > MAX_UNIX_SECONDS) throw new Error('base_invalid_cursor');
   if (typeof fetchImpl !== 'function') throw new Error('base_fetch_unavailable');
