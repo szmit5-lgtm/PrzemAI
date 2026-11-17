@@ -45,7 +45,7 @@ function startWorker(overrides = {}) {
     "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: async () => ({}) },
-    "./sendSpecpozOnce": async () => {}
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(workerSource, {
