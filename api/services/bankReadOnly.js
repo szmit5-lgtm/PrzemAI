@@ -26,7 +26,7 @@ function normalizeBankTransaction(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new TypeError("Transaction required");
   const { externalId, accountRef, bookedAt, amount, currency } = input;
   if (typeof externalId !== "string" || !externalId.trim() || externalId.trim().length > 256) throw new TypeError("Invalid externalId");
-  if (typeof accountRef !== "string" || !accountRef.trim()) throw new TypeError("Invalid accountRef");
+  if (typeof accountRef !== "string" || !accountRef.trim() || accountRef.trim().length > 256 || /[\x00-\x1f\x7f]/.test(accountRef)) throw new TypeError("Invalid accountRef");
   if (typeof amount !== "string" || !/^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(amount)) throw new TypeError("Invalid decimal amount");
   if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) throw new TypeError("Invalid currency");
   if (!validBookingDate(bookedAt)) throw new TypeError("Invalid bookedAt");
