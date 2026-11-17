@@ -40,7 +40,7 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
     "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: async () => ({}) },
-    "./sendSpecpozOnce": async () => {}
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(source, {
