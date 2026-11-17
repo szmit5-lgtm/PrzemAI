@@ -198,3 +198,20 @@ test("Deherus-only member cannot query Dekonica shared projects", async () => {
   ]);
   assert.equal(query.where.OR[1].organizationId.in.includes("dekonica"), false);
 });
+
+
+test("multi-company member sees only projects in active memberships, never unrelated tenants", async () => {
+  calls.length = 0;
+  memberships = ["dekonica", "deherus"];
+  await new FinanceService().listProjects("multi-member");
+  const memberQuery = calls.find(([type]) => type === "memberships")[1];
+  assert.equal(memberQuery.where.status, "ACTIVE");
+  assert.equal(memberQuery.where.organization.status, "ACTIVE");
+  const projectQuery = calls.find(([type]) => type === "projects")[1];
+  assert.deepEqual(projectQuery.where.OR, [
+    { userId: "multi-member", organizationId: null },
+    { organizationId: { in: ["dekonica", "deherus"] } }
+  ]);
+  assert.equal(projectQuery.where.status, "ACTIVE");
+  assert.equal(projectQuery.where.OR[1].organizationId.in.includes("foreign-company"), false);
+});
