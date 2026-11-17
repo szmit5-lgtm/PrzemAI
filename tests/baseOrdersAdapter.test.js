@@ -141,3 +141,11 @@ test('rejects cursor outside JavaScript Date range before contacting Base.com', 
   );
   assert.equal(calls, 0);
 });
+
+test('direct order normalization refuses missing tenant before emitting any order summary', () => {
+  for (const tenant of [undefined, null, '', '  ', 42]) {
+    assert.throws(() => normalizeAllegroOrder(tenant, sample), /company_scope_required/);
+  }
+  const result = normalizeAllegroOrder('synthetic-tenant', sample);
+  assert.equal(result.organizationId, 'synthetic-tenant');
+});
