@@ -141,3 +141,17 @@ test('rejects cursor outside JavaScript Date range before contacting Base.com', 
   );
   assert.equal(calls, 0);
 });
+
+
+test('rejects malformed tenant IDs without network access or publishing summaries', async () => {
+  for (const invalid of ['', ' ', 'tenant with spaces', 'tenant\\nother', '../other', 'x'.repeat(129), null, 17]) {
+    assert.throws(() => normalizeAllegroOrder(invalid, sample), /company_scope_required/);
+    let calls = 0;
+    await assert.rejects(fetchAllegroOrdersPage({
+      organizationId: invalid, token: 'FAKE', sinceUnix: 1,
+      fetchImpl: async () => { calls++; throw new Error('unexpected_network_call'); }
+    }), /company_scope_required/);
+    assert.equal(calls, 0);
+  }
+  assert.equal(normalizeAllegroOrder('synthetic-tenant_1', sample).organizationId, 'synthetic-tenant_1');
+});
