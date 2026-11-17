@@ -186,3 +186,15 @@ test("legacy mapping reports missing or already-mapped project without false suc
     adminAllowed = false;
   }
 });
+
+test("Deherus-only member cannot query Dekonica shared projects", async () => {
+  calls.length = 0;
+  memberships = ["deherus"];
+  await new FinanceService().listProjects("other-company-user");
+  const query = calls.find(([type]) => type === "projects")[1];
+  assert.deepEqual(query.where.OR, [
+    { userId: "other-company-user", organizationId: null },
+    { organizationId: { in: ["deherus"] } }
+  ]);
+  assert.equal(query.where.OR[1].organizationId.in.includes("dekonica"), false);
+});
