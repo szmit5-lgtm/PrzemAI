@@ -37,3 +37,44 @@ test("valid synthetic ClickUp lead remains read-only", async () => {
   });
   assert.deepEqual(await client.listTasks(), [{ id: "42", name: "Synthetic lead", status: "new" }]);
 });
+
+test("duplicate synthetic ClickUp lead IDs across pages fail closed", async () => {
+  let calls = 0;
+  const client = createClickUpKaldevaClient({
+    token: "synthetic-token",
+    listId: "123",
+    fetchImpl: async (_url, options) => {
+      calls++;
+      assert.equal(options.method, undefined);
+      return {
+        ok: true,
+        json: async () => ({
+          tasks: [{ id: "lead-1", name: "Synthetic lead " + calls }],
+          last_page: calls === 2
+        })
+      };
+    }
+  });
+  await assert.rejects(() => client.listTasks(), /Duplicate ClickUp task id/);
+  assert.equal(calls, 2);
+});
+
+test("unique synthetic ClickUp leads across pages are returned completely", async () => {
+  let calls = 0;
+  const client = createClickUpKaldevaClient({
+    token: "synthetic-token",
+    listId: "123",
+    fetchImpl: async () => {
+      calls++;
+      return {
+        ok: true,
+        json: async () => ({
+          tasks: [{ id: "lead-" + calls, name: "Synthetic lead" }],
+          last_page: calls === 2
+        })
+      };
+    }
+  });
+  assert.deepEqual((await client.listTasks()).map(task => task.id), ["lead-1", "lead-2"]);
+  assert.equal(calls, 2);
+});
