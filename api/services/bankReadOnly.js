@@ -40,7 +40,7 @@ function normalizeBankTransaction(input) {
 }
 
 function transactionDeduplicationKey(companyId, transaction) {
-  if (typeof companyId !== "string" || !companyId.trim()) throw new TypeError("Company scope required");
+  if (typeof companyId !== "string" || !companyId.trim() || companyId.trim().length > 256 || /[\x00-\x1f\x7f]/.test(companyId)) throw new TypeError("Company scope required");
   const t = normalizeBankTransaction(transaction);
   return JSON.stringify([companyId.trim(), t.accountRef, t.externalId]);
 }
