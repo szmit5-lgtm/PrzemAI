@@ -38,3 +38,19 @@ test("bounded pagination never returns incomplete lead list", async () => {
   });
   await assert.rejects(() => client.listTasks({ maxPages: 2 }), /pagination limit reached/);
 });
+
+test("malformed ClickUp tasks fail closed without returning a partial report", async () => {
+  for (const tasks of [
+    [null],
+    [{ id: null, name: "Synthetic" }],
+    [{ id: "1", name: "" }],
+    [{ id: "1", name: "Synthetic", status: { status: 42 } }],
+    [{ id: "1", name: "Valid" }, { id: "2", name: null }]
+  ]) {
+    const client = createClickUpKaldevaClient({
+      token: "synthetic-token", listId: "123",
+      fetchImpl: async () => ({ ok: true, json: async () => ({ tasks, last_page: true }) })
+    });
+    await assert.rejects(() => client.listTasks(), /Malformed ClickUp task/);
+  }
+});
