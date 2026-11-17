@@ -36,6 +36,7 @@ export default function Navbar({ vertical = false }) {
   const pathname = usePathname() || "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const moreButtonRef = useRef(null);
+  const closeMenuRef = useRef(null);
   const [showAdministration, setShowAdministration] = useState(false);
   useEffect(() => {
     let active = true;
@@ -47,6 +48,7 @@ export default function Navbar({ vertical = false }) {
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   useEffect(() => {
     if (!mobileOpen) return;
+    closeMenuRef.current?.focus();
     const onKeyDown = event => {
       if (event.key === "Escape") {
         setMobileOpen(false);
@@ -97,7 +99,7 @@ export default function Navbar({ vertical = false }) {
     {mobileOpen && <div id="przemai-more-navigation" className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-50 max-h-[min(65vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-[#111c35] p-3 text-white shadow-2xl lg:hidden">
       <div className="mb-2 flex items-center justify-between px-2">
         <strong className="text-sm">Pozostałe moduły</strong>
-        <button type="button" onClick={() => setMobileOpen(false)} aria-label="Zamknij menu" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
+        <button ref={closeMenuRef} type="button" onClick={() => setMobileOpen(false)} aria-label="Zamknij menu" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </div>
       <nav aria-label="Pozostałe moduły" className="grid grid-cols-2 gap-1">
         {visible.filter(link => !mobilePrimary.includes(link.href)).map(link => navLink(link))}
