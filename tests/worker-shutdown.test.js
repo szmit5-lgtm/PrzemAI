@@ -40,7 +40,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
   const dependencies = {
     dotenv: { config() {} },
-    "./scripts/sendSpecpozOnce": { sendSpecpozOnce: async () => { throw new Error("unexpected specpoz"); } },
+    "./scripts/sendSpecpozOnce": async () => { throw new Error("unexpected specpoz"); },
     "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
     "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
     "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
@@ -118,7 +118,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   };
   const dependencies = {
     dotenv: { config() {} },
-    "./scripts/sendSpecpozOnce": { sendSpecpozOnce: async () => { throw new Error("unexpected specpoz"); } },
+    "./scripts/sendSpecpozOnce": async () => { throw new Error("unexpected specpoz"); },
     "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead discovery"); } },
     "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
     "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
