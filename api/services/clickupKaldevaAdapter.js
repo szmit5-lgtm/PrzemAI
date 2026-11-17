@@ -24,6 +24,7 @@ function createClickUpKaldevaClient({ token, listId, fetchImpl = globalThis.fetc
     async listTasks({ maxPages = 3 } = {}) {
       if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 10) throw new Error("Invalid page limit");
       const tasks = [];
+      const seenIds = new Set();
       let complete = false;
       for (let page = 0; page < maxPages; page++) {
         const data = await request("/list/" + listId + "/task?page=" + page + "&include_closed=true");
@@ -31,7 +32,12 @@ function createClickUpKaldevaClient({ token, listId, fetchImpl = globalThis.fetc
         if (!data.tasks.every(t => t && (typeof t.id === "string" || typeof t.id === "number") && String(t.id).trim() && typeof t.name === "string" && t.name.trim())) {
           throw new Error("Malformed ClickUp task: missing id or name");
         }
-        tasks.push(...data.tasks.map(t => ({ id: String(t.id), name: t.name, status: t.status?.status ?? null })));
+        for (const task of data.tasks) {
+          const id = String(task.id);
+          if (seenIds.has(id)) throw new Error("Duplicate ClickUp task id across pages");
+          seenIds.add(id);
+          tasks.push({ id, name: task.name, status: task.status?.status ?? null });
+        }
         if (data.last_page === true || data.tasks.length === 0) {
           complete = true;
           break;
