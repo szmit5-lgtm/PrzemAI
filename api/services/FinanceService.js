@@ -22,11 +22,15 @@ class FinanceService {
             userId
         };
 
-        if (options.status) {
+        // Only scalar, bounded filters may reach Prisma. Reject nested operators
+        // supplied through query strings or JSON bodies (tenant scope stays fixed).
+        if (typeof options.status === "string" && options.status.length <= 64 &&
+            /^[A-Z_]+$/.test(options.status)) {
             where.status = options.status;
         }
 
-        if (options.source) {
+        if (typeof options.source === "string" && options.source.length <= 64 &&
+            /^[A-Z_]+$/.test(options.source)) {
             where.source = options.source;
         }
 
