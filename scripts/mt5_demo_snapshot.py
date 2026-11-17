@@ -49,7 +49,7 @@ def build_demo_snapshot(mt5, *, now=None):
         for position in positions:
             if not isinstance(position.symbol, str) or not SYMBOL_RE.fullmatch(position.symbol):
                 raise ValueError("mt5_invalid_symbol")
-            if position.type not in (mt5.POSITION_TYPE_BUY, mt5.POSITION_TYPE_SELL):
+            if type(position.type) is not int or position.type not in (mt5.POSITION_TYPE_BUY, mt5.POSITION_TYPE_SELL):
                 raise ValueError("mt5_invalid_position_type")
             volume = _safe_number(position.volume, "volume")
             if volume <= 0:
