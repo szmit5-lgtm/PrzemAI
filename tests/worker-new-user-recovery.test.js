@@ -15,6 +15,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   let users = [];
   let defaultsCreated = false;
   let tick;
+  const historyQueries = [];
   const events = { defaults: [], runs: [], warnings: [], cycles: [] };
   const prisma = {
     user: { async findMany() { return users; } },
@@ -26,7 +27,14 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
       async updateMany() { return { count: 1 }; }
     },
     agentRun: { async updateMany() { return { count: 0 }; } },
-    history: { async findMany() { return []; } },
+    history: { async findMany(query) {
+      historyQueries.push(query);
+      if (query.where.report.equals === "queued") return [{
+        id: "foreign-job", userId: "another-user",
+        report: { status: "queued", actorId: user.id, companyId: "kaldeva:" + user.id, query: "synthetic" }
+      }];
+      return [];
+    } },
     async $disconnect() {}
   };
   const dependencies = {
@@ -64,6 +72,8 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   }, { filename: "worker.js" });
 
   await settled();
+  assert.equal(historyQueries.length, 2);
+  assert.deepEqual(historyQueries.map(q => q.where.report.equals), ["running", "queued"]);
   assert.deepEqual(events.defaults, []);
   assert.deepEqual(events.runs, []);
   assert.equal(events.cycles[0].users, 0);
@@ -74,5 +84,6 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   await tick();
   assert.deepEqual(events.defaults, [user.id]);
   assert.deepEqual(events.runs, [[agent.id, "SCHEDULE"]]);
+  assert.equal(historyQueries.length, 4, "malformed cross-user job must not interrupt later cycles");
   assert.equal(events.warnings.filter(msg => msg.includes("No users in this database")).length, 1);
 });
