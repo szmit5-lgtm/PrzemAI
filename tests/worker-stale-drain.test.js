@@ -13,6 +13,7 @@ function boot(staleCount, lostClaims = new Set()) {
   const pending = Array.from({ length: staleCount }, (_, index) => ({ id: `stale-${index}` }));
   const events = { claims: [], audits: [], scans: [], logs: [], tick: null };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { findMany: async () => [] },
     agent: {
       async findMany(args) {
@@ -41,6 +42,9 @@ function boot(staleCount, lostClaims = new Set()) {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected run"); } },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected public lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./api/services/AgentService": class { async ensureDefaults() { throw new Error("unexpected user"); } }
   };
 
