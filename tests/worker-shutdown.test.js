@@ -34,6 +34,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
       },
       async updateMany() { throw new Error("must not claim agents during shutdown"); }
     },
+    history: { async findMany() { return []; } },
     agentRun: { async updateMany() { throw new Error("unexpected audit update"); } },
     async $disconnect() { events.disconnects += 1; }
   };
@@ -110,6 +111,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
       },
       async updateMany() { throw new Error("unexpected agent claim"); }
     },
+    history: { async findMany() { return []; } },
     agentRun: { async updateMany() { throw new Error("unexpected audit"); } },
     async $disconnect() { events.disconnects += 1; }
   };
