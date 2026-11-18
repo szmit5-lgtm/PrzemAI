@@ -41,6 +41,9 @@ function boot(staleCount, lostClaims = new Set()) {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected run"); } },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class { async ensureDefaults() { throw new Error("unexpected user"); } }
   };
 
