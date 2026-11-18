@@ -29,6 +29,7 @@ function boot(staleCount, lostClaims = new Set()) {
         return { count: 1 };
       }
     },
+    history: { async findMany() { return []; } },
     agentRun: {
       async updateMany(args) {
         events.audits.push(args);
