@@ -12,6 +12,8 @@ function cents(n) {
 }
 const MAX_UNIX_SECONDS = 8640000000000000 / 1000;
 function normalizeAllegroOrder(organizationId, order) {
+  // Direct callers must not bypass the tenant guard used by the page fetcher.
+  if (typeof organizationId !== 'string' || !organizationId.trim()) throw new Error('company_scope_required');
   if (!order || order.order_source !== 'allegro' || order.confirmed !== true) return null;
   if (!Number.isSafeInteger(order.order_id) || order.order_id <= 0) throw new Error('base_invalid_order_id');
   if (!Number.isSafeInteger(order.order_source_id) || order.order_source_id < 0) throw new Error('base_invalid_source_id');
@@ -72,6 +74,11 @@ async function fetchAllegroOrdersPage({ organizationId, token, sinceUnix, fetchI
   if (payload.orders.length > 100) throw new Error('base_page_limit_exceeded');
   // Validate entire page before publishing even one entry.
   const orders = payload.orders.map(order => normalizeAllegroOrder(organizationId, order)).filter(Boolean);
+  // A provider response outside the requested lower bound must not enter a dated report.
+  // Reject the whole page instead of silently accepting a mismatched time window.
+  if (orders.some(order => Date.parse(order.confirmedAt) / 1000 < sinceUnix)) {
+    throw new Error('base_order_before_cursor');
+  }
   // Duplicate IDs would inflate totals and make an apparently complete report unsafe.
   if (new Set(orders.map(order => order.orderId)).size !== orders.length) {
     throw new Error('base_duplicate_order_id');

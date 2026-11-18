@@ -141,3 +141,36 @@ test('rejects cursor outside JavaScript Date range before contacting Base.com', 
   );
   assert.equal(calls, 0);
 });
+
+
+test('fails closed when Base.com returns a confirmed order before the requested cursor', async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchCompleteAllegroOrders({
+      organizationId: 'synthetic-tenant', token: 'FAKE', sinceUnix: sample.date_confirmed + 1,
+      fetchImpl: async () => {
+        calls++;
+        return { ok: true, json: async () => ({ status: 'SUCCESS', orders: [sample] }) };
+      }
+    }),
+    /base_order_before_cursor/
+  );
+  assert.equal(calls, 1);
+});
+
+test('accepts an order confirmed exactly at the inclusive cursor', async () => {
+  const result = await fetchCompleteAllegroOrders({
+    organizationId: 'synthetic-tenant', token: 'FAKE', sinceUnix: sample.date_confirmed,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ status: 'SUCCESS', orders: [sample] }) })
+  });
+  assert.equal(result.complete, true);
+  assert.equal(result.orders.length, 1);
+});
+
+
+test('direct order normalization rejects missing tenant scope before publishing data', () => {
+  for (const organizationId of [undefined, null, '', '   ', 123, {}]) {
+    assert.throws(() => normalizeAllegroOrder(organizationId, sample), /company_scope_required/);
+  }
+  assert.equal(normalizeAllegroOrder('synthetic-tenant', sample).organizationId, 'synthetic-tenant');
+});
