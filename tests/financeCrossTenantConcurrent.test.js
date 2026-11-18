@@ -54,3 +54,21 @@ test("concurrent financial lists retain authenticated user scope despite forged 
     assert.equal(query.include?.rawData, undefined);
   }
 });
+
+
+test("concurrent unauthenticated finance lists fail closed without leaking into valid reads", async () => {
+  queries.length = 0;
+  const results = await Promise.allSettled([
+    new FinanceService().list(undefined, { userId: "synthetic-dekonica" }),
+    new FinanceService().list("   ", { where: { userId: "synthetic-deherus" } }),
+    new FinanceService().list("synthetic-authorized", { userId: "synthetic-attacker", limit: 3 })
+  ]);
+  assert.equal(results[0].status, "rejected");
+  assert.equal(results[1].status, "rejected");
+  assert.match(results[0].reason.message, /Brak identyfikatora użytkownika/);
+  assert.match(results[1].reason.message, /Brak identyfikatora użytkownika/);
+  assert.equal(results[2].status, "fulfilled");
+  assert.equal(queries.length, 1, "only the authenticated request may reach Prisma");
+  assert.deepEqual(queries[0].where, { userId: "synthetic-authorized" });
+  assert.equal(queries[0].take, 3);
+});
