@@ -12,6 +12,8 @@ function cents(n) {
 }
 const MAX_UNIX_SECONDS = 8640000000000000 / 1000;
 function normalizeAllegroOrder(organizationId, order) {
+  // Direct callers must not bypass the tenant guard used by the page fetcher.
+  if (typeof organizationId !== 'string' || !organizationId.trim()) throw new Error('company_scope_required');
   if (!order || order.order_source !== 'allegro' || order.confirmed !== true) return null;
   if (!Number.isSafeInteger(order.order_id) || order.order_id <= 0) throw new Error('base_invalid_order_id');
   if (!Number.isSafeInteger(order.order_source_id) || order.order_source_id < 0) throw new Error('base_invalid_source_id');
