@@ -193,3 +193,19 @@ test("project creation never trusts a foreign tenant even for multi-company memb
   );
   assert.equal(calls.some(([type]) => type === "existing" || type === "create"), false);
 });
+
+
+test("Deherus-only member cannot see Dekonica projects through the shared project query", async () => {
+  calls.length = 0;
+  memberships = ["deherus"];
+  await new FinanceService().listProjects("deherus-worker");
+  const membershipQuery = calls.find(([type]) => type === "memberships")[1];
+  assert.equal(membershipQuery.where.userId, "deherus-worker");
+  const query = calls.find(([type]) => type === "projects")[1];
+  assert.deepEqual(query.where.OR, [
+    { userId: "deherus-worker", organizationId: null },
+    { organizationId: { in: ["deherus"] } }
+  ]);
+  assert.equal(query.where.status, "ACTIVE");
+  assert.equal(JSON.stringify(query.where).includes("dekonica"), false);
+});
