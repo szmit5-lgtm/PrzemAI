@@ -166,3 +166,11 @@ test('accepts an order confirmed exactly at the inclusive cursor', async () => {
   assert.equal(result.complete, true);
   assert.equal(result.orders.length, 1);
 });
+
+
+test('direct order normalization rejects missing tenant scope before publishing data', () => {
+  for (const organizationId of [undefined, null, '', '   ', 123, {}]) {
+    assert.throws(() => normalizeAllegroOrder(organizationId, sample), /company_scope_required/);
+  }
+  assert.equal(normalizeAllegroOrder('synthetic-tenant', sample).organizationId, 'synthetic-tenant');
+});
