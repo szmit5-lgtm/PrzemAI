@@ -247,3 +247,27 @@ test("finance expense classification rejects missing tenant before database acce
     assert.equal(calls.length, 0, "missing tenant must not read or update expense invoices");
   }
 });
+
+
+test("finance list discards Prisma operator objects in status and source filters", async () => {
+  calls.length = 0;
+  await new FinanceService().list("tenant-safe", {
+    status: { not: "PAID" }, source: { in: ["KSEF", "MAIL"] }
+  });
+  const query = calls.find(call => call.method === "findMany").options;
+  assert.deepEqual(query.where, { userId: "tenant-safe" });
+});
+
+
+test("finance list normalizes null, arrays and scalar options without losing tenant scope", async () => {
+  const service = new FinanceService();
+  for (const options of [null, [], "invalid", 42]) {
+    calls.length = 0;
+    const items = await service.list("tenant-safe", options);
+    assert.equal(items.length, 1);
+    const query = calls.find(call => call.method === "findMany").options;
+    assert.deepEqual(query.where, { userId: "tenant-safe" });
+    assert.equal(query.take, 100);
+    assert.equal(query.skip, 0);
+  }
+});
