@@ -19,6 +19,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
 
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -43,6 +44,9 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected public lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("unexpected sales report"); } },
     "./api/services/AgentService": class {
       async ensureDefaults() { events.ensured += 1; }
     }
