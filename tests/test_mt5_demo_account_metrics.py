@@ -57,6 +57,27 @@ class AccountMetricTests(unittest.TestCase):
             build_demo_snapshot(fake)
         self.assertEqual(fake.shutdowns, 1)
 
+    def test_rejects_real_account_before_reading_positions_and_closes_terminal(self):
+        fake = FakeMT5()
+        original = fake.account_info
+        reads = []
+
+        def account():
+            data = original()
+            data.trade_mode = 2
+            return data
+
+        def positions():
+            reads.append('positions_get')
+            raise AssertionError('real account positions must not be accessed')
+
+        fake.account_info = account
+        fake.positions_get = positions
+        with self.assertRaisesRegex(PermissionError, 'mt5_demo_only'):
+            build_demo_snapshot(fake)
+        self.assertEqual(reads, [])
+        self.assertEqual(fake.shutdowns, 1)
+
 
 if __name__ == '__main__':
     unittest.main()
