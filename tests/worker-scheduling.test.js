@@ -19,6 +19,7 @@ function startWorker(overrides = {}) {
       updateMany: async () => ({ count: 1 })
     },
     agentRun: { updateMany: async () => ({ count: 0 }) },
+    history: { findMany: async () => [] },
     $disconnect: async () => {},
     ...overrides.prisma
   };
@@ -40,7 +41,11 @@ function startWorker(overrides = {}) {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": AgentRunner,
-    "./api/services/AgentService": AgentService
+    "./api/services/AgentService": AgentService,
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": { sendSpecpozOnce: async () => {} }
   };
 
   vm.runInNewContext(workerSource, {

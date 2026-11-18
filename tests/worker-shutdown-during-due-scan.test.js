@@ -35,6 +35,10 @@ test("SIGTERM during an in-flight due-agent scan does not claim or run agents", 
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": { sendSpecpozOnce: async () => {} },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
