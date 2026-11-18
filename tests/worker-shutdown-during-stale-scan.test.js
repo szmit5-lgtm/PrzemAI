@@ -50,6 +50,11 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": () => Promise.resolve(),
     "./api/services/AgentService": class {
       async ensureDefaults() { throw new Error("unexpected provisioning"); }
     }
