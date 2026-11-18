@@ -42,6 +42,11 @@ function boot(staleCount, lostClaims = new Set()) {
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected run"); } },
     "./api/services/AgentService": class { async ensureDefaults() { throw new Error("unexpected user"); } }
+
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => [] },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": () => Promise.resolve(),
   };
 
   vm.runInNewContext(source, {
