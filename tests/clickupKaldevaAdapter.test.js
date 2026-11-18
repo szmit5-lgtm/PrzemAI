@@ -38,3 +38,26 @@ test("bounded pagination never returns incomplete lead list", async () => {
   });
   await assert.rejects(() => client.listTasks({ maxPages: 2 }), /pagination limit reached/);
 });
+
+test("rejects duplicate task IDs across ClickUp pages instead of double-counting leads", async () => {
+  const client = createClickUpKaldevaClient({
+    token: "synthetic-token", listId: "123",
+    fetchImpl: async (url) => ({
+      ok: true,
+      json: async () => url.includes("page=0")
+        ? { tasks: [{ id: "lead-1", name: "Fixture A" }], last_page: false }
+        : { tasks: [{ id: "lead-1", name: "Fixture A repeated" }], last_page: true }
+    })
+  });
+  await assert.rejects(() => client.listTasks(), /Duplicate ClickUp task ID/);
+});
+
+test("rejects missing ClickUp task IDs before publishing a lead list", async () => {
+  const client = createClickUpKaldevaClient({
+    token: "synthetic-token", listId: "123",
+    fetchImpl: async () => ({
+      ok: true, json: async () => ({ tasks: [{ name: "Synthetic lead" }], last_page: true })
+    })
+  });
+  await assert.rejects(() => client.listTasks(), /Malformed ClickUp task/);
+});
