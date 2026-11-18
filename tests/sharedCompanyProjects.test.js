@@ -168,3 +168,28 @@ test("legacy mapping cannot transfer a project owned by another user", async () 
   assert.equal(update.where.status, "ACTIVE");
   adminAllowed = false;
 });
+
+test("multi-company member can explicitly create a project only in the selected tenant", async () => {
+  calls.length = 0;
+  memberships = ["dekonica", "deherus"];
+  const result = await new FinanceService().createProject("member", {
+    name: "Mielno", organizationId: "dekonica"
+  });
+  assert.equal(result.organizationId, "dekonica");
+  assert.deepEqual(calls.find(([type]) => type === "existing")[1].where, {
+    name: "Mielno", status: "ACTIVE", organizationId: "dekonica"
+  });
+  assert.equal(calls.find(([type]) => type === "create")[1].data.userId, "member");
+});
+
+test("project creation never trusts a foreign tenant even for multi-company members", async () => {
+  calls.length = 0;
+  memberships = ["dekonica", "deherus"];
+  await assert.rejects(
+    () => new FinanceService().createProject("member", {
+      name: "Zgorzelec", organizationId: "foreign-company"
+    }),
+    /Brak dostępu/
+  );
+  assert.equal(calls.some(([type]) => type === "existing" || type === "create"), false);
+});
