@@ -7,6 +7,9 @@ class FinanceService {
         if (typeof userId !== "string" || !userId.trim()) {
             throw new Error("Brak identyfikatora użytkownika.");
         }
+        if (options === null || typeof options !== "object" || Array.isArray(options)) {
+            options = {};
+        }
         const limit = Math.min(
             Math.max(Math.trunc(Number(options.limit)) || 100, 1),
             500
