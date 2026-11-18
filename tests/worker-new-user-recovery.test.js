@@ -26,6 +26,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
       async updateMany() { return { count: 1 }; }
     },
     agentRun: { async updateMany() { return { count: 0 }; } },
+    history: { async findMany() { return []; } },
     async $disconnect() {}
   };
   const dependencies = {
