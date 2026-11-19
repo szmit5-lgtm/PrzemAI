@@ -209,3 +209,32 @@ test("Deherus-only member cannot see Dekonica projects through the shared projec
   assert.equal(query.where.status, "ACTIVE");
   assert.equal(JSON.stringify(query.where).includes("dekonica"), false);
 });
+
+test("legacy mapping fails closed when project is absent or already shared", async () => {
+  calls.length = 0;
+  adminAllowed = true;
+  const original = prisma.project.updateMany;
+  prisma.project.updateMany = async query => {
+    calls.push(["mapLegacy", query]);
+    return { count: 0 };
+  };
+  try {
+    await assert.rejects(
+      () => new FinanceService().shareLegacyProject("synthetic-owner", "synthetic-project", "synthetic-org"),
+      /Projekt nie istnieje lub został już przypisany/
+    );
+    const membership = calls.find(([type]) => type === "adminMembership")[1];
+    assert.deepEqual(membership.where, {
+      userId: "synthetic-owner", organizationId: "synthetic-org", status: "ACTIVE",
+      role: { in: ["OWNER", "ADMIN"] }, organization: { status: "ACTIVE" }
+    });
+    const update = calls.find(([type]) => type === "mapLegacy")[1];
+    assert.deepEqual(update.where, {
+      id: "synthetic-project", userId: "synthetic-owner", organizationId: null, status: "ACTIVE"
+    });
+    assert.deepEqual(update.data, { organizationId: "synthetic-org" });
+  } finally {
+    prisma.project.updateMany = original;
+    adminAllowed = false;
+  }
+});
