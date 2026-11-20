@@ -63,7 +63,7 @@ function Metric({label,value,icon:Icon,foot,accent="blue"}) {
    <span className={"shrink-0 rounded-xl p-2.5 "+theme}><Icon size={23}/></span>
    <div className="min-w-0"><p className="text-xs font-medium text-slate-200">{label}</p><p className="mt-1 break-words text-xl font-extrabold tracking-tight tabular-nums text-white xl:text-2xl">{value}</p></div>
   </div>
-  <p className="mt-2 text-[11px] leading-4 text-slate-300">{foot}</p>
+  <p className="mt-2 text-[11px] leading-4 text-slate-300">{foot}<span className="ml-1 text-[10px] text-slate-400">· DANE Z SYSTEMU</span></p>
  </Panel>;
 }
 function SmallLink({href,title,icon:Icon}) {
@@ -218,8 +218,8 @@ export default function HomePage() {
       {organizations.map(o=><div key={o.id} className={"flex items-center rounded-xl border "+(o.id===primaryCompany?"border-violet-400 bg-violet-600 text-white":"border-white/10 bg-[#1b2745]")}><button type="button" aria-pressed={o.id===primaryCompany} onClick={()=>selectPrimaryCompany(o.id)} className="flex min-h-11 items-center gap-2 px-3 text-xs font-semibold"><Building2 size={16}/>{o.displayName||o.name}</button><Link href={"/company/"+encodeURIComponent(o.id)} aria-label={"Otwórz panel "+(o.displayName||o.name)} className="flex min-h-11 items-center border-l border-white/15 px-2"><ArrowUpRight size={14}/></Link></div>)}
       <Link href="/company/setup" className="ml-auto flex min-h-11 items-center gap-1 text-xs font-semibold text-violet-300"><Plus size={15}/> Spółki</Link>
      </div>
-     <p className="mt-2 text-[11px] text-slate-400">Dostępne spółki · dane w wybranym kontekście, bez konsolidacji grupy.</p>
-     {!loading&&organizations.length===0&&<p className="mt-2 text-xs text-amber-200">Brak spółek przypisanych do konta.</p>}
+     <p className="mt-2 text-[11px] text-slate-400">Dostępne spółki · bez niezweryfikowanej konsolidacji. Widok nie sumuje danych osobistych ani nie ujawnia danych innych kont.</p>
+     {!loading&&organizations.length===0&&<p className="mt-2 text-xs text-amber-200">Nie znaleziono spółek przypisanych do konta.</p>}
      {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<details className="mt-3 rounded-xl border border-violet-400/20 bg-[#0a162d] p-3"><summary className="cursor-pointer text-sm font-semibold text-violet-200">Szczegóły synchronizacji KSeF</summary>
       <div className="flex flex-wrap items-center justify-between gap-2">
        <h3 className="text-sm font-bold">KSeF — {organizations.find(o=>o.id===primaryCompany)?.displayName||organizations.find(o=>o.id===primaryCompany)?.name}</h3>
@@ -335,7 +335,7 @@ export default function HomePage() {
        </Link>)}
        {filteredCompanies.length===0&&<p className="py-3 text-xs text-slate-400">Brak spółek odpowiadających filtrowi.</p>}
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Powyższe finanse są nadal danymi konta osobistego — nie skonsolidowaną księgowością spółek.</p>
+      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Finanse dotyczą wybranego konta lub spółki — nie skonsolidowanej księgowości grupy.</p>
      </Panel>
     </div>}
     {!simpleMode&&<div className="mt-4 flex flex-wrap gap-2">
