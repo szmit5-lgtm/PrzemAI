@@ -19,6 +19,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   };
 
   const prisma = {
+    history: { async findMany() { return []; } },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -43,6 +44,9 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults() { events.ensured += 1; }
     }
@@ -98,6 +102,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   const handlers = {};
   const events = { provisioned: [], dueReads: 0, runs: 0, disconnects: 0, exits: [] };
   const prisma = {
+    history: { async findMany() { return []; } },
     user: { async findMany() { return [{ id: "user-1" }, { id: "user-2" }]; } },
     agent: {
       async findMany({ where }) {
@@ -116,6 +121,9 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
     "./api/services/AgentService": class {
       async ensureDefaults(userId) {
         events.provisioned.push(userId);
@@ -152,6 +160,65 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   assert.deepEqual(events.provisioned, ["user-1"], "do not provision another user after SIGTERM");
   assert.equal(events.dueReads, 0, "do not scan due agents after SIGTERM");
   assert.equal(events.runs, 0);
+  assert.equal(events.disconnects, 1);
+  assert.deepEqual(events.exits, [0]);
+});
+
+
+test("SIGTERM while Kaldeva queued scan is pending never claims a job", async () => {
+  let releaseQueue;
+  const queuedRead = new Promise(resolve => { releaseQueue = resolve; });
+  const handlers = {};
+  const events = { queuedReads: 0, claims: 0, userReads: 0, disconnects: 0, exits: [] };
+  const prisma = {
+    history: {
+      async findMany({ where }) {
+        if (where.report?.equals === "running") return [];
+        events.queuedReads += 1;
+        await queuedRead;
+        return [{ id: "synthetic-job", userId: "synthetic-user",
+          report: { status: "queued", actorId: "synthetic-user",
+            companyId: "kaldeva:synthetic-user", query: "test" } }];
+      }
+    },
+    user: { async findMany() { events.userReads += 1; return []; } },
+    agent: { async findMany() { return []; }, async updateMany() { throw new Error("unexpected agent claim"); } },
+    agentRun: { async updateMany() { throw new Error("unexpected audit write"); } },
+    async $executeRaw() { events.claims += 1; return 1; },
+    async $disconnect() { events.disconnects += 1; }
+  };
+  const dependencies = {
+    dotenv: { config() {} },
+    "./lib/prisma": prisma,
+    "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected agent run"); } },
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("unexpected lead search"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./api/services/AgentService": class { async ensureDefaults() { throw new Error("unexpected provisioning"); } }
+  };
+  vm.runInNewContext(source, {
+    require(name) {
+      if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
+      return dependencies[name];
+    },
+    console: { log() {}, warn() {}, error(message) { throw new Error(message); } },
+    process: {
+      env: {},
+      on(signal, handler) { handlers[signal] = handler; },
+      exit(code) { events.exits.push(code); }
+    },
+    Date,
+    setInterval() { return 1; },
+    clearInterval() {},
+    setTimeout
+  }, { filename: "worker.js" });
+  await settled();
+  assert.equal(events.queuedReads, 1);
+  const shutdown = handlers.SIGTERM();
+  releaseQueue();
+  await shutdown;
+  assert.equal(events.claims, 0, "no queued job may be claimed after shutdown");
+  assert.equal(events.userReads, 0, "shutdown must skip user scans");
   assert.equal(events.disconnects, 1);
   assert.deepEqual(events.exits, [0]);
 });
