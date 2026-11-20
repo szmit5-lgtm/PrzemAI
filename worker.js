@@ -92,6 +92,7 @@ async function processKaldevaJobs() {
     select: { id: true, userId: true, report: true }
   });
   for (const row of stale) {
+    if (stopping) return 0;
     if (row.report?.actorId !== row.userId || row.report?.companyId !== "kaldeva:" + row.userId) continue;
     const failed = { ...row.report, status: "failed", error: "worker_interrupted_retry_search" };
     await prisma.$executeRaw`
@@ -101,6 +102,7 @@ async function processKaldevaJobs() {
         AND "updatedAt" < ${new Date(Date.now() - 15 * 60000)}
     `;
   }
+  if (stopping) return 0;
   const jobs = await prisma.history.findMany({
     where: {
       type: "KALDEVA_SALES",
@@ -112,6 +114,7 @@ async function processKaldevaJobs() {
   });
   let processed = 0;
   for (const row of jobs) {
+    if (stopping) break;
     const job = row.report;
     if (job?.status !== "queued" || job.actorId !== row.userId ||
         job.companyId !== "kaldeva:" + row.userId || typeof job.query !== "string") continue;
@@ -175,6 +178,7 @@ async function cycle() {
       // A failed stale-run scan must not prevent healthy agents from running.
       console.error("[Worker] Stale run scan failed", error.message);
     }
+    if (stopping) return;
     try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }
     catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }
     // A SIGTERM during the stale scan must not start user provisioning.
@@ -204,7 +208,7 @@ async function cycle() {
 
     // Explicit deployment-only kick-off for the verified production KSeF owner.
     // This never runs for ordinary users, the staging worker, or disabled KSeF.
-    if (!ownerBootRunQueued && ownerScope &&
+    if (!stopping && !ownerBootRunQueued && ownerScope &&
         process.env.KSEF_OWNER_BOOT_RUN === "true" &&
         process.env.KSEF_SYNC_ENABLED === "true" &&
         process.env.KSEF_OWNER_USER_ID === ownerScope) {
