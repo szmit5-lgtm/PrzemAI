@@ -13,6 +13,7 @@ const workerSource = fs.readFileSync(path.join(__dirname, "../worker.js"), "utf8
 function startWorker(overrides = {}) {
   const events = { logs: [], warnings: [], errors: [], runs: [], ensured: [], tick: null };
   const prisma = {
+    history: { findMany: async () => [] },
     user: { findMany: async () => [] },
     agent: {
       findMany: async () => [],
@@ -39,6 +40,9 @@ function startWorker(overrides = {}) {
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("Unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("Unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("Unexpected sales report"); } },
     "./core/agents/AgentRunner": AgentRunner,
     "./api/services/AgentService": AgentService
   };
