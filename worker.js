@@ -422,8 +422,7 @@ if (process.env.DEKONICA_MAIL_REVIEW_ONCE === "true" &&
   })().catch(() => console.warn("[MAIL-REVIEW] FAILED unexpected"));
 }
 
-// Explicit one-time authorized sender. Guarded by a persistent unique database task ID.
-require("./scripts/sendSpecpozOnce")().catch(() => console.warn("[SPECPOZ-SEND] unexpected failure"));
+// One-time mail dispatch is intentionally not invoked by the recurring worker.
 
 console.log("PrzemAI Worker active", JSON.stringify({commit: process.env.RAILWAY_GIT_COMMIT_SHA || "unknown", mode: process.env.NODE_ENV || "unset"}));
 cycle();
