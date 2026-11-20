@@ -108,7 +108,7 @@ class FinanceService {
             : { queued: false, status: "RUNNING" };
     }
 
-    // Company projects are shared with ACTIVE members; legacy personal projects
+    // Company projects require explicit grants for members; legacy personal projects
     // remain visible only to their creator until explicitly assigned to a tenant.
     async accessibleProjectOrganizations(userId) {
         const memberships = await prisma.organizationMembership.findMany({
@@ -128,7 +128,22 @@ class FinanceService {
                 status: "ACTIVE",
                 OR: [
                     { userId, organizationId: null },
-                    { organizationId: { in: organizationIds } }
+                    { organizationId: { in: organizationIds }, userId },
+                    {
+                        organizationId: { in: organizationIds },
+                        projectAccesses: { some: { userId } }
+                    },
+                    {
+                        organizationId: { in: organizationIds },
+                        organization: {
+                            memberships: {
+                                some: {
+                                    userId, status: "ACTIVE",
+                                    role: { in: ["OWNER", "ADMIN"] }
+                                }
+                            }
+                        }
+                    }
                 ]
             },
             select: { id: true, name: true, aliases: true, company: true, organizationId: true },
