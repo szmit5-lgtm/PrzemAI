@@ -124,17 +124,26 @@ test("non-owner cannot assign admin role, configure domain or remove another mem
  await assert.rejects(svc.changeBranding("member","a",{displayName:"Nowa marka"}),/Brak uprawnień/);
  await assert.rejects(svc.revoke("owner","a","m1"),/Nie można odebrać/);
 });
-test("invitation remains pending until invited person explicitly accepts",async()=>{
+test("authorized owner assigns existing account without granting finance or cross-company access",async()=>{
  const env=environment(),svc=service(env);
+ await assert.rejects(svc.invite("owner","b",{email:"visitor@example.org"}),/Brak uprawnień/);
  const invitation=await svc.invite("owner","a",{email:"visitor@example.org",role:"MEMBER"});
- assert.equal(invitation.status,"PENDING");
+ assert.equal(invitation.status,"ACTIVE");
+ assert.equal(env.memberships.find(m=>m.userId==="visitor").financeAccess,false);
+ assert.equal((await svc.workspace("visitor","a")).company.role,"MEMBER");
+ await assert.rejects(svc.workspace("visitor","b"),/Brak uprawnień/);
+ assert.equal((await svc.pendingInvites("visitor")).length,0);
+ await assert.rejects(svc.invite("owner","a",{email:"visitor@example.org"}),/już/);
+});
+test("legacy pending membership requires acceptance before access",async()=>{
+ const env=environment(),svc=service(env);
+ env.memberships.push({id:"legacy",organizationId:"a",userId:"visitor",role:"MEMBER",status:"PENDING",financeAccess:false});
  await assert.rejects(svc.workspace("visitor","a"),/Brak uprawnień/);
- const pending=await svc.pendingInvites("visitor");
- assert.equal(pending.length,1);
+ assert.equal((await svc.pendingInvites("visitor")).length,1);
  const accepted=await svc.acceptInvite("visitor","a");
  assert.equal(accepted.status,"ACTIVE");
  assert.equal((await svc.workspace("visitor","a")).company.role,"MEMBER");
- await assert.rejects(svc.invite("owner","a",{email:"visitor@example.org"}),/już/);
+ await assert.rejects(svc.workspace("visitor","b"),/Brak uprawnień/);
 });
 test("DNS ownership uses exact HMAC token; verification does not activate hosting",async()=>{
  const env=environment();
