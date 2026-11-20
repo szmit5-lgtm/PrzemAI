@@ -63,7 +63,9 @@ test("sales processor handles only same-account matching tasks and stores a draf
  assert.equal(reads[0].where.userId,"owner");
  assert.equal(reads[0].where.metadata.equals,"sales");
  assert.ok(updates.every(x=>x.where.userId==="owner"));
- assert.match(prompt.system,/Nie masz dostępu do aktualnego internetu/);
+ assert.match(prompt.system,/Masz dostęp wyłącznie do podanych poniżej wyników publicznej wyszukiwarki/);
+ assert.match(prompt.system,/Nie wymyślaj cen, klientów, faktów ani kontaktów/);
+ assert.match(prompt.system,/wysłanie wiadomości wymaga akceptacji użytkownika/);
  assert.match(prompt.user,/ABC/);
 });
 test("failed AI call is recorded without fabricated success",async()=>{
