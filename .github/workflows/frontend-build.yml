@@ -1,0 +1,40 @@
+name: Frontend build and smoke
+on:
+  pull_request:
+  push:
+    branches: [ux/design-system-20261115]
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3999
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Dependency security audit (production)
+        run: npm audit --omit=dev --audit-level=high
+      - run: npm test
+      - run: npm run build
+      - name: Local production server smoke
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/przemai-next.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; cat /tmp/przemai-next.log' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 5 http://127.0.0.1:3000/ -o /tmp/przemai-home.html; then
+              test -s /tmp/przemai-home.html
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1

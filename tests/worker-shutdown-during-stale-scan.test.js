@@ -18,6 +18,7 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
     runs: 0, disconnects: 0, exits: [], errors: []
   };
   const prisma = {
+    history: { findMany: async () => [] },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -47,6 +48,9 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("Unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("Unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("Unexpected sales report"); } },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },

@@ -196,3 +196,28 @@ button:disabled {
         animation-duration: .01ms !important;
     }
 }
+
+/* PrzemAI UI foundations — shared accessible tokens, no application data. */
+:root {
+  --ui-accent: #7c3aed;
+  --ui-accent-hover: #6d28d9;
+  --ui-radius-sm: 12px;
+  --ui-radius-card: 22px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-6: 24px;
+  --ui-touch-min: 44px;
+}
+@media (max-width: 1023px) {
+  /* Prevent the fixed mobile navigation from obscuring page content. */
+  body { padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
+}
+@media (hover: hover) {
+  a, button { transition-property: background-color, border-color, color, box-shadow; transition-duration: 150ms; }
+}
+:focus-visible {
+  outline: 3px solid #a78bfa;
+  outline-offset: 3px;
+}

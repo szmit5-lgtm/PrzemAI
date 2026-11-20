@@ -50,8 +50,8 @@ export default function AgentsPage(){
      <section className="mt-6 min-w-0">
        <div className="flex flex-wrap items-center justify-between gap-4">
          <div className="min-w-0">
-           <p className="text-xs font-bold uppercase tracking-[.18em] text-cyan-300">Centrum agentów</p>
-           <h1 className="mt-2 break-words text-3xl font-black sm:text-4xl">Twój zespół PrzemAI</h1>
+           <p className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Centrum agentów</p>
+           <h1 className="mt-2 break-words text-3xl font-black sm:text-4xl">Agenci AI</h1>
            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Każdy agent ma opis zadań, ograniczeń i osobną przestrzeń pracy. Wpisz polecenie, śledź realizację i odbierz wynik. Wysyłanie wiadomości oraz działania poza PrzemAI wymagają dodatkowych integracji i zatwierdzenia.</p>
          </div>
          <button type="button" disabled={loading||!!pending} onClick={()=>setRefresh(x=>x+1)}
@@ -59,20 +59,20 @@ export default function AgentsPage(){
            <RefreshCw size={17} className={loading?"animate-spin":""}/> Odśwież
          </button>
        </div>
-       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><Bot className="text-cyan-300"/><p className="mt-2 text-3xl font-black">{loading?"—":totalVisible}</p><p className="text-xs text-slate-400">Agentów i modułów w systemie</p></div>
+       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><Bot className="text-violet-300"/><p className="mt-2 text-3xl font-black">{loading?"—":totalVisible}</p><p className="text-xs text-slate-400">Agentów i modułów w systemie</p></div>
          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><CheckCircle2 className="text-emerald-300"/><p className="mt-2 text-3xl font-black">{loading?"—":active}</p><p className="text-xs text-slate-400">Włączone agenty wykonawcze</p></div>
-         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><MessageSquareText className="text-cyan-300"/><p className="mt-2 text-base font-bold">Polecenie → wynik</p><p className="mt-2 text-xs leading-5 text-slate-400">Asystenci przygotowują szkice i analizy. Financial Agent ma dodatkowo integrację KSeF.</p></div>
+         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><MessageSquareText className="text-violet-300"/><p className="mt-2 text-base font-bold">Polecenie → wynik</p><p className="mt-2 text-xs leading-5 text-slate-400">Asystenci przygotowują szkice i analizy. Financial Agent ma dodatkowo integrację KSeF.</p></div>
        </div>
      </section>
      {error&&<p role="alert" className="mt-5 rounded-xl border border-rose-300/30 bg-rose-300/10 p-4 text-sm text-rose-200">{error}</p>}
      {notice&&<p role="status" className="mt-5 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4 text-sm text-cyan-100">{notice}</p>}
-     {loading?<p className="mt-8 text-slate-300">Pobieranie agentów…</p>:
+     {loading?<p role="status" aria-live="polite" className="mt-8 text-slate-300">Pobieranie agentów…</p>:
        <section className="mt-7 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
-         {agents.map(a=><article key={a.id} className={"flex min-w-0 flex-col overflow-hidden rounded-3xl border p-5 sm:p-6 "+(a.key==="sales"?"border-cyan-300/35 bg-gradient-to-br from-[#163455] to-[#0d182e]":"border-white/10 bg-[#101d37]")}>
+         {agents.map(a=><article key={a.id} className={"flex min-w-0 flex-col overflow-hidden rounded-3xl border p-5 sm:p-6 "+(a.key==="sales"?"border-violet-300/35 bg-gradient-to-br from-[#25214b] to-[#0d182e]":"border-white/10 bg-[#101d37]")}>
            <div className="flex min-w-0 items-start justify-between gap-2">
              <div className="flex min-w-0 items-center gap-3">
-               <div className="shrink-0 rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3"><Bot className="text-cyan-300" size={21}/></div>
+               <div className="shrink-0 rounded-xl border border-violet-400/20 bg-violet-400/10 p-3"><Bot className="text-violet-300" size={21}/></div>
                <div className="min-w-0"><h2 className="break-words text-lg font-extrabold">{a.name}</h2>
                  <p className="mt-1 text-xs text-violet-200">{a.headline||a.type}</p>
                </div>

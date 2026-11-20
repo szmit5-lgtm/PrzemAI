@@ -173,11 +173,11 @@ export default function HomePage() {
      </div>
     </header>
     <div className="lg:hidden"><Navbar/></div>
-    <div className="mt-6 flex min-w-0 flex-wrap items-start justify-between gap-4">
+    <div className="mt-6 flex min-w-0 flex-wrap items-start justify-between gap-4" aria-busy={loading}>
      <div className="min-w-0 flex-1">
       <p className="text-xs font-bold uppercase tracking-[.17em] text-violet-300">PrzemAI / Pulpit</p>
-      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Dzień dobry <span aria-hidden="true">👋</span></h1>
-      <p className="mt-2 text-sm text-slate-400">Bieżące informacje z konta osobistego i działających agentów. Przestrzenie firmowe otwieraj osobno.</p>
+      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Centrum dowodzenia</h1>
+      <p className="mt-2 text-sm leading-6 text-slate-400">Najważniejsze informacje i działania w jednym miejscu. Wybierz spółkę, aby zobaczyć dostępne dane w jej kontekście.</p>
      </div>
      <button type="button" onClick={()=>setRefresh(v=>v+1)} disabled={loading}
        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50">
@@ -194,10 +194,10 @@ export default function HomePage() {
       <label htmlFor="primary-company" className="text-sm font-semibold">Firma główna na pulpicie</label>
       <select id="primary-company" value={organizations.some(o=>o.id===primaryCompany)?primaryCompany:""} onChange={e=>selectPrimaryCompany(e.target.value)}
        className="min-h-11 min-w-0 max-w-full rounded-xl border border-white/20 bg-[#1b2745] px-3 text-sm text-white">
-       <option value="">Konto osobiste / wszystkie dostępne</option>
+       <option value="">Konto osobiste (bez konsolidacji spółek)</option>
        {organizations.map(o=><option key={o.id} value={o.id}>{o.displayName||o.name}</option>)}
       </select>
-      <span className="text-xs text-slate-400">Wybór zostaje zapamiętany w tej przeglądarce.</span>
+      <span className="text-xs text-slate-400">Wybór zapamiętamy na tym urządzeniu. Nie zmienia on uprawnień.</span>
      </div>
      {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<div className="mt-4 rounded-xl border border-violet-400/20 bg-[#0a162d] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -219,9 +219,9 @@ export default function HomePage() {
       <p className="mt-3 text-xs text-slate-400">Suma zaimportowanych faktur, nie przychód kasowy. Ostatnia aktywność agenta: {companyFinance?.sync?.lastRunAt?new Date(companyFinance.sync.lastRunAt).toLocaleString("pl-PL"):"brak danych"}.</p>
      </div>}
      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      <div aria-current="page" className="flex min-h-24 items-center gap-3 rounded-xl border border-violet-400/40 bg-violet-500/10 p-4">
+      <div className="flex min-h-24 items-center gap-3 rounded-xl border border-violet-400/40 bg-violet-500/10 p-4">
        <span className="rounded-xl bg-violet-500/20 p-3 text-violet-300"><BarChart3 size={23}/></span>
-       <span><strong className="block text-sm">Wszystkie firmy</strong><span className="mt-1 block text-xs text-slate-400">Lista dostępnych spółek · bez niezweryfikowanej konsolidacji</span></span>
+       <span><strong className="block text-sm">Dostępne spółki</strong><span className="mt-1 block text-xs text-slate-400">Lista dostępnych spółek · bez niezweryfikowanej konsolidacji</span></span>
       </div>
       {organizations.map(o=><Link key={o.id} href={"/company/"+encodeURIComponent(o.id)}
        className="flex min-h-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[.035] p-4 hover:border-violet-400/40 hover:bg-white/[.07]">
@@ -235,7 +235,7 @@ export default function HomePage() {
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
-    {simpleMode&&<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    {<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
      <SmallLink href="/chat" title="Porozmawiaj z asystentem" icon={MessageSquareText}/>
      <SmallLink href="/agents" title="Agenci AI" icon={Bot}/>
      <SmallLink href="/finance" title="Finanse i KSeF" icon={Wallet}/>

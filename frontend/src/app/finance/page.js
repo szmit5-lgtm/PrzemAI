@@ -49,9 +49,9 @@ function StatCard({ label, value, icon: Icon, description }) {
     <div className="rounded-2xl border border-white/10 bg-white/[.055] p-5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-300">{label}</p>
-        <Icon size={19} className="text-cyan-300" aria-hidden="true" />
+        <Icon size={19} className="text-violet-300" aria-hidden="true" />
       </div>
-      <p className="mt-4 text-3xl font-bold tabular-nums text-white">{value ?? "—"}</p>
+      <p className="mt-4 break-words text-2xl font-bold tabular-nums text-white sm:text-3xl">{value ?? "—"}</p>
       <p className="mt-2 text-xs text-slate-400">{description}</p>
     </div>
   );
@@ -124,7 +124,7 @@ export default function FinancePage() {
       <div className="mx-auto w-full min-w-0 max-w-[1680px]">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[.04] px-5 py-4">
           <Link href="/" className="inline-flex items-center gap-3 text-lg font-black">
-            <ArrowLeft size={18} className="text-cyan-300" aria-hidden="true" /> Przem<span className="-ml-3 text-cyan-300">AI</span>
+            <ArrowLeft size={18} className="text-violet-300" aria-hidden="true" /> Przem<span className="-ml-3 text-violet-300">AI</span>
           </Link>
           <UserMenu />
         </header>
@@ -132,8 +132,8 @@ export default function FinancePage() {
         <section className="mt-8">
           <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
-                <Wallet size={14} aria-hidden="true" /> FINANCIAL AGENT
+              <span className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1 text-xs font-bold text-violet-200">
+                <Wallet size={14} aria-hidden="true" /> FINANSE I KSeF
               </span>
               <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Centrum finansów</h1>
               <Link href="/finance/reports" className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-sm font-bold text-cyan-100 hover:bg-cyan-300/20">Raport miesięczny i kwartalny <ArrowUpRight size={15} className="ml-2"/></Link>
@@ -162,7 +162,7 @@ export default function FinancePage() {
               className="mt-2 max-w-full break-all font-mono text-cyan-200 underline underline-offset-4"
               title="Skopiuj identyfikator konta">{ownerId}</button>
           </details>}
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <StatCard label="Wszystkie dokumenty" value={summary?.total} icon={FileText} description="Łącznie w systemie" />
             <StatCard label="Z poczty" value={summary?.mail} icon={Wallet} description="Załączniki e-mail" />
             <StatCard label="Z KSeF" value={summary?.ksef} icon={ShieldCheck} description="Dokumenty z integracji" />
@@ -173,10 +173,10 @@ export default function FinancePage() {
           <section className="mt-7 min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[.045] p-4 sm:p-6">
             <h2 className="text-xl font-bold">Zestawienie kwot z KSeF</h2>
             <p className="mt-2 text-sm text-slate-400">Kwoty z oficjalnych metadanych. VAT jest wykazany w PLN. Zestawienie nie oznacza potwierdzenia płatności.</p>
-            <div className="mt-4 max-w-full overflow-x-auto">
+            <div role="region" aria-label="Tabela kwot z KSeF" tabIndex={0} className="mt-4 max-w-full overflow-x-auto focus-visible:rounded-lg">
               <table className="min-w-[680px] w-full text-sm text-left">
                 <thead className="text-xs uppercase tracking-wide text-slate-400"><tr>
-                  <th className="p-3">Rodzaj</th><th className="p-3">Waluta</th>
+                  <th scope="col" className="p-3">Rodzaj</th><th scope="col" className="p-3">Waluta</th>
                   <th className="p-3">Faktury</th><th className="p-3">Netto</th>
                   <th className="p-3">VAT w PLN</th><th className="p-3">Brutto</th>
                 </tr></thead>
