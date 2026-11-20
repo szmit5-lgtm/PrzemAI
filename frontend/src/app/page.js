@@ -22,7 +22,7 @@ const money=(value,currency="PLN")=>{
 };
 const readValue=(result,key)=>result.status==="fulfilled"?result.value?.[key]:null;
 function Panel({children,className=""}) {
- return <section className={"min-w-0 overflow-hidden rounded-[22px] border border-white/10 bg-[#111c35]/95 shadow-[0_12px_35px_rgba(0,0,0,.12)] "+className}>{children}</section>;
+ return <section className={"min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#101a30] shadow-[0_12px_35px_rgba(0,0,0,.16)] "+className}>{children}</section>;
 }
 function SectionTitle({children,href,link="Pokaż wszystkie"}) {
  return <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
@@ -32,10 +32,10 @@ function SectionTitle({children,href,link="Pokaż wszystkie"}) {
 }
 function Metric({label,value,icon:Icon,foot,accent="blue"}) {
  const theme={
-  blue:"bg-blue-500/15 text-blue-300",green:"bg-emerald-500/15 text-emerald-300",
-  purple:"bg-violet-500/15 text-violet-300",orange:"bg-amber-500/15 text-amber-300"
+  blue:"bg-blue-500/20 text-blue-200",green:"bg-emerald-500/20 text-emerald-200",
+  purple:"bg-violet-500/20 text-violet-200",orange:"bg-amber-500/20 text-amber-200"
  }[accent];
- return <Panel className="p-4 sm:p-5">
+ return <Panel className={"p-4 sm:p-5 "+({blue:"border-blue-400/30 bg-gradient-to-br from-blue-950 to-[#101b31]",green:"border-emerald-400/30 bg-gradient-to-br from-emerald-950 to-[#101b31]",purple:"border-violet-400/30 bg-gradient-to-br from-violet-950 to-[#101b31]",orange:"border-amber-400/30 bg-gradient-to-br from-amber-950/80 to-[#101b31]"}[accent])}>
   <div className="flex items-start justify-between gap-3">
    <span className={"rounded-xl p-2.5 "+theme}><Icon size={21}/></span>
    <span className="text-[10px] text-slate-500">DANE Z SYSTEMU</span>
@@ -132,11 +132,11 @@ export default function HomePage() {
   (o.displayName||o.name||"").toLocaleLowerCase("pl-PL").includes(companySearch.toLocaleLowerCase("pl-PL")));
  const ready=data!==null;
  return <main className="min-h-screen min-w-0 bg-[#080e20] text-slate-100">
-  <div className="mx-auto grid min-h-screen max-w-[1900px] min-w-0 lg:grid-cols-[242px_minmax(0,1fr)]">
-   <aside className="hidden min-w-0 border-r border-white/10 bg-[#0a1227] px-3 py-5 lg:flex lg:flex-col">
+  <div className="mx-auto grid min-h-screen max-w-[2200px] min-w-0 lg:grid-cols-[220px_minmax(0,1fr)]">
+   <aside className="hidden min-w-0 border-r border-violet-300/10 bg-gradient-to-b from-[#11152e] to-[#080e20] px-3 py-5 lg:flex lg:flex-col">
     <Link href="/" className="flex items-center gap-3 px-3 py-2 text-xl font-black tracking-tight">
      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-2xl font-black text-white">P</span>
-     Przem<span className="text-violet-300">AI</span>
+     <span>Przem<span className="text-violet-300">AI</span><span className="ml-1 text-sm text-violet-400">2.0</span><span className="block text-[10px] font-medium text-slate-400">Asystent biznesowy AI</span></span>
     </Link>
     <div className="mt-4 border-t border-white/10 pt-5">
      <Navbar vertical/>
@@ -176,10 +176,10 @@ export default function HomePage() {
      </div>
     </header>
     <div className="lg:hidden"><Navbar/></div>
-    <div className="mt-6 flex min-w-0 flex-wrap items-start justify-between gap-4" aria-busy={loading}>
+    <div className="mt-4 flex min-w-0 flex-wrap items-start justify-between gap-4 overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-r from-[#24164a] via-[#15264b] to-[#0c2841] p-5 sm:p-7" aria-busy={loading}>
      <div className="min-w-0 flex-1">
-      <p className="text-xs font-bold uppercase tracking-[.17em] text-violet-300">PrzemAI / Pulpit</p>
-      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Centrum dowodzenia</h1>
+      <p className="text-xs font-bold uppercase tracking-[.17em] text-violet-300">PrzemAI 2.0 · Pulpit operacyjny</p>
+      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Centrum <span className="text-violet-300">dowodzenia</span></h1>
       <p className="mt-2 text-sm leading-6 text-slate-400">Najważniejsze informacje i działania w jednym miejscu. Wybierz spółkę, aby zobaczyć dostępne dane w jej kontekście.</p>
      </div>
      <button type="button" onClick={()=>setRefresh(v=>v+1)} disabled={loading}
@@ -187,7 +187,9 @@ export default function HomePage() {
        <RefreshCw size={17} className={loading?"animate-spin":""}/>{loading?"Ładowanie…":"Odśwież dane"}
      </button>
     </div>
-    <section aria-label="Wybór spółki" className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-5">
+    <div className={"mt-4 grid min-w-0 gap-4 "+(!simpleMode?"2xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]":"")}>
+    <div className="min-w-0">
+    <section aria-label="Wybór spółki" className="rounded-2xl border border-white/10 bg-[#101a30] p-4">
      <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-base font-bold">Wybierz spółkę</h2>
       <Link href="/company/setup" className="text-xs font-semibold text-violet-300">Zarządzaj spółkami <ArrowUpRight size={12} className="inline"/></Link>
@@ -202,7 +204,7 @@ export default function HomePage() {
       </select>
       <span className="text-xs text-slate-400">Wybór zapamiętamy na tym urządzeniu. Nie zmienia on uprawnień.</span>
      </div>
-     {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<div className="mt-4 rounded-xl border border-violet-400/20 bg-[#0a162d] p-4">
+     {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<details className="mt-3 rounded-xl border border-violet-400/20 bg-[#0a162d] p-3"><summary className="cursor-pointer text-sm font-semibold text-violet-200">Szczegóły synchronizacji KSeF</summary>
       <div className="flex flex-wrap items-center justify-between gap-2">
        <h3 className="text-sm font-bold">KSeF — {organizations.find(o=>o.id===primaryCompany)?.displayName||organizations.find(o=>o.id===primaryCompany)?.name}</h3>
        <Link href={"/company/"+encodeURIComponent(primaryCompany)+"/finance"} className="text-xs text-violet-300">Szczegóły finansów →</Link>
@@ -220,15 +222,15 @@ export default function HomePage() {
         <div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-slate-400">Faktury KSeF</p><p className="mt-1 text-xl font-bold">{companyFinance.count??"—"}</p></div>
        </div>}
       <p className="mt-3 text-xs text-slate-400">Suma zaimportowanych faktur, nie przychód kasowy. Ostatnia aktywność agenta: {companyFinance?.sync?.lastRunAt?new Date(companyFinance.sync.lastRunAt).toLocaleString("pl-PL"):"brak danych"}.</p>
-     </div>}
-     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      <div className="flex min-h-24 items-center gap-3 rounded-xl border border-violet-400/40 bg-violet-500/10 p-4">
-       <span className="rounded-xl bg-violet-500/20 p-3 text-violet-300"><BarChart3 size={23}/></span>
+     </details>}
+     <div className="mt-3 flex flex-wrap gap-2">
+      <div className="flex min-h-11 items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2">
+       <span className="rounded-lg bg-violet-500/20 p-2 text-violet-300"><BarChart3 size={16}/></span>
        <span><strong className="block text-sm">Dostępne spółki</strong><span className="mt-1 block text-xs text-slate-400">Lista dostępnych spółek · bez niezweryfikowanej konsolidacji</span></span>
       </div>
       {organizations.map(o=><Link key={o.id} href={"/company/"+encodeURIComponent(o.id)}
-       className="flex min-h-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[.035] p-4 hover:border-violet-400/40 hover:bg-white/[.07]">
-       <span className="rounded-xl bg-blue-500/15 p-3 text-blue-300"><Building2 size={23}/></span>
+       className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.035] px-3 py-2 hover:border-violet-400/40 hover:bg-white/[.07]">
+       <span className="rounded-lg bg-blue-500/15 p-2 text-blue-300"><Building2 size={16}/></span>
        <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{o.displayName||o.name}</strong><span className="mt-1 block text-xs text-slate-400">Otwórz panel spółki</span></span>
        <ChevronRight size={17} className="shrink-0 text-violet-300"/>
       </Link>)}
@@ -238,6 +240,12 @@ export default function HomePage() {
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
+    <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+     <Metric label="Faktury z KSeF" value={ready?(primaryCompany?(selectedOrg?(companyFinance?.count??"—"):"—"):(finance.ksef??"—")):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
+     <Metric label="Faktury zakupowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross):"—"):(data?.finance?money(purchasePLN?.gross):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
+     <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross):"—"):(data?.finance?money(salesPLN?.gross):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
+     <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
+    </section>
     {<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
      <SmallLink href="/chat" title="Porozmawiaj z asystentem" icon={MessageSquareText}/>
      <SmallLink href="/agents" title="Agenci AI" icon={Bot}/>
@@ -245,12 +253,6 @@ export default function HomePage() {
      <SmallLink href="/finance/projects" title="Projekty" icon={FolderKanban}/>
      <SmallLink href="/agents/sales" title="Agent sprzedażowy" icon={Handshake}/>
     </section>}
-    <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-     <Metric label="Faktury z KSeF" value={ready?(primaryCompany?(selectedOrg?(companyFinance?.count??"—"):"—"):(finance.ksef??"—")):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
-     <Metric label="Faktury zakupowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross):"—"):(data?.finance?money(purchasePLN?.gross):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
-     <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross):"—"):(data?.finance?money(salesPLN?.gross):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
-     <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
-    </section>
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#111c35] px-4 py-3 text-xs leading-5 text-slate-400">
      <Landmark size={17} className="shrink-0 text-slate-300"/>
      <strong className="text-slate-200">Rachunki bankowe:</strong> brak podłączonej bankowości. Salda i wpływy będą dostępne po autoryzacji integracji.
@@ -266,25 +268,25 @@ export default function HomePage() {
         {shownMonths.map(v=><div key={v.label} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
          <div className="flex h-40 w-full items-end justify-center gap-1">
           <div title={v.label+" sprzedaż "+money(v.sales)} style={{height:Math.max(2,v.sales/chartMax*100)+"%"}}
-           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-blue-500 sm:w-5"/>
+           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-violet-500 sm:w-5"/>
           <div title={v.label+" zakupy "+money(v.purchase)} style={{height:Math.max(2,v.purchase/chartMax*100)+"%"}}
-           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-violet-400 sm:w-5"/>
+           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-emerald-400 sm:w-5"/>
          </div><span className="text-[10px] font-semibold text-slate-400">{v.label}</span>
         </div>)}
        </div>
        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
-        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-blue-500"/>Faktury sprzedażowe</span>
-        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-violet-400"/>Faktury zakupowe</span>
+        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-violet-500"/>Faktury sprzedażowe</span>
+        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400"/>Faktury zakupowe</span>
        </div>
       </div>}
      </Panel>
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/agents" link="Wszyscy agenci">Agenci AI · status</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">Stan z produkcyjnego panelu agentów</p>
-      <div className="mt-3 max-h-64 divide-y divide-white/[.06] overflow-y-auto">
+      <div className="mt-3 grid max-h-[480px] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-1">
        {agents.length===0&&<p className="py-6 text-sm text-slate-400">{loading?"Pobieranie statusów…":"Brak agentów na koncie."}</p>}
        {agents.map(a=><Link key={a.id} href={a.key==="financial"?"/finance":"/agents/"+a.key}
-        className="flex min-w-0 items-center gap-3 py-2.5 hover:bg-white/[.035]">
+        className="flex min-w-0 items-center gap-2 rounded-xl border border-violet-400/15 bg-gradient-to-br from-[#192b43] to-[#111a32] p-3 hover:border-violet-400/50">
         <span className={"h-2 w-2 shrink-0 rounded-full "+(a.status==="RUNNING"?"bg-amber-400":a.enabled?"bg-emerald-400":"bg-slate-500")}/>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-300"><Bot size={17}/></span>
         <span className="min-w-0 flex-1">
@@ -302,8 +304,8 @@ export default function HomePage() {
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/finance/projects" link="Zarządzaj inwestycjami">Projekty i inwestycje</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">Projekty zapisane na koncie · bez fikcyjnych procentów postępu</p>
-      <div className="mt-3 space-y-2">
-       {projects.slice(0,5).map(p=><div key={p.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[.06] bg-white/[.025] p-3">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+       {projects.slice(0,5).map(p=><div key={p.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-blue-400/20 bg-gradient-to-br from-[#1a3450] to-[#121b32] p-4">
         <span className="rounded-lg bg-blue-500/15 p-2 text-blue-300"><Building2 size={17}/></span>
         <div className="min-w-0 flex-1"><strong className="block truncate text-sm">{p.name}</strong><p className="truncate text-xs text-slate-400">{p.company||"Brak określonej spółki"}</p></div>
         <Link href="/finance/projects" aria-label={"Zobacz "+p.name} className="text-violet-300"><ChevronRight size={18}/></Link>
@@ -357,6 +359,18 @@ export default function HomePage() {
      <SmallLink href="/company/setup" title="Dodaj spółkę" icon={Plus}/>
     </div>
     }
+    </div>
+    {!simpleMode&&<aside aria-label="Centrum działań" className="min-w-0 space-y-4">
+     <Panel className="border-violet-400/30 bg-gradient-to-br from-[#261847] to-[#131b32] p-4">
+      <SectionTitle href="/chat" link="Otwórz">Asystent PrzemAI</SectionTitle>
+      <Link href="/chat" className="mt-4 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-violet-400/40 bg-violet-500/15 p-3 text-sm">W czym mogę pomóc?<MessageSquareText size={18}/></Link>
+      <div className="mt-3 space-y-2"><SmallLink href="/finance/reports" title="Raporty finansowe" icon={BarChart3}/><SmallLink href="/finance/projects" title="Status inwestycji" icon={FolderKanban}/><SmallLink href="/tasks" title="Sprawdź zadania" icon={CheckCircle2}/></div>
+     </Panel>
+     <Panel className="p-4"><SectionTitle href="/tasks" link="Otwórz">Przypomnienia i zadania</SectionTitle><div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-violet-500/10 p-3"><p className="text-xl font-bold">{ready?(summary.openTasks??"—"):"…"}</p><p className="text-xs text-slate-300">Otwarte</p></div><div className="rounded-xl bg-amber-500/10 p-3"><p className="text-xl font-bold">{ready?(summary.overdueTasks??"—"):"…"}</p><p className="text-xs text-slate-300">Po terminie</p></div></div></Panel>
+     <Panel className="p-4"><SectionTitle href="/meeting" link="Otwórz">Spotkania</SectionTitle><div className="mt-3"><SmallLink href="/meeting" title="Przejdź do spotkań" icon={CalendarDays}/></div></Panel>
+     <Panel className="p-4"><SectionTitle>Przestrzenie firm</SectionTitle><div className="mt-3 space-y-2">{organizations.map(o=><SmallLink key={o.id} href={"/company/"+encodeURIComponent(o.id)} title={o.displayName||o.name} icon={Building2}/>)}</div></Panel>
+    </aside>}
+    </div>
     <footer className="mt-7 border-t border-white/10 pt-4 text-xs text-slate-500">
      PrzemAI · Dane rzeczywiste dostępne dla zalogowanego użytkownika · Połączenia bankowe i konsolidacja grupy wymagają integracji.
     </footer>
