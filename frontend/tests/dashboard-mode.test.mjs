@@ -1,9 +1,7 @@
-"use strict";
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const page = fs.readFileSync(path.join(__dirname, "../src/app/page.js"), "utf8");
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const page = fs.readFileSync(new URL("../src/app/page.js", import.meta.url), "utf8");
 
 test("dashboard exposes accessible simple/full switch", () => {
   assert.match(page, /aria-label="Tryb pulpitu"/);
