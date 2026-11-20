@@ -2,7 +2,7 @@ name: Frontend build and smoke
 on:
   pull_request:
   push:
-    branches: [ux/design-system-20261115]
+    branches: [ux/design-system-20261115, feature/agent-runtime-finance-mail]
 permissions:
   contents: read
 jobs:
