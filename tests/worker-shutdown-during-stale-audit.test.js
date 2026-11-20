@@ -19,6 +19,7 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
   };
 
   const prisma = {
+    history: { findMany: async () => [] },
     user: {
       async findMany() {
         events.userReads += 1;
@@ -56,6 +57,9 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("Unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("Unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("Unexpected sales report"); } },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
