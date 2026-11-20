@@ -26,6 +26,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
       async updateMany() { return { count: 1 }; }
     },
     agentRun: { async updateMany() { return { count: 0 }; } },
+    history: { async findMany() { return []; } },
     async $disconnect() {}
   };
   const dependencies = {
@@ -53,7 +54,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
     console: {
       log(...args) { if (args[0] === "[Worker] Cycle") events.cycles.push(JSON.parse(args[1])); },
       warn(...args) { events.warnings.push(args[0]); },
-      error(...args) { throw new Error("Unexpected worker error: " + args[0]); }
+      error(...args) { throw new Error("Unexpected worker error: " + args.join(" ")); }
     },
     process: { env: {}, on() {}, exit() {} },
     Date,
