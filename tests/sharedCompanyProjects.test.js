@@ -42,7 +42,9 @@ test("active company members can see company projects but not other users' legac
   const where = calls.find(([type]) => type === "projects")[1].where;
   assert.deepEqual(where.OR, [
     { userId: "leszek", organizationId: null },
-    { organizationId: { in: ["dekonica"] } }
+    { organizationId: { in: ["dekonica"] }, userId: "leszek" },
+    { organizationId: { in: ["dekonica"] }, projectAccesses: { some: { userId: "leszek" } } },
+    { organizationId: { in: ["dekonica"] }, organization: { memberships: { some: { userId: "leszek", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } } } } }
   ]);
   assert.equal(where.status, "ACTIVE");
 });
@@ -88,7 +90,9 @@ test("inactive membership cannot list another user's company projects", async ()
   const query = calls.find(([type]) => type === "projects")[1];
   assert.deepEqual(query.where.OR, [
     { userId: "outsider", organizationId: null },
-    { organizationId: { in: [] } }
+    { organizationId: { in: [] }, userId: "outsider" },
+    { organizationId: { in: [] }, projectAccesses: { some: { userId: "outsider" } } },
+    { organizationId: { in: [] }, organization: { memberships: { some: { userId: "outsider", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } } } } }
   ]);
 });
 
@@ -204,7 +208,9 @@ test("Deherus-only member cannot see Dekonica projects through the shared projec
   const query = calls.find(([type]) => type === "projects")[1];
   assert.deepEqual(query.where.OR, [
     { userId: "deherus-worker", organizationId: null },
-    { organizationId: { in: ["deherus"] } }
+    { organizationId: { in: ["deherus"] }, userId: "deherus-worker" },
+    { organizationId: { in: ["deherus"] }, projectAccesses: { some: { userId: "deherus-worker" } } },
+    { organizationId: { in: ["deherus"] }, organization: { memberships: { some: { userId: "deherus-worker", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } } } } }
   ]);
   assert.equal(query.where.status, "ACTIVE");
   assert.equal(JSON.stringify(query.where).includes("dekonica"), false);
