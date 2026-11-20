@@ -16,6 +16,7 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
   const events = { updates: [], runs: 0, disconnects: 0, exits: [], errors: [] };
   const agent = { id: "claimed-agent", key: "financial", userId: "staging-user", enabled: true };
   const prisma = {
+    history: { findMany: async () => [] },
     user: { async findMany() { return [{ id: "staging-user" }]; } },
     agent: {
       async findMany({ where }) {
@@ -33,6 +34,9 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("Unexpected lead discovery"); } },
+    "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("Unexpected company search"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("Unexpected sales report"); } },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
