@@ -5,7 +5,7 @@ import Link from "next/link";
 import {Activity,ArrowUpRight,BarChart3,Bot,BriefcaseBusiness,
  Building2,CalendarDays,CheckCircle2,ChevronRight,Clock3,FileText,
  FolderKanban,Handshake,Landmark,MessageSquareText,Mic,Plus,
- RefreshCw,ShieldCheck,Wallet,Workflow,AlertCircle} from "lucide-react";
+ RefreshCw,ShieldCheck,Wallet,Workflow,AlertCircle,Mail,TrendingUp,Calculator,ShoppingCart,MessageCircle,Search} from "lucide-react";
 import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import {
@@ -21,6 +21,29 @@ const money=(value,currency="PLN")=>{
   {style:"currency",currency,maximumFractionDigits:0}).format(n):"—";
 };
 const readValue=(result,key)=>result.status==="fulfilled"?result.value?.[key]:null;
+const agentVisuals=[
+ [/financ|finans|ksef/i,Wallet,"bg-emerald-500/15 text-emerald-300"],
+ [/mail|poczt/i,Mail,"bg-blue-500/15 text-blue-300"],
+ [/document|dokument/i,FileText,"bg-teal-500/15 text-teal-300"],
+ [/meeting|spotka/i,CalendarDays,"bg-violet-500/15 text-violet-300"],
+ [/sales|sprzeda/i,ShoppingCart,"bg-amber-500/15 text-amber-300"],
+ [/whatsapp/i,MessageCircle,"bg-green-500/15 text-green-300"],
+ [/invest|trading|mt5|inwest/i,TrendingUp,"bg-cyan-500/15 text-cyan-300"],
+ [/account|księg/i,Calculator,"bg-slate-500/15 text-slate-300"]
+];
+function AgentTile({agent:a}){
+ const [,Icon,color]=agentVisuals.find(([pattern])=>pattern.test(String(a.key||"")+" "+String(a.name||"")))||[null,Bot,"bg-violet-500/15 text-violet-300"];
+ return <Link href={a.key==="financial"?"/finance":"/agents/"+a.key} className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-white/10 bg-gradient-to-br from-[#192b43] to-[#10192e] p-3 text-center hover:border-violet-400/60">
+  <span className={"rounded-xl p-2 "+color}><Icon size={23}/></span><strong className="w-full break-words text-xs">{a.name}</strong>
+  <span className={"inline-flex items-center gap-1 text-[11px] "+(a.status==="RUNNING"?"text-amber-300":a.enabled?"text-emerald-300":"text-slate-400")}><i className={"h-2 w-2 rounded-full "+(a.status==="RUNNING"?"bg-amber-400":a.enabled?"bg-emerald-400":"bg-slate-500")}/>{a.status==="RUNNING"?"Pracuje":a.enabled?"Włączony":"Wyłączony"}</span>
+ </Link>;
+}
+function CalendarPanel(){
+ const [offset,setOffset]=useState(0);
+ const today=new Date(),date=new Date(today.getFullYear(),today.getMonth()+offset,1),year=date.getFullYear(),month=date.getMonth();
+ const start=(date.getDay()+6)%7,days=new Date(year,month+1,0).getDate();
+ return <Panel className="p-3"><SectionTitle href="/meeting" link="Spotkania">Kalendarz</SectionTitle><div className="mt-3 flex items-center justify-between gap-1 text-xs"><strong className="capitalize">{date.toLocaleDateString("pl-PL",{month:"long",year:"numeric"})}</strong><div className="flex gap-1"><button type="button" aria-label="Poprzedni miesiąc" onClick={()=>setOffset(v=>v-1)} className="min-h-9 min-w-9 rounded-lg bg-white/5">‹</button><button type="button" aria-label="Następny miesiąc" onClick={()=>setOffset(v=>v+1)} className="min-h-9 min-w-9 rounded-lg bg-white/5">›</button></div></div><div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px]">{["Pn","Wt","Śr","Cz","Pt","So","Nd"].map(d=><span key={d} className="text-slate-400">{d}</span>)}{Array.from({length:start+days},(_,i)=>{const d=i-start+1;const current=offset===0&&d===today.getDate();return <span key={i} aria-current={current?"date":undefined} className={"flex aspect-square items-center justify-center rounded-full "+(current?"bg-violet-600 font-bold text-white":"text-slate-300")}>{d>0?d:""}</span>})}</div></Panel>;
+}
 function Panel({children,className=""}) {
  return <section className={"min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#101a30] shadow-[0_12px_35px_rgba(0,0,0,.16)] "+className}>{children}</section>;
 }
@@ -35,14 +58,12 @@ function Metric({label,value,icon:Icon,foot,accent="blue"}) {
   blue:"bg-blue-500/20 text-blue-200",green:"bg-emerald-500/20 text-emerald-200",
   purple:"bg-violet-500/20 text-violet-200",orange:"bg-amber-500/20 text-amber-200"
  }[accent];
- return <Panel className={"p-4 sm:p-5 "+({blue:"border-blue-400/30 bg-gradient-to-br from-blue-950 to-[#101b31]",green:"border-emerald-400/30 bg-gradient-to-br from-emerald-950 to-[#101b31]",purple:"border-violet-400/30 bg-gradient-to-br from-violet-950 to-[#101b31]",orange:"border-amber-400/30 bg-gradient-to-br from-amber-950/80 to-[#101b31]"}[accent])}>
-  <div className="flex items-start justify-between gap-3">
-   <span className={"rounded-xl p-2.5 "+theme}><Icon size={21}/></span>
-   <span className="text-[10px] text-slate-500">DANE Z SYSTEMU</span>
+ return <Panel className={"p-3 "+({blue:"border-blue-400/30 bg-gradient-to-br from-blue-950 to-[#101b31]",green:"border-emerald-400/30 bg-gradient-to-br from-emerald-950 to-[#101b31]",purple:"border-violet-400/30 bg-gradient-to-br from-violet-950 to-[#101b31]",orange:"border-amber-400/30 bg-gradient-to-br from-amber-950/80 to-[#101b31]"}[accent])}>
+  <div className="flex min-w-0 items-center gap-3">
+   <span className={"shrink-0 rounded-xl p-2.5 "+theme}><Icon size={23}/></span>
+   <div className="min-w-0"><p className="text-xs font-medium text-slate-200">{label}</p><p className="mt-1 break-words text-xl font-extrabold tracking-tight tabular-nums text-white xl:text-2xl">{value}</p></div>
   </div>
-  <p className="mt-4 break-words text-2xl font-extrabold tracking-tight tabular-nums text-white xl:text-3xl">{value}</p>
-  <p className="mt-1 text-sm font-medium text-slate-200">{label}</p>
-  <p className="mt-2 text-xs leading-5 text-slate-400">{foot}</p>
+  <p className="mt-2 text-[11px] leading-4 text-slate-300">{foot}<span className="ml-1 text-[10px] text-slate-400">· DANE Z SYSTEMU</span></p>
  </Panel>;
 }
 function SmallLink({href,title,icon:Icon}) {
@@ -104,9 +125,9 @@ export default function HomePage() {
  const agents=Array.isArray(data?.agents)?data.agents:[];
  const personalProjects=Array.isArray(data?.projects)?data.projects:[];
  const selectedOrg=(data?.organizations||[]).find(o=>o.id===primaryCompany);
- const companyFinance=companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
- const companyReport=companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
- const projects=selectedOrg?personalProjects.filter(p=>{
+ const companyFinance=selectedOrg&&companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
+ const companyReport=selectedOrg&&companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
+ const projects=primaryCompany&&!selectedOrg?[]:selectedOrg?personalProjects.filter(p=>{
   const label=String(p.company||"").toLocaleLowerCase("pl-PL");
   const orgName=String(selectedOrg.name||"").toLocaleLowerCase("pl-PL");
   return label===orgName || (/(deherus|m1)/.test(orgName)&&/(deherus|^m1$)/.test(label));
@@ -132,10 +153,10 @@ export default function HomePage() {
   (o.displayName||o.name||"").toLocaleLowerCase("pl-PL").includes(companySearch.toLocaleLowerCase("pl-PL")));
  const ready=data!==null;
  return <main className="min-h-screen min-w-0 bg-[#080e20] text-slate-100">
-  <div className="mx-auto grid min-h-screen max-w-[2200px] min-w-0 lg:grid-cols-[220px_minmax(0,1fr)]">
+  <div className="mx-auto grid min-h-screen max-w-[2200px] min-w-0 lg:grid-cols-[205px_minmax(0,1fr)]">
    <aside className="hidden min-w-0 border-r border-violet-300/10 bg-gradient-to-b from-[#11152e] to-[#080e20] px-3 py-5 lg:flex lg:flex-col">
     <Link href="/" className="flex items-center gap-3 px-3 py-2 text-xl font-black tracking-tight">
-     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-2xl font-black text-white">P</span>
+     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-700"><svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><path d="M9 9h16a10 10 0 0 1 0 20h-8v7H9V21h16a3 3 0 0 0 0-6H9Z" fill="white"/><path d="M9 9l8 6v6H9Z" fill="#c4b5fd"/></svg></span>
      <span>Przem<span className="text-violet-300">AI</span><span className="ml-1 text-sm text-violet-400">2.0</span><span className="block text-[10px] font-medium text-slate-400">Asystent biznesowy AI</span></span>
     </Link>
     <div className="mt-4 border-t border-white/10 pt-5">
@@ -158,7 +179,7 @@ export default function HomePage() {
      <p className="mt-2 text-xs leading-5 text-slate-300">Dane i uprawnienia są przypisane do konta. Bank wymaga osobnej integracji.</p>
     </div>
    </aside>
-   <div className="min-w-0 px-3 pb-9 pt-4 sm:px-6 lg:px-7 2xl:px-9">
+   <div className="min-w-0 px-3 pb-9 pt-4 sm:px-6 lg:px-7 2xl:px-5">
     <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#111c35] px-4 py-3 sm:px-5">
      <div className="flex min-w-0 items-center gap-3">
       <span className="rounded-xl bg-violet-500/15 p-2 text-violet-300 lg:hidden"><Bot size={21}/></span>
@@ -176,34 +197,29 @@ export default function HomePage() {
      </div>
     </header>
     <div className="lg:hidden"><Navbar/></div>
-    <div className="mt-4 flex min-w-0 flex-wrap items-start justify-between gap-4 overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-r from-[#24164a] via-[#15264b] to-[#0c2841] p-5 sm:p-7" aria-busy={loading}>
-     <div className="min-w-0 flex-1">
+    <div className="relative mt-3 flex min-w-0 flex-wrap items-center justify-between gap-3 overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-r from-[#17132e] via-[#132947] to-[#173e60] p-3 sm:p-4" aria-busy={loading}>
+     <svg aria-hidden="true" viewBox="0 0 420 100" className="pointer-events-none absolute right-0 bottom-0 hidden h-full w-[45%] opacity-35 md:block" fill="none" stroke="#a5b4fc" strokeWidth="1.3"><path d="M0 95h420M30 95V56h48v39M90 95V34h60v61M167 95V48h38v47M214 95V18h66v77M298 95V40h47v55M358 95V7h60v88M105 34v-15h25v15M230 18V4h35v14M195 95V12h-74M195 12l-22 9M140 12v30M320 40V4h-75M320 4l-20 8M260 4v27"/><path d="M38 66h32M38 76h32M100 46h40M100 58h40M100 70h40M224 30h46M224 42h46M224 54h46M224 66h46M224 78h46M367 20h42M367 32h42M367 44h42M367 56h42M367 68h42M367 80h42"/></svg>
+     <div className="relative min-w-0 flex-1">
       <p className="text-xs font-bold uppercase tracking-[.17em] text-violet-300">PrzemAI 2.0 · Pulpit operacyjny</p>
-      <h1 className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">Centrum <span className="text-violet-300">dowodzenia</span></h1>
-      <p className="mt-2 text-sm leading-6 text-slate-400">Najważniejsze informacje i działania w jednym miejscu. Wybierz spółkę, aby zobaczyć dostępne dane w jej kontekście.</p>
+      <h1 className="mt-1 break-words text-2xl font-black tracking-tight sm:text-3xl">Centrum <span className="text-violet-300">dowodzenia</span></h1>
+      <p className="mt-1 text-xs leading-5 text-slate-300">Finanse, inwestycje i agenci w jednym miejscu.</p>
      </div>
      <button type="button" onClick={()=>setRefresh(v=>v+1)} disabled={loading}
-       className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50">
+       className="relative inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50">
        <RefreshCw size={17} className={loading?"animate-spin":""}/>{loading?"Ładowanie…":"Odśwież dane"}
      </button>
     </div>
-    <div className={"mt-4 grid min-w-0 gap-4 "+(!simpleMode?"2xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]":"")}>
+    <div className={"mt-4 grid min-w-0 gap-4 "+(!simpleMode?"xl:grid-cols-[minmax(0,1fr)_minmax(240px,280px)]":"")}>
     <div className="min-w-0">
-    <section aria-label="Wybór spółki" className="rounded-2xl border border-white/10 bg-[#101a30] p-4">
-     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-base font-bold">Wybierz spółkę</h2>
-      <Link href="/company/setup" className="text-xs font-semibold text-violet-300">Zarządzaj spółkami <ArrowUpRight size={12} className="inline"/></Link>
+    <section aria-label="Wybór spółki" className="rounded-xl border border-white/10 bg-[#101a30] p-3">
+     <div className="flex flex-wrap items-center gap-2">
+      <span className="mr-1 text-sm font-bold text-violet-200">Spółka:</span>
+      <button type="button" aria-pressed={!primaryCompany} onClick={()=>selectPrimaryCompany("")} className={"min-h-11 rounded-xl px-3 text-xs font-semibold "+(!primaryCompany?"bg-violet-600 text-white":"bg-white/5 text-slate-300")}>Konto osobiste</button>
+      {organizations.map(o=><div key={o.id} className={"flex items-center rounded-xl border "+(o.id===primaryCompany?"border-violet-400 bg-violet-600 text-white":"border-white/10 bg-[#1b2745]")}><button type="button" aria-pressed={o.id===primaryCompany} onClick={()=>selectPrimaryCompany(o.id)} className="flex min-h-11 items-center gap-2 px-3 text-xs font-semibold"><Building2 size={16}/>{o.displayName||o.name}</button><Link href={"/company/"+encodeURIComponent(o.id)} aria-label={"Otwórz panel "+(o.displayName||o.name)} className="flex min-h-11 items-center border-l border-white/15 px-2"><ArrowUpRight size={14}/></Link></div>)}
+      <Link href="/company/setup" className="ml-auto flex min-h-11 items-center gap-1 text-xs font-semibold text-violet-300"><Plus size={15}/> Spółki</Link>
      </div>
-     <p className="mt-1 text-xs leading-5 text-slate-400">Wybierz firmę, aby otworzyć jej osobną przestrzeń. Widok wszystkich firm nie sumuje danych osobistych ani nie ujawnia danych innych kont.</p>
-     <div className="mt-4 flex flex-wrap items-center gap-3">
-      <label htmlFor="primary-company" className="text-sm font-semibold">Firma główna na pulpicie</label>
-      <select id="primary-company" value={organizations.some(o=>o.id===primaryCompany)?primaryCompany:""} onChange={e=>selectPrimaryCompany(e.target.value)}
-       className="min-h-11 min-w-0 max-w-full rounded-xl border border-white/20 bg-[#1b2745] px-3 text-sm text-white">
-       <option value="">Konto osobiste (bez konsolidacji spółek)</option>
-       {organizations.map(o=><option key={o.id} value={o.id}>{o.displayName||o.name}</option>)}
-      </select>
-      <span className="text-xs text-slate-400">Wybór zapamiętamy na tym urządzeniu. Nie zmienia on uprawnień.</span>
-     </div>
+     <p className="mt-2 text-[11px] text-slate-400">Dostępne spółki · bez niezweryfikowanej konsolidacji. Widok nie sumuje danych osobistych ani nie ujawnia danych innych kont.</p>
+     {!loading&&organizations.length===0&&<p className="mt-2 text-xs text-amber-200">Nie znaleziono spółek przypisanych do konta.</p>}
      {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<details className="mt-3 rounded-xl border border-violet-400/20 bg-[#0a162d] p-3"><summary className="cursor-pointer text-sm font-semibold text-violet-200">Szczegóły synchronizacji KSeF</summary>
       <div className="flex flex-wrap items-center justify-between gap-2">
        <h3 className="text-sm font-bold">KSeF — {organizations.find(o=>o.id===primaryCompany)?.displayName||organizations.find(o=>o.id===primaryCompany)?.name}</h3>
@@ -223,19 +239,6 @@ export default function HomePage() {
        </div>}
       <p className="mt-3 text-xs text-slate-400">Suma zaimportowanych faktur, nie przychód kasowy. Ostatnia aktywność agenta: {companyFinance?.sync?.lastRunAt?new Date(companyFinance.sync.lastRunAt).toLocaleString("pl-PL"):"brak danych"}.</p>
      </details>}
-     <div className="mt-3 flex flex-wrap gap-2">
-      <div className="flex min-h-11 items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2">
-       <span className="rounded-lg bg-violet-500/20 p-2 text-violet-300"><BarChart3 size={16}/></span>
-       <span><strong className="block text-sm">Dostępne spółki</strong><span className="mt-1 block text-xs text-slate-400">Lista dostępnych spółek · bez niezweryfikowanej konsolidacji</span></span>
-      </div>
-      {organizations.map(o=><Link key={o.id} href={"/company/"+encodeURIComponent(o.id)}
-       className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[.035] px-3 py-2 hover:border-violet-400/40 hover:bg-white/[.07]">
-       <span className="rounded-lg bg-blue-500/15 p-2 text-blue-300"><Building2 size={16}/></span>
-       <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{o.displayName||o.name}</strong><span className="mt-1 block text-xs text-slate-400">Otwórz panel spółki</span></span>
-       <ChevronRight size={17} className="shrink-0 text-violet-300"/>
-      </Link>)}
-     </div>
-     {!loading&&organizations.length===0&&<p className="mt-3 text-xs text-amber-200">Nie znaleziono spółek przypisanych do konta. Sprawdź dostęp w panelu spółek.</p>}
     </section>
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
@@ -246,7 +249,44 @@ export default function HomePage() {
      <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross):"—"):(data?.finance?money(salesPLN?.gross):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
      <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
     </section>
-    {<section aria-label="Szybki dostęp" className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+    {!simpleMode&&<><div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+     <Panel className="p-4 sm:p-5">
+      <SectionTitle href="/finance/projects" link="Zarządzaj inwestycjami">Kluczowe inwestycje</SectionTitle>
+      <p className="mt-1 text-xs text-slate-400">Projekty dostępne na koncie</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+       {projects.slice(0,3).map(p=><div key={p.id} className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-blue-400/20 bg-[#121b32] p-2">
+        <span aria-hidden="true" className="flex h-16 items-center justify-center rounded-lg bg-gradient-to-br from-[#234562] to-[#172540] text-blue-200"><Building2 size={32}/></span>
+        <div className="min-w-0 flex-1"><strong className="block break-words text-sm">{p.name}</strong><p className="truncate text-xs text-slate-400">{p.company||"Brak określonej spółki"}</p></div>
+        <Link href="/finance/projects" aria-label={"Zobacz "+p.name} className="flex min-h-9 items-center justify-between text-xs text-violet-300">Szczegóły <ChevronRight size={16}/></Link>
+       </div>)}
+       {projects.length===0&&<p className="py-5 text-sm text-slate-400">{loading?"Pobieranie projektów…":"Nie utworzono jeszcze inwestycji."}</p>}
+      </div>
+     </Panel>
+     <Panel className="p-4 sm:p-5">
+      <SectionTitle href="/finance/reports" link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
+      <p className="mt-1 text-xs text-slate-400">{new Date().getFullYear()} · miesiące · brutto · nie są to przepływy pieniężne</p>
+      {reportRows.length===0?<div className="mt-3 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{loading?"Pobieranie zestawienia…":(primaryCompany&&!companyReport?"Nie udało się pobrać zestawienia KSeF wybranej firmy lub brak uprawnień.":"Brak danych faktur do wykresu.")}</div>:
+      <div className="mt-3 min-w-0 overflow-x-auto">
+       <div className="flex h-36 min-w-[250px] items-end gap-1.5 border-b border-white/15 pb-3 sm:gap-2">
+        {shownMonths.map(v=><div key={v.label} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
+         <div className="flex h-28 w-full items-end justify-center gap-1">
+          <div title={v.label+" sprzedaż "+money(v.sales)} style={{height:Math.max(0,v.sales/chartMax*100)+"%"}}
+           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-violet-500 sm:w-5"/>
+          <div title={v.label+" zakupy "+money(v.purchase)} style={{height:Math.max(0,v.purchase/chartMax*100)+"%"}}
+           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-emerald-400 sm:w-5"/>
+         </div><span className="text-[10px] font-semibold text-slate-400">{v.label}</span>
+        </div>)}
+       </div>
+       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-violet-500"/>Faktury sprzedażowe</span>
+        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400"/>Faktury zakupowe</span>
+       </div>
+      </div>}
+     </Panel>
+    </div>
+     <Panel className="mt-3 p-3"><SectionTitle href="/agents" link="Zarządzaj agentami">Agenci AI · aktywność</SectionTitle><p className="mt-1 text-xs text-slate-400">Status agentów konta · {enabled} / {agents.length} włączonych</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-6">{agents.map(a=><AgentTile key={a.id} agent={a}/>)}{agents.length===0&&<p className="col-span-full py-3 text-sm text-slate-400">{loading?"Pobieranie statusów…":"Brak agentów na koncie."}</p>}</div></Panel>
+    </>}
+    {<section aria-label="Szybki dostęp" className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
      <SmallLink href="/chat" title="Porozmawiaj z asystentem" icon={MessageSquareText}/>
      <SmallLink href="/agents" title="Agenci AI" icon={Bot}/>
      <SmallLink href="/finance" title="Finanse i KSeF" icon={Wallet}/>
@@ -258,61 +298,7 @@ export default function HomePage() {
      <strong className="text-slate-200">Rachunki bankowe:</strong> brak podłączonej bankowości. Salda i wpływy będą dostępne po autoryzacji integracji.
      <Link href="/finance" className="ml-auto font-semibold text-violet-300">Finanse <ArrowUpRight size={12} className="inline"/></Link>
     </div>
-    {!simpleMode&&<div className="mt-5 grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.65fr)_minmax(290px,1fr)]">
-     <Panel className="p-4 sm:p-5">
-      <SectionTitle href="/finance/reports" link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
-      <p className="mt-1 text-xs text-slate-400">{new Date().getFullYear()} · miesiące · brutto · nie są to przepływy pieniężne</p>
-      {reportRows.length===0?<div className="mt-7 flex min-h-[208px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{loading?"Pobieranie zestawienia…":(primaryCompany&&!companyReport?"Nie udało się pobrać zestawienia KSeF wybranej firmy lub brak uprawnień.":"Brak danych faktur do wykresu.")}</div>:
-      <div className="mt-7 min-w-0 overflow-x-auto">
-       <div className="flex h-52 min-w-[390px] items-end gap-1.5 border-b border-white/15 pb-3 sm:gap-2">
-        {shownMonths.map(v=><div key={v.label} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
-         <div className="flex h-40 w-full items-end justify-center gap-1">
-          <div title={v.label+" sprzedaż "+money(v.sales)} style={{height:Math.max(2,v.sales/chartMax*100)+"%"}}
-           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-violet-500 sm:w-5"/>
-          <div title={v.label+" zakupy "+money(v.purchase)} style={{height:Math.max(2,v.purchase/chartMax*100)+"%"}}
-           className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-emerald-400 sm:w-5"/>
-         </div><span className="text-[10px] font-semibold text-slate-400">{v.label}</span>
-        </div>)}
-       </div>
-       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
-        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-violet-500"/>Faktury sprzedażowe</span>
-        <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400"/>Faktury zakupowe</span>
-       </div>
-      </div>}
-     </Panel>
-     <Panel className="p-4 sm:p-5">
-      <SectionTitle href="/agents" link="Wszyscy agenci">Agenci AI · status</SectionTitle>
-      <p className="mt-1 text-xs text-slate-400">Stan z produkcyjnego panelu agentów</p>
-      <div className="mt-3 grid max-h-[480px] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-1">
-       {agents.length===0&&<p className="py-6 text-sm text-slate-400">{loading?"Pobieranie statusów…":"Brak agentów na koncie."}</p>}
-       {agents.map(a=><Link key={a.id} href={a.key==="financial"?"/finance":"/agents/"+a.key}
-        className="flex min-w-0 items-center gap-2 rounded-xl border border-violet-400/15 bg-gradient-to-br from-[#192b43] to-[#111a32] p-3 hover:border-violet-400/50">
-        <span className={"h-2 w-2 shrink-0 rounded-full "+(a.status==="RUNNING"?"bg-amber-400":a.enabled?"bg-emerald-400":"bg-slate-500")}/>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-300"><Bot size={17}/></span>
-        <span className="min-w-0 flex-1">
-         <strong className="block truncate text-xs text-white">{a.name}</strong>
-         <span className="block truncate text-[11px] text-slate-400">{a.headline||a.type}</span>
-        </span>
-        <span className={"shrink-0 text-[11px] "+(a.enabled?"text-emerald-300":"text-slate-400")}>
-         {a.status==="RUNNING"?"Pracuje":a.enabled?"Włączony":"Wyłączony"}
-        </span>
-       </Link>)}
-      </div>
-     </Panel>
-    </div>}
-    {!simpleMode&&<div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-     <Panel className="p-4 sm:p-5">
-      <SectionTitle href="/finance/projects" link="Zarządzaj inwestycjami">Projekty i inwestycje</SectionTitle>
-      <p className="mt-1 text-xs text-slate-400">Projekty zapisane na koncie · bez fikcyjnych procentów postępu</p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-       {projects.slice(0,5).map(p=><div key={p.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-blue-400/20 bg-gradient-to-br from-[#1a3450] to-[#121b32] p-4">
-        <span className="rounded-lg bg-blue-500/15 p-2 text-blue-300"><Building2 size={17}/></span>
-        <div className="min-w-0 flex-1"><strong className="block truncate text-sm">{p.name}</strong><p className="truncate text-xs text-slate-400">{p.company||"Brak określonej spółki"}</p></div>
-        <Link href="/finance/projects" aria-label={"Zobacz "+p.name} className="text-violet-300"><ChevronRight size={18}/></Link>
-       </div>)}
-       {projects.length===0&&<p className="py-5 text-sm text-slate-400">{loading?"Pobieranie projektów…":"Nie utworzono jeszcze inwestycji."}</p>}
-      </div>
-     </Panel>
+    {!simpleMode&&<div className="mt-3 grid min-w-0 gap-3">
      <Panel className="p-4 sm:p-5">
       <SectionTitle href="/finance" link="Otwórz KSeF">KSeF i działania</SectionTitle>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -349,7 +335,7 @@ export default function HomePage() {
        </Link>)}
        {filteredCompanies.length===0&&<p className="py-3 text-xs text-slate-400">Brak spółek odpowiadających filtrowi.</p>}
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Powyższe finanse są nadal danymi konta osobistego — nie skonsolidowaną księgowością spółek.</p>
+      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Finanse dotyczą wybranego konta lub spółki — nie skonsolidowanej księgowości grupy.</p>
      </Panel>
     </div>}
     {!simpleMode&&<div className="mt-4 flex flex-wrap gap-2">
@@ -367,8 +353,8 @@ export default function HomePage() {
       <div className="mt-3 space-y-2"><SmallLink href="/finance/reports" title="Raporty finansowe" icon={BarChart3}/><SmallLink href="/finance/projects" title="Status inwestycji" icon={FolderKanban}/><SmallLink href="/tasks" title="Sprawdź zadania" icon={CheckCircle2}/></div>
      </Panel>
      <Panel className="p-4"><SectionTitle href="/tasks" link="Otwórz">Przypomnienia i zadania</SectionTitle><div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-violet-500/10 p-3"><p className="text-xl font-bold">{ready?(summary.openTasks??"—"):"…"}</p><p className="text-xs text-slate-300">Otwarte</p></div><div className="rounded-xl bg-amber-500/10 p-3"><p className="text-xl font-bold">{ready?(summary.overdueTasks??"—"):"…"}</p><p className="text-xs text-slate-300">Po terminie</p></div></div></Panel>
-     <Panel className="p-4"><SectionTitle href="/meeting" link="Otwórz">Spotkania</SectionTitle><div className="mt-3"><SmallLink href="/meeting" title="Przejdź do spotkań" icon={CalendarDays}/></div></Panel>
-     <Panel className="p-4"><SectionTitle>Przestrzenie firm</SectionTitle><div className="mt-3 space-y-2">{organizations.map(o=><SmallLink key={o.id} href={"/company/"+encodeURIComponent(o.id)} title={o.displayName||o.name} icon={Building2}/>)}</div></Panel>
+     <CalendarPanel/>
+     <Panel className="p-3"><SectionTitle>Przestrzenie firm</SectionTitle><div className="mt-3 space-y-2">{organizations.map(o=><SmallLink key={o.id} href={"/company/"+encodeURIComponent(o.id)} title={o.displayName||o.name} icon={Building2}/>)}</div></Panel>
     </aside>}
     </div>
     <footer className="mt-7 border-t border-white/10 pt-4 text-xs text-slate-500">
