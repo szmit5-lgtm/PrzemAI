@@ -26,8 +26,16 @@ test("simplified dashboard preserves quick access to agents and financial data",
 
 test("company chooser links only to organizations returned for the account", () => {
   assert.match(page, /aria-label="Wybór spółki"/);
-  assert.match(page, /organizations\.map\(o=><Link key=\{o\.id\}/);
-  assert.match(page, /href=\{"\/company\/"\+encodeURIComponent\(o\.id\)\}/);
+  const chooser = page.match(/<section aria-label="Wybór spółki"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(chooser);
+  assert.match(chooser, /organizations\.map\(o=><div key=\{o\.id\}/);
+  assert.match(chooser, /onClick=\{\(\)=>selectPrimaryCompany\(o\.id\)\}/);
+  assert.match(chooser, /href=\{"\/company\/"\+encodeURIComponent\(o\.id\)\}/);
+  assert.match(page, /const allowed=\(data\?\.organizations\|\|\[\]\)\.some\(o=>o\.id===primaryCompany\)/);
+  assert.match(page, /if\(!allowed\)\{setCompanyFinance\(null\);setCompanyReport\(null\)/);
+  assert.match(page, /selectedOrg&&companyFinanceState\?\.organizationId===primaryCompany/);
+  assert.match(page, /selectedOrg&&companyReportState\?\.organizationId===primaryCompany/);
+  assert.match(page, /const projects=primaryCompany&&!selectedOrg\?\[\]/);
   assert.match(page, /Dostępne spółki/);
   assert.match(page, /bez niezweryfikowanej konsolidacji/);
 });
