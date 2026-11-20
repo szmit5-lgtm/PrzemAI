@@ -50,7 +50,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
-    "./scripts/sendSpecpozOnce": () => async () => {}
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(source, {
@@ -131,7 +131,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
-    "./scripts/sendSpecpozOnce": () => async () => {}
+    "./scripts/sendSpecpozOnce": async () => {}
   };
 
   vm.runInNewContext(source, {
