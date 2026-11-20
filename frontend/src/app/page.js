@@ -15,6 +15,7 @@ import {
 
 const months=["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"];
 const money=(value,currency="PLN")=>{
+ if(value==null||value==="")return "—";
  const n=Number(value);
  return Number.isFinite(n)?new Intl.NumberFormat("pl-PL",
   {style:"currency",currency,maximumFractionDigits:0}).format(n):"—";
@@ -246,8 +247,8 @@ export default function HomePage() {
     </section>}
     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
      <Metric label="Faktury z KSeF" value={ready?(primaryCompany?(selectedOrg?(companyFinance?.count??"—"):"—"):(finance.ksef??"—")):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
-     <Metric label="Faktury zakupowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross??0):"—"):(data?.finance?money(purchasePLN?.gross??0):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
-     <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross??0):"—"):(data?.finance?money(salesPLN?.gross??0):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
+     <Metric label="Faktury zakupowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross):"—"):(data?.finance?money(purchasePLN?.gross):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
+     <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross):"—"):(data?.finance?money(salesPLN?.gross):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
      <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
     </section>
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#111c35] px-4 py-3 text-xs leading-5 text-slate-400">
