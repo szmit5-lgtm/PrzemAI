@@ -17,6 +17,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
   let tick;
   const events = { defaults: [], runs: [], warnings: [], cycles: [] };
   const prisma = {
+    history: { findMany: async () => [] },
     user: { async findMany() { return users; } },
     agent: {
       async findMany({ where }) {
@@ -29,6 +30,10 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
     async $disconnect() {}
   };
   const dependencies = {
+    "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
+    "./publicCompanySearch": { searchPublicCompanies: async () => [] },
+    "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./scripts/sendSpecpozOnce": async () => {},
     dotenv: { config() {} },
     "./lib/prisma": prisma,
     "./core/agents/AgentRunner": class {
