@@ -126,7 +126,7 @@ function parseBankCsv(buffer) {
  if(!best)throw Error("Nie rozpoznano kolumn dat, kwot i opisów transakcji w CSV.");
  const {rows,cols,i}=best;
  const body=rows.slice(i+1);
- if(body.length>10000)throw Error("CSV zawiera zbyt wiele wierszy.");
+ if(body.length>30000)throw Error("CSV zawiera zbyt wiele wierszy.");
  const transactions=[];const seenIban=new Set(),seenCurrency=new Set();
  let currencyFromAmount=false;
  for(const [offset,raw] of body.entries()){
@@ -165,7 +165,7 @@ function parseBankCsv(buffer) {
     counterparty:get(cols.counterparty).slice(0,250),reference:get(cols.reference).slice(0,250)});
  }
  if(!transactions.length)throw Error("Plik CSV nie zawiera operacji.");
- if(transactions.length>3000)throw Error("Jednorazowy import jest ograniczony do 3000 transakcji.");
+ if(transactions.length>10000)throw Error("Jednorazowy import jest ograniczony do 10000 transakcji.");
  if(seenIban.size>1)throw Error("CSV zawiera więcej niż jeden rachunek firmowy.");
  if(seenCurrency.size>1)throw Error("CSV zawiera transakcje w różnych walutach.");
  const preamble=rows.slice(0,i);

@@ -89,6 +89,11 @@ test("home dashboard no longer lists static planned agents or invented bank bala
    "getFinancePeriodReport"])assert.match(file,new RegExp(key));
  assert.equal(file.includes("3 120 000 PLN"),false);
  assert.equal(file.includes("const agents = ["),false);
- assert.match(file,/brak podłączonej bankowości/);
+ assert.match(file,/CompanyBankSnapshot/);
+ assert.match(file,/potwierdzone salda z zaimportowanych wyciągów/);
+ const snapshot=fs.readFileSync(path.join(__dirname,"../frontend/src/app/components/CompanyBankSnapshot.js"),"utf8");
+ assert.match(snapshot,/getOrganizationBankSummary\(id\)/);
+ assert.match(snapshot,/Rachunek VAT/);
+ assert.match(snapshot,/Ostatnie potwierdzone salda/);
  assert.match(file,/DANE Z SYSTEMU/);
 });

@@ -594,6 +594,10 @@ export async function uploadOrganizationBankFile(orgId,file){
   method:"POST",body:data
  });
 }
+export async function deleteOrganizationBankFile(orgId,fileId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+
+  "/bank/files/"+encodeURIComponent(fileId),{method:"DELETE"});
+}
 export async function downloadOrganizationBankFile(orgId,fileId){
  const token=getToken();
  if(!token)throw new Error("Zaloguj się, aby pobrać wyciąg.");
