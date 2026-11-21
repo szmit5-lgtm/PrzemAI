@@ -164,6 +164,14 @@ export default function CompanyBankPage(){
     <p className="mt-2 text-sm text-slate-300">Dostęp wymaga uprawnienia finansowego lub roli właściciela.</p>
    </section>}
    {!loading&&canView&&<>
+    <Link href={"/company/"+encodeURIComponent(id)+"/bank/reports"}
+     className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-[#113348] to-[#1c2a50] p-5 hover:border-cyan-300/70">
+     <span>
+      <strong className="block text-lg">Zestawienia bankowe — saldo bieżące i VAT</strong>
+      <span className="mt-1 block text-sm text-slate-300">Stany na koniec miesiąca · wpływy · wydatki · porównanie miesięcy</span>
+     </span>
+     <FileText size={24} className="shrink-0 text-cyan-200"/>
+    </Link>
     {owner?<section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-5 sm:p-7">
      <h2 className="flex items-center gap-2 text-xl font-bold"><Landmark size={21} className="text-violet-300"/> Dodaj wyciągi</h2>
      <p className="mt-3 text-sm leading-6 text-slate-300">Nie wpisujesz ręcznie rachunku, okresu, numeru wyciągu ani sald. Wybierz jeden lub kilka plików — przesyłanie rozpocznie się automatycznie.</p>

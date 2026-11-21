@@ -11,6 +11,8 @@ const { OrganizationInvestmentService } = require("../services/OrganizationInves
 const investmentService = new OrganizationInvestmentService();
 const {OrganizationBankAccessService}=require("../services/OrganizationBankAccessService");
 const bankAccess=new OrganizationBankAccessService();
+const {OrganizationBankMonthlyService}=require("../services/OrganizationBankMonthlyService");
+const bankMonthly=new OrganizationBankMonthlyService();
 
 const router = express.Router();
 // Private company documents (always check active membership before upload).
@@ -126,6 +128,8 @@ const handler=fn=>async(req,res)=>{
       ?"Nie udało się wykonać operacji firmowej.":error.message});
   }
 };
+router.get("/:id/bank/monthly/:year",verifyToken,
+ handler(req=>bankMonthly.report(req.user.id,req.params.id,req.params.year)));
 router.get("/invitations",verifyToken,handler(req=>service.pendingInvites(req.user.id)));
 router.post("/:id/invitations/accept",verifyToken,
   handler(req=>service.acceptInvite(req.user.id,req.params.id)));
