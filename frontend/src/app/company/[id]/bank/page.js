@@ -208,7 +208,7 @@ export default function CompanyBankPage(){
         <FileText size={20} className="mt-1 shrink-0 text-violet-200"/>
         <div className="min-w-0 flex-1">
          <p className="break-all text-sm font-bold">{item.name}</p>
-         <p className="mt-1 text-xs text-slate-400">{fileSize(item.size)} · {new Date(item.uploadedAt).toLocaleString("pl-PL")} · Dekonica / {name}</p>
+         <p className="mt-1 text-xs text-slate-400">{fileSize(item.size)} · {new Date(item.uploadedAt).toLocaleString("pl-PL")} · Spółka: {name}</p>
          <p className={"mt-2 flex items-center gap-1.5 text-xs font-semibold "+
           (item.status==="IMPORTED"?"text-emerald-300":"text-amber-200")}>
           {item.status==="IMPORTED"?<CheckCircle2 size={15}/>:<AlertTriangle size={15}/>}
