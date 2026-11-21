@@ -112,18 +112,17 @@ test("bank imports require owner and balanced statement without KSeF",async()=>{
 });
 
 test("owner sees company bank link without KSeF, bank upload uses independent owner permission",()=>{
- assert.match(financePage,/status\\?\\.canView\\|\\|isBankOwner/);
- assert.match(bankPage,/const canSee=Boolean\\(isOwner\\|\\|/);
- assert.match(routesSource,/bankAccess\\.authorize\\(req\\.user\\.id,req\\.params\\.id,\\{ownerOnly:true\\}\\)/);
- assert.doesNotMatch(routesSource,/await financeService\\.accessible\\(req\\.user\\.id,req\\.params\\.id\\)/);
+ assert.ok(financePage.includes("status?.canView||isBankOwner"));
+ assert.ok(bankPage.includes("const canSee=Boolean(isOwner||"));
+ assert.ok(routesSource.includes("bankAccess.authorize(req.user.id,req.params.id,{ownerOnly:true})"));
+ assert.ok(!routesSource.includes("await financeService.accessible(req.user.id,req.params.id)"));
 });
-
-test("one-step multi-month CSV/PDF upload replaces manual statement form",()=>{
- assert.match(bankPage,/type="file" multiple disabled=\\{uploading\\}/);
- assert.match(bankPage,/async function pickFiles\\(event\\)/);
- assert.match(bankPage,/uploadOrganizationBankFile\\(id,file\\)/);
- assert.match(bankPage,/Zapisany — do weryfikacji/);
- assert.match(bankPage,/Nie wpisujesz ręcznie rachunku, okresu, numeru wyciągu ani sald/);
- assert.doesNotMatch(bankPage,/Zatwierdź import/);
- assert.doesNotMatch(bankPage,/input required value=\\{openingBalance\\}/);
+test("one-step multi-month CSV/PDF upload replaces the manual statement form",()=>{
+ assert.ok(bankPage.includes('type="file" multiple disabled={uploading}'));
+ assert.ok(bankPage.includes("async function pickFiles(event)"));
+ assert.ok(bankPage.includes("uploadOrganizationBankFile(id,file)"));
+ assert.ok(bankPage.includes("Zapisany — do weryfikacji"));
+ assert.ok(bankPage.includes("Nie wpisujesz ręcznie rachunku, okresu, numeru wyciągu ani sald"));
+ assert.ok(!bankPage.includes("Zatwierdź import"));
+ assert.ok(!bankPage.includes("input required value={openingBalance}"));
 });
