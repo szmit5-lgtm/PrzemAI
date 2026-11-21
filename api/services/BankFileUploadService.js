@@ -71,12 +71,18 @@ class BankFileUploadService {
   const existing=await this.db.bankImportFile.findFirst({
    where:{organizationId,sha256},select:PUBLIC_SELECT
   });
-  if(existing)return {item:existing,alreadySaved:true};
-  const stats=await this.db.bankImportFile.aggregate({
-   where:{organizationId},_count:{_all:true},_sum:{size:true}
-  });
-  if(stats._count._all>=MAX_FILES||(stats._sum.size||0)+file.buffer.length>MAX_BYTES)
-   throw new OrganizationError("Biblioteka wyciągów osiągnęła limit plików lub miejsca.",413);
+  // Re-uploading a previously unsupported CSV is an explicit request to
+  // retry it with newly added bank-specific parsers. Do not create a duplicate
+  // file or rerun already imported statements.
+  const retry=Boolean(existing&&existing.status==="REVIEW_REQUIRED"&&ext==="csv");
+  if(existing&&!retry)return {item:existing,alreadySaved:true};
+  if(!retry){
+   const stats=await this.db.bankImportFile.aggregate({
+    where:{organizationId},_count:{_all:true},_sum:{size:true}
+   });
+   if(stats._count._all>=MAX_FILES||(stats._sum.size||0)+file.buffer.length>MAX_BYTES)
+    throw new OrganizationError("Biblioteka wyciągów osiągnęła limit plików lub miejsca.",413);
+  }
 
   let parsed=null,reason="",count=0;
   if(ext==="csv"){
@@ -108,7 +114,11 @@ class BankFileUploadService {
 
   let created;
   try{
-   created=await this.db.bankImportFile.create({
+   created=retry?await this.db.bankImportFile.update({
+    where:{id:existing.id},data:{status:"PROCESSING",note:null,
+     transactionCount:count,parsedRows:parsed?.transactions||undefined},
+    select:PUBLIC_SELECT
+   }):await this.db.bankImportFile.create({
     data:{organizationId,uploadedById:userId,name,size:file.buffer.length,
      mimeType:ext==="csv"?"text/csv":"application/pdf",
      sha256,content:file.buffer,status:"PROCESSING",note:null,
@@ -142,11 +152,12 @@ class BankFileUploadService {
        where:{organizationId_iban:{organizationId,iban:group.account}},
        create:{organizationId,iban:group.account,currency:group.currency,
         accountType:group.accountType},
-       update:{}
+       // Correct legacy default CURRENT when an official VAT statement
+       // confirms this is the company's VAT account.
+       update:{accountType:group.accountType}
       });
-      if(account.currency!==group.currency||
-       (account.accountType&&account.accountType!==group.accountType)){
-       throw new OrganizationError("Niezgodna waluta lub typ rachunku w imporcie.",422);
+      if(account.currency!==group.currency){
+       throw new OrganizationError("Waluta pliku różni się od waluty przypisanego rachunku.",422);
       }
       const old=await tx.bankStatement.findFirst({
        where:{organizationId,bankAccountId:account.id,
