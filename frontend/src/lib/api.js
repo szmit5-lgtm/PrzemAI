@@ -567,6 +567,10 @@ export async function linkOrganizationKsef(orgId){
 export async function getOrganizationFinanceSummary(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/summary");
 }
+export async function getOrganizationInvestmentFinanceReport(orgId,year){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+
+  "/finance/investments/"+encodeURIComponent(year));
+}
 export async function getOrganizationBankKsefMatches(orgId,year){
  return request("/api/organizations/"+encodeURIComponent(orgId)+
   "/finance/bank-matches/"+encodeURIComponent(year));
