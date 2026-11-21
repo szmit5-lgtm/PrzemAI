@@ -29,7 +29,7 @@ export default function CompanyBankMonthlyReports(){
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  const [refresh,setRefresh]=useState(0);
- const [month,setMonth]=useState(today.getMonth()+1);
+ const [month,setMonth]=useState(null);
  useEffect(()=>{
   if(!id)return;
   let active=true;
@@ -41,6 +41,12 @@ export default function CompanyBankMonthlyReports(){
      result?.data?.year!==year||!Array.isArray(result?.data?.months))
      throw Error("Serwer nie potwierdził zestawienia tej spółki.");
     setCompany(org.data);setReport(result.data);
+    // When opening a report, show the latest month with actual bank data,
+    // rather than defaulting to today's often-unreconciled month.
+    const meaningful=result.data.months.filter(entry=>entry.accounts.some(acc=>
+     acc.confirmedMonthEnd||acc.transactionCount>0));
+    const latest=meaningful.at(-1)?.month||(year===today.getFullYear()?today.getMonth()+1:12);
+    setMonth(previous=>previous??latest);
    }).catch(err=>{if(active)setError(err?.message||"Nie udało się przygotować zestawienia.");})
     .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
@@ -54,7 +60,7 @@ export default function CompanyBankMonthlyReports(){
   if(!Number.isInteger(number)||number<2020||number>2100){
    setError("Wybierz rok od 2020 do 2100.");return;
   }
-  setMonth(number===today.getFullYear()?today.getMonth()+1:12);
+  setMonth(null);
   setYear(number);setRefresh(x=>x+1);
  }
  return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] px-3 py-5 pb-24 text-slate-100 sm:px-6 lg:px-8">
@@ -85,7 +91,7 @@ export default function CompanyBankMonthlyReports(){
       className="mt-2 block min-h-11 w-32 rounded-xl border border-white/15 bg-[#0c1930] px-3"/>
     </label>
     <label className="text-sm font-semibold">Miesiąc
-     <select value={month} onChange={e=>setMonth(Number(e.target.value))}
+     <select value={month||today.getMonth()+1} onChange={e=>setMonth(Number(e.target.value))}
       className="mt-2 block min-h-11 w-44 rounded-xl border border-white/15 bg-[#0c1930] px-3">
       {MONTHS.map((label,index)=><option key={index} value={index+1}>{label}</option>)}
      </select>
