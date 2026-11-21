@@ -247,3 +247,24 @@ test("finance expense classification rejects missing tenant before database acce
     assert.equal(calls.length, 0, "missing tenant must not read or update expense invoices");
   }
 });
+
+test("finance summaries for concurrent tenants keep their own user scopes", async () => {
+  calls.length = 0;
+  const service = new FinanceService();
+  const [first, second] = await Promise.all([
+    service.summary("synthetic-dekonica"),
+    service.summary("synthetic-deherus")
+  ]);
+  assert.deepEqual(first, { total: 0, new: 0, mail: 0, ksef: 0 });
+  assert.deepEqual(second, { total: 0, new: 0, mail: 0, ksef: 0 });
+  const countCalls = calls.filter(call => call.method === "count");
+  assert.equal(countCalls.length, 8);
+  const countsByTenant = new Map();
+  for (const call of countCalls) {
+    const tenant = call.options.where.userId;
+    assert.ok(["synthetic-dekonica", "synthetic-deherus"].includes(tenant));
+    countsByTenant.set(tenant, (countsByTenant.get(tenant) || 0) + 1);
+  }
+  assert.equal(countsByTenant.get("synthetic-dekonica"), 4);
+  assert.equal(countsByTenant.get("synthetic-deherus"), 4);
+});
