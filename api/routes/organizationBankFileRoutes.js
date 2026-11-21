@@ -55,6 +55,17 @@ router.post("/",(req,res)=>upload(req,res,async uploadError=>{
    "Nie udało się zapisać wyciągu. Spróbuj ponownie.":error.message});
  }
 }));
+router.delete("/:fileId",async(req,res)=>{
+ try{
+  const data=await service.remove(req.user.id,req.params.id,req.params.fileId);
+  res.set("Cache-Control","private, no-store");
+  return res.json({success:true,data});
+ }catch(error){
+  const status=error instanceof OrganizationError?(error.status||400):500;
+  return res.status(status).json({success:false,error:status===500?
+   "Nie udało się bezpiecznie usunąć wyciągu.":error.message});
+ }
+});
 router.get("/:fileId/download",async(req,res)=>{
  try{
   const item=await service.download(req.user.id,req.params.id,req.params.fileId);
