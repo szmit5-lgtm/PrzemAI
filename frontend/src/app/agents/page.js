@@ -59,6 +59,13 @@ export default function AgentsPage(){
            <RefreshCw size={17} className={loading?"animate-spin":""}/> Odśwież
          </button>
        </div>
+       <Link href="/agents/monitor"
+        className="mt-5 flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-[#143c46] to-[#202447] p-4 sm:p-5">
+        <span><strong className="block text-base">Centrum monitorowania agentów 24/7</strong>
+         <span className="mt-1 block text-xs text-slate-300">Kolejka, praca w toku, ostatnie wykonania i błędy — faktyczne dane z PrzemAI</span>
+        </span>
+        <ArrowUpRight size={22} className="shrink-0 text-cyan-200"/>
+       </Link>
        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><Bot className="text-violet-300"/><p className="mt-2 text-3xl font-black">{loading?"—":totalVisible}</p><p className="text-xs text-slate-400">Agentów i modułów w systemie</p></div>
          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.05] p-4"><CheckCircle2 className="text-emerald-300"/><p className="mt-2 text-3xl font-black">{loading?"—":active}</p><p className="text-xs text-slate-400">Włączone agenty wykonawcze</p></div>

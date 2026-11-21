@@ -302,6 +302,9 @@ export async function markHomePlMailAlertReviewed(id){
  return request("/api/agents/mail/alerts/"+encodeURIComponent(id)+"/review",
   {method:"PATCH"});
 }
+export async function getAgentMonitoring(){
+ return request("/api/agents/monitor");
+}
 export async function getAgents() {
     return request("/api/agents");
 }

@@ -3,6 +3,17 @@ const AgentController = require("../controllers/AgentController");
 const verifyToken = require("../middleware/verifyToken");
 
 const router = express.Router();
+const {AgentMonitoringService}=require("../services/AgentMonitoringService");
+const monitor=new AgentMonitoringService();
+router.get("/monitor",verifyToken,async(req,res)=>{
+ try{
+  return res.json({success:true,data:await monitor.report(req.user.id)});
+ }catch(error){
+  const status=error?.status===401?401:500;
+  return res.status(status).json({success:false,
+   error:status===401?"Zaloguj się do PrzemAI.":"Nie udało się odczytać stanu agentów."});
+ }
+});
 const prisma = require("../../lib/prisma");
 const KALDEVA_HISTORY_TYPE = "KALDEVA_SALES";
 const MAIL_ALERT_TYPE="DEKONICA_MAIL_ALERT";
