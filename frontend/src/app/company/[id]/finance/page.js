@@ -105,6 +105,13 @@ export default function CompanyFinancePage(){
     <span>Kwoty na tej stronie są wartościami faktur, a nie potwierdzonymi wpływami lub wypływami bankowymi.
     Dane są wybierane po NIP spółki, dlatego dokumenty z niepełnym NIP mogą wymagać uzupełnienia w KSeF.</span>
    </div>
+   {status?.canView&&<Link href={"/company/"+encodeURIComponent(id)+"/finance/reports"}
+    className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-[#123b4b] to-[#19284c] p-5 hover:border-cyan-300/60">
+    <span><strong className="block text-lg">Raport miesięczny i kwartalny KSeF</strong>
+      <span className="mt-1 block text-sm text-slate-300">Faktury zakupowe i sprzedażowe według miesięcy i kwartałów · osobno dla każdej waluty</span>
+    </span>
+    <FolderKanban size={23} className="shrink-0 text-cyan-200"/>
+   </Link>}
    {(status?.canView||isBankOwner)&&<Link href={"/company/"+encodeURIComponent(id)+"/bank"}
     className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-[#1b2847] p-5 hover:bg-[#26375c]">
     <span><strong className="block text-lg">Bank i rozliczenia</strong><span className="mt-1 block text-sm text-slate-300">Rachunki, salda, wyciągi i rozliczenia z KSeF</span></span>
