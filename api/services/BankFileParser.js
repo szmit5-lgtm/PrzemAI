@@ -11,7 +11,7 @@ const HEADER = {
   counterparty:["counterparty","kontrahent","nazwakontrahenta","daneodbiorcy","odbiorca","nadawca","beneficjent","nazwaodbiorcy"],
   reference:["reference","referencja","numerreferencyjny","numertransakcji","idtransakcji","identyfikatortransakcji"],
   currency:["currency","waluta","walutarachunku","walutaoperacji"],
-  account:["rachunekwlasny","numerrachunkuwlasnego","rachuneknadawcy","rachunekfirmowy","numerrachunkufirmy","ibanfirms"],
+  account:["rachunekwlasny","numerrachunkuwlasnego","rachunekfirmowy","numerrachunkufirmy","ibanfirmy"],
   balance:["balance","saldopooperacji","saldopo","saldokoncowe"]
 };
 const FOLD = {"ą":"a","ć":"c","ę":"e","ł":"l","ń":"n","ó":"o","ś":"s","ź":"z","ż":"z"};
@@ -166,7 +166,7 @@ function parseBankCsv(buffer) {
  if(seenCurrency.size>1)throw Error("CSV zawiera transakcje w różnych walutach.");
  const preamble=rows.slice(0,i);
  const accountFromPreamble=labelledValue(preamble,[
-  "numerrachunku","numerrachunkubankowego","numerrachunkufirmy","rachunekwlasny","ibanfirms","ibannumer","iban","rachunek"
+  "numerrachunku","numerrachunkubankowego","numerrachunkufirmy","rachunekwlasny","ibanfirmy","ibannumer","iban","rachunek"
  ]);
  const account=seenIban.size?[...seenIban][0]:iban(accountFromPreamble);
  if(accountFromPreamble&&!iban(accountFromPreamble))throw Error("Nieprawidłowy IBAN w nagłówku wyciągu.");
