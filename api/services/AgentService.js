@@ -323,7 +323,7 @@ class AgentService {
             throw new Error("Brak uprawnień do włączenia tej skrzynki pocztowej.");
         }
 
-        return prisma.integration.update({
+        const updated=await prisma.integration.update({
             where: { id },
             data: {
                 enabled: Boolean(enabled),
@@ -334,6 +334,17 @@ class AgentService {
                 }
             }
         });
+        // Once the verified mailbox owner actively enables their integration,
+        // the financial agent can pick it up in the next worker scheduler cycle.
+        // It still requires an enabled agent and credentials on the worker.
+        if (enabled && integration.type === "MAIL" &&
+            integration.provider === "HOME_PL") {
+            await prisma.agent.updateMany({
+                where:{userId,key:"financial",enabled:true,NOT:{status:"RUNNING"}},
+                data:{nextRunAt:new Date()}
+            });
+        }
+        return updated;
     }
 }
 
