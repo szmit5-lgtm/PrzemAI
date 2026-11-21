@@ -32,7 +32,7 @@ const isActive = (pathname, href) => href === "/"
     ? pathname === "/agents" || (pathname.startsWith("/agents/") && !pathname.startsWith("/agents/sales"))
     : pathname === href || pathname.startsWith(href + "/");
 
-export default function Navbar({ vertical = false }) {
+export default function Navbar({ vertical = false, organizationId = null }) {
   const pathname = usePathname() || "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showAdministration, setShowAdministration] = useState(false);
@@ -52,7 +52,17 @@ export default function Navbar({ vertical = false }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileOpen]);
-  const visible = links.filter(link => link.href !== "/administracja" || showAdministration);
+  // A company page (or a company selected on the dashboard) must never send
+  // the Documents link to the personal /document upload screen.
+  const companyMatch = /^\/company\/([^/]+)(?:\/|$)/.exec(pathname);
+  const companySegment = companyMatch?.[1] !== "setup" ? companyMatch?.[1] : null;
+  const documentsHref = companySegment
+    ? "/company/" + companySegment + "/documents"
+    : organizationId ? "/company/" + encodeURIComponent(organizationId) + "/documents" : "/document";
+  const visible = links
+    .filter(link => link.href !== "/administracja" || showAdministration)
+    .map(link => link.href === "/document" && documentsHref !== "/document"
+      ? { ...link, href: documentsHref, label: "Dokumenty spółki" } : link);
   const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company","/administracja"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
 
   const navLink = ({ href, label, icon: Icon }, compact = false) => {
