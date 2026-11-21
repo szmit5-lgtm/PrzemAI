@@ -271,6 +271,42 @@ class AgentService {
         return {id,status:"TODO",conversation};
     }
 
+    async retryAssignment(userId,key,id){
+        const def=getAgentDefinition(key);
+        if(!def||def.mode!=="TASK_DRAFT"||
+          typeof id!=="string"||!id.trim())
+            throw Error("Nieobsługiwany agent lub zlecenie.");
+        const agent=await prisma.agent.findFirst({
+            where:{userId,key,enabled:true},select:{id:true,status:true}
+        });
+        if(!agent)throw Error("Agent jest wyłączony lub niedostępny.");
+        const task=await prisma.task.findFirst({
+            where:{id,userId,source:"AGENT",status:"ERROR"},
+            select:{id:true,status:true,metadata:true,updatedAt:true}
+        });
+        if(!task||task.metadata?.agentKey!==key)
+            throw Error("Można ponowić tylko własne zlecenie tego agenta zakończone błędem.");
+        const retries=Number.isSafeInteger(task.metadata?.retryCount)&&task.metadata.retryCount>=0
+            ?task.metadata.retryCount:0;
+        if(retries>=3)throw Error("Limit 3 ponowień został wykorzystany. Zleć nowe zadanie lub popraw dane.");
+        // Explicit user-controlled retry of local TASK_DRAFT only. Never
+        // replay financial sync or external transfers, messages or orders.
+        const changed=await prisma.task.updateMany({
+            where:{id,userId,source:"AGENT",status:"ERROR",updatedAt:task.updatedAt,
+                metadata:{path:["agentKey"],equals:key}},
+            data:{status:"TODO",startedAt:null,completedAt:null,
+                metadata:{...task.metadata,error:null,resultStatus:"QUEUED",
+                    retryCount:retries+1,retryQueuedAt:new Date().toISOString()}}
+        });
+        if(changed.count!==1)
+            throw Error("Zlecenie zmieniło się w międzyczasie. Odśwież stronę.");
+        await prisma.agent.updateMany({
+            where:{id:agent.id,userId,enabled:true,NOT:{status:"RUNNING"}},
+            data:{status:"IDLE",nextRunAt:new Date()}
+        });
+        return{id,status:"TODO",retryCount:retries+1};
+    }
+
     async changeAssignmentStage(userId,key,id,stage){
         const def=getAgentDefinition(key);
         if(!def||def.mode!=="TASK_DRAFT"||
