@@ -63,6 +63,67 @@ class BankFileUploadService {
   if(!item)throw new OrganizationError("Nie znaleziono pliku w tej spółce.",404);
   return item;
  }
+ async remove(userId,organizationId,fileId){
+  await this.access.authorize(userId,organizationId,{ownerOnly:true});
+  if(!fileId||typeof fileId!=="string")throw new OrganizationError("Nieprawidłowy wyciąg.",400);
+  // Never remove a statement from another organization, nor one imported from
+  // another file merely because both files contain the same bank entries.
+  // Only source hashes actually generated from THIS file can be removed.
+  return this.db.$transaction(async tx=>{
+   const item=await tx.bankImportFile.findFirst({
+    where:{id:fileId,organizationId},
+    select:{id:true,organizationId:true,name:true,sha256:true,status:true,
+     mimeType:true,content:true,statementId:true}
+   });
+   if(!item)throw new OrganizationError("Wyciąg nie istnieje w tej spółce.",404);
+   if(item.status==="PROCESSING")throw new OrganizationError(
+    "Wyciąg jest przetwarzany. Spróbuj ponownie po zakończeniu importu.",409);
+   let hashes=[item.sha256];
+   if(item.status==="IMPORTED"&&item.mimeType==="text/csv"){
+    let source;
+    try{source=parseBankCsv(Buffer.from(item.content));}
+    catch{throw new OrganizationError(
+     "Nie można potwierdzić, które operacje pochodzą z tego pliku. Usuwanie zablokowane dla bezpieczeństwa.",409);}
+    if(Array.isArray(source.accounts)){
+     hashes=source.accounts.map(group=>crypto.createHash("sha256").update(
+      item.sha256+"|"+group.account+"|"+group.statementNumber
+     ).digest("hex"));
+    }
+   }
+   const ownStatements=await tx.bankStatement.findMany({
+    where:{organizationId,sourceHash:{in:hashes}},
+    select:{id:true,sourceHash:true,statementNumber:true,bankAccountId:true}
+   });
+   if(item.status==="IMPORTED"&&item.statementId&&
+     !ownStatements.some(st=>st.id===item.statementId)){
+    throw new OrganizationError(
+     "Powiązanie wyciągu z operacjami jest niejednoznaczne. Usuwanie zablokowane.",409);
+   }
+   const statementIds=ownStatements.map(st=>st.id);
+   if(statementIds.length){
+    const reviewed=await tx.bankTransaction.count({
+     where:{organizationId,bankStatementId:{in:statementIds},
+      reviewStatus:{not:"UNMATCHED"}}
+    });
+    if(reviewed>0)throw new OrganizationError(
+     "Część operacji została już powiązana lub zweryfikowana. Najpierw odłącz powiązania — danych księgowych nie usuwamy automatycznie.",409);
+   }
+   const removedTx=statementIds.length?await tx.bankTransaction.deleteMany({
+    where:{organizationId,bankStatementId:{in:statementIds}}
+   }):{count:0};
+   if(statementIds.length){
+    const removedStatements=await tx.bankStatement.deleteMany({
+     where:{organizationId,id:{in:statementIds},sourceHash:{in:hashes}}
+    });
+    if(removedStatements.count!==statementIds.length)throw new OrganizationError(
+     "Usunięcie wyciągów nie powiodło się. Żadne zmiany nie zostały zapisane.",409);
+   }
+   const deleted=await tx.bankImportFile.deleteMany({where:{id:fileId,organizationId}});
+   if(deleted.count!==1)throw new OrganizationError("Nie udało się usunąć pliku.",409);
+   return {removedFileId:fileId,removedStatements:statementIds.length,
+    removedTransactions:removedTx.count};
+  },{timeout:20000});
+ }
  async upload(userId,organizationId,file){
   await this.access.authorize(userId,organizationId,{ownerOnly:true});
   const ext=fileType(file);
