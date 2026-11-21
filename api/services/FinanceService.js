@@ -128,7 +128,6 @@ class FinanceService {
                 status: "ACTIVE",
                 OR: [
                     { userId, organizationId: null },
-                    { organizationId: { in: organizationIds }, userId },
                     {
                         organizationId: { in: organizationIds },
                         projectAccesses: { some: { userId } }
@@ -177,6 +176,19 @@ class FinanceService {
         }
         if (!organizationId && allowed.length > 1) {
             throw new Error("Wybierz spółkę dla nowego projektu.");
+        }
+        // Only organization admins may create company-wide projects.
+        // Membership alone must not grant project creation or visibility.
+        if (selectedOrganizationId) {
+            const admin = await prisma.organizationMembership.findFirst({
+                where: {
+                    userId, organizationId: selectedOrganizationId, status: "ACTIVE",
+                    role: { in: ["OWNER", "ADMIN"] },
+                    organization: { status: "ACTIVE" }
+                },
+                select: { id: true }
+            });
+            if (!admin) throw new Error("Brak uprawnień do tworzenia projektu spółki.");
         }
         const existing = await prisma.project.findFirst({
             where: {
