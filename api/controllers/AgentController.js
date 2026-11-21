@@ -88,6 +88,15 @@ class AgentController {
         }
     }
 
+    async retryAssignment(req,res){
+        try{
+            const data=await this.service.retryAssignment(req.user.id,req.params.key,
+                req.params.taskId);
+            return res.status(202).json({success:true,data});
+        }catch(error){
+            return res.status(400).json({success:false,error:error.message});
+        }
+    }
     async changeAssignmentStage(req,res){
         try{const data=await this.service.changeAssignmentStage(req.user.id,req.params.key,
           req.params.taskId,req.body?.stage);

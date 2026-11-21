@@ -5,7 +5,7 @@ import {useParams} from "next/navigation";
 import {ArrowLeft,RefreshCw,Send,Clipboard,CheckCircle2,Clock3,BriefcaseBusiness,MessageSquareText} from "lucide-react";
 import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
-import {getAgents,getAgentAssignments,createAgentAssignment,setAgentAssignmentStage,replyToAgentAssignment} from "@/lib/api";
+import {getAgents,getAgentAssignments,createAgentAssignment,setAgentAssignmentStage,replyToAgentAssignment,retryAgentAssignment} from "@/lib/api";
 
 const STAGES=[["NEW","Nowy kontakt"],["QUALIFIED","Zakwalifikowany"],["PROPOSAL","Oferta"],["FOLLOW_UP","Kontakt ponowny"],["WON","Wygrany"],["LOST","Utracony"]];
 function fmt(v){if(!v)return "—";const d=new Date(v);return isNaN(d.getTime())?"—":d.toLocaleString("pl-PL");}
@@ -17,6 +17,7 @@ export default function AgentWorkspace(){
  const [refresh,setRefresh]=useState(0);
  const [replyDrafts,setReplyDrafts]=useState({});
  const [replyBusy,setReplyBusy]=useState("");
+ const [retryBusy,setRetryBusy]=useState("");
  const [replyTargetId,setReplyTargetId]=useState("");
  const hasPending=tasks.some(t=>t.status==="TODO"||t.status==="IN_PROGRESS");
  useEffect(()=>{
@@ -60,6 +61,18 @@ export default function AgentWorkspace(){
     setRefresh(v=>v+1);
   }catch(e){setError(e.message||"Nie można wysłać odpowiedzi.");}
   finally{setReplyBusy("");}
+ }
+ async function retryTask(task){
+  if(retryBusy||!agent?.enabled)return;
+  if(!window.confirm("Ponowić to zadanie? Agent ponownie przygotuje szkic. Może to zużyć tokeny AI. Nie zostanie wysłana żadna wiadomość ani wykonana płatność."))return;
+  setRetryBusy(task.id);setError("");setNotice("");
+  try{
+   const result=await retryAgentAssignment(key,task.id);
+   if(result?.data?.status!=="TODO")throw Error("Serwer nie potwierdził ponowienia.");
+   setNotice("Zlecenie ponownie zapisane w kolejce. Status odświeży się po wykonaniu.");
+   setRefresh(v=>v+1);
+  }catch(e){setError(e.message||"Nie udało się ponowić zlecenia.");}
+  finally{setRetryBusy("");}
  }
  async function updateStage(id,next){
   setBusy(true);setError("");
@@ -238,6 +251,14 @@ export default function AgentWorkspace(){
                  "Odpowiedź jest w kolejce. Wynik pojawi się w tej rozmowie."}
              </p>}
            {t.metadata?.error&&<p role="alert" className="mt-3 text-xs text-rose-300">{t.metadata.error}</p>}
+           {t.status==="ERROR"&&<div className="mt-3 flex flex-wrap items-center gap-3">
+            <button type="button" disabled={!agent.enabled||Boolean(retryBusy)||Number(t.metadata?.retryCount||0)>=3}
+             onClick={()=>retryTask(t)}
+             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 text-xs font-bold text-amber-200 disabled:opacity-50">
+             <RefreshCw size={15}/>{retryBusy===t.id?"Ponawiam…":"Ponów zadanie"}
+            </button>
+            <span className="text-xs text-slate-400">Ponowienia: {Number(t.metadata?.retryCount||0)} / 3 · tylko po potwierdzeniu</span>
+           </div>}
          </article>)}
         </div>}
       </section>
