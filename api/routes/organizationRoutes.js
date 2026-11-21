@@ -7,6 +7,8 @@ const {OrganizationService,OrganizationError}=require("../services/OrganizationS
 const service=new OrganizationService();
 const {OrganizationFinanceService}=require("../services/OrganizationFinanceService");
 const financeService=new OrganizationFinanceService();
+const {OrganizationInvestmentFinanceService}=require("../services/OrganizationInvestmentFinanceService");
+const investmentFinance=new OrganizationInvestmentFinanceService();
 const { OrganizationInvestmentService } = require("../services/OrganizationInvestmentService");
 const investmentService = new OrganizationInvestmentService();
 const {OrganizationBankAccessService}=require("../services/OrganizationBankAccessService");
@@ -144,6 +146,8 @@ router.get("/:id/finance/summary",verifyToken,
   handler(req=>financeService.summary(req.user.id,req.params.id)));
 router.get("/:id/finance/report/:year",verifyToken,
   handler(req=>financeService.annualReport(req.user.id,req.params.id,req.params.year)));
+router.get("/:id/finance/investments/:year",verifyToken,
+  handler(req=>investmentFinance.report(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/bank-matches/:year",verifyToken,
   handler(req=>bankKsefMatches.review(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/documents",verifyToken,
