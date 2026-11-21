@@ -3,6 +3,7 @@
 const prisma = require("../../lib/prisma");
 const HomePlMailConnector = require("../../connectors/mail/HomePlMailConnector");
 const mailDocumentId = require("../../lib/mailDocumentId");
+const {classifyMailAlert,alertId}=require("../../lib/mailAlertClassifier");
 const { canSyncMailIntegration } = require("../../lib/mailAccessPolicy");
 const { syncKsefOwner } = require("../../connectors/ksef/syncKsefOwner");
 const { getKsefSyncEligibility } = require("../../lib/ksefSyncEligibility");
@@ -26,6 +27,8 @@ class FinancialAgent {
 
     let checkedMessages = 0;
     let newDocuments = 0;
+    let importantMailAlerts = 0;
+    let newMailAlerts = 0;
     let blockedIntegrations = 0;
     let failedIntegrations = 0;
 
@@ -39,10 +42,30 @@ class FinancialAgent {
       }
       try {
       const connector = new HomePlMailConnector(integration.config || {});
-      const messages = await connector.fetchRecentMessages(30);
+      const messages = await connector.fetchRecentMessages(50);
       checkedMessages += messages.length;
 
       for (const message of messages) {
+        // Local, read-only priority review for the explicitly authorized
+        // Dekonica mailbox. Never generate a remote draft or send a message.
+        const alert=classifyMailAlert(message);
+        if(alert){
+          importantMailAlerts+=1;
+          try{
+            await prisma.history.create({data:{
+              id:alertId(integration.id,message),
+              userId,type:"DEKONICA_MAIL_ALERT",
+              title:alert.subject,filename:"",
+              report:{...alert,source:"HOME_PL",mailbox:"office@dekonica.com",
+                integrationId:integration.id,status:"NEW"}
+            }});
+            newMailAlerts+=1;
+          }catch(error){
+            // Normal duplicate from a previous scan; mailbox alerts must be
+            // stable and idempotent across retries and worker restarts.
+            if(error?.code!=="P2002")throw error;
+          }
+        }
         for (const [attachmentIndex, attachment] of
           message.attachments.entries()) {
           const filename = attachment.filename || "attachment";
@@ -180,7 +203,7 @@ class FinancialAgent {
     }
 
     const summary =
-      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}, przyczyny błędów XML ${JSON.stringify(xmlFailureCodes)}, Deherus KSeF ${deherusKsefStatus}, Deherus nowe ${deherusKsefImported}, Deherus XML ${deherusKsefXmlFetched}.`;
+      `Financial Agent: wiadomości ${checkedMessages}, nowe dokumenty ${newDocuments}, ważne alerty poczty ${importantMailAlerts}, nowe alerty ${newMailAlerts}, zablokowane integracje ${blockedIntegrations}, błędne synchronizacje ${failedIntegrations}, KSeF nowe ${ksefImported}, duplikaty ${ksefDuplicates}, błąd KSeF ${ksefFailed ? "tak" : "nie"}, stan KSeF ${ksefStatus}, pełne XML ${ksefXmlFetched}, błędy XML ${ksefXmlFailed}, historia okresy ${ksefHistoryWindows}, zakończona ${ksefHistoryComplete ? "tak" : "nie"}, opisane ${projectDescribed}, przypisane do inwestycji ${projectAssigned}, do weryfikacji ${projectReview}, błędy opisu ${projectErrors}, przyczyny błędów XML ${JSON.stringify(xmlFailureCodes)}, Deherus KSeF ${deherusKsefStatus}, Deherus nowe ${deherusKsefImported}, Deherus XML ${deherusKsefXmlFetched}.`;
     console.log("[FinancialAgent]", summary);
 
     // Preserve a failed run status and the retry schedule in AgentRunner,
@@ -195,6 +218,8 @@ class FinancialAgent {
         integrations: integrations.length,
         checkedMessages,
         newDocuments,
+        importantMailAlerts,
+        newMailAlerts,
         blockedIntegrations,
         failedIntegrations,
         ksefImported,
