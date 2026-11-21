@@ -137,6 +137,7 @@ export default function FinancePage() {
               </span>
               <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Centrum finansów</h1>
               <Link href="/finance/reports" className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-sm font-bold text-cyan-100 hover:bg-cyan-300/20">Raport miesięczny i kwartalny <ArrowUpRight size={15} className="ml-2"/></Link>
+              <Link href="/finance/history-status" className="mt-3 ml-0 sm:ml-3 inline-flex min-h-10 items-center rounded-xl border border-violet-300/30 bg-violet-300/10 px-4 text-sm font-bold text-violet-100 hover:bg-violet-300/20">Postęp importu KSeF <ArrowUpRight size={15} className="ml-2"/></Link>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
                 Dokumenty z KSeF i poczty, ich kwoty, opisy oraz przypisanie do inwestycji.
                 Dane faktur nie są potwierdzeniem zapłaty.
