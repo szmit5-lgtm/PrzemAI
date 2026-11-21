@@ -18,6 +18,8 @@ router.patch("/documents/:id/accounting",verifyToken,(req,res)=>controller.class
 router.get("/projects", verifyToken, (req, res) => controller.projects(req, res));
 router.post("/projects", verifyToken, (req, res) => controller.createProject(req, res));
 router.patch("/projects/:id/organization", verifyToken, (req, res) => controller.shareLegacyProject(req, res));
+router.put("/projects/:id/access/:userId", verifyToken, (req, res) => controller.setProjectAccess(req, res));
+router.delete("/projects/:id/access/:userId", verifyToken, (req, res) => controller.setProjectAccess(req, res));
 router.patch("/documents/:id/project", verifyToken, (req, res) => controller.assignProject(req, res));
 
 router.get(
