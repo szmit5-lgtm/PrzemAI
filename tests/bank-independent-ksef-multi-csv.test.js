@@ -111,19 +111,19 @@ test("bank imports require owner and balanced statement without KSeF",async()=>{
  assert.doesNotMatch(importSource,/finance\.accessible|OrganizationFinanceService/);
 });
 
-test("owner sees bank link without KSeF, PDF preview uses independent bank permission",()=>{
- assert.match(financePage,/status\?\.canView\|\|isBankOwner/);
- assert.match(bankPage,/finance\?\.data\?\.canView\|\|isOwner/);
- assert.match(routesSource,/bankAccess\.authorize\(req\.user\.id,req\.params\.id,\{ownerOnly:true\}\)/);
- assert.doesNotMatch(routesSource,/await financeService\.accessible\(req\.user\.id,req\.params\.id\)/);
+test("owner sees company bank link without KSeF, bank upload uses independent owner permission",()=>{
+ assert.match(financePage,/status\\?\\.canView\\|\\|isBankOwner/);
+ assert.match(bankPage,/const canSee=Boolean\\(isOwner\\|\\|/);
+ assert.match(routesSource,/bankAccess\\.authorize\\(req\\.user\\.id,req\\.params\\.id,\\{ownerOnly:true\\}\\)/);
+ assert.doesNotMatch(routesSource,/await financeService\\.accessible\\(req\\.user\\.id,req\\.params\\.id\\)/);
 });
 
-test("multi-month CSV import requires per-statement owner confirmation",()=>{
- assert.match(bankPage,/multiple accept="\.csv,\.pdf/);
- assert.match(bankPage,/setCsvQueue\(parsed\)/);
- assert.match(bankPage,/async function submitImport/);
- assert.match(bankPage,/importOrganizationBankStatement\(id,\{iban,statementNumber,periodStart,periodEnd,openingBalance,closingBalance,transactions\}\)/);
- assert.match(bankPage,/if\(next\)clearStatementFields\(\)/);
- assert.match(bankPage,/Po zapisaniu bieżącego wyciągu załaduję następny/);
- assert.match(bankPage,/Nie udało się zaimportować wyciągu/);
+test("one-step multi-month CSV/PDF upload replaces manual statement form",()=>{
+ assert.match(bankPage,/type="file" multiple disabled=\\{uploading\\}/);
+ assert.match(bankPage,/async function pickFiles\\(event\\)/);
+ assert.match(bankPage,/uploadOrganizationBankFile\\(id,file\\)/);
+ assert.match(bankPage,/Zapisany — do weryfikacji/);
+ assert.match(bankPage,/Nie wpisujesz ręcznie rachunku, okresu, numeru wyciągu ani sald/);
+ assert.doesNotMatch(bankPage,/Zatwierdź import/);
+ assert.doesNotMatch(bankPage,/input required value=\\{openingBalance\\}/);
 });
