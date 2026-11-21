@@ -1,9 +1,9 @@
 "use strict";
 const crypto=require("crypto");
 const prisma=require("../../lib/prisma");
-const {OrganizationFinanceService}=require("./OrganizationFinanceService");
+const {OrganizationBankAccessService}=require("./OrganizationBankAccessService");
 const {OrganizationError}=require("./OrganizationService");
-const finance=new OrganizationFinanceService();
+const bankAccess=new OrganizationBankAccessService();
 function money(v){
  const s=String(v??"").trim().replace(/\s/g,"").replace(",",".");
  if(!/^-?\d+(?:\.\d{1,2})?$/.test(s))throw new Error("Nieprawidłowa kwota.");
@@ -16,9 +16,9 @@ function date(v){
  return new Date(s+"T12:00:00Z");
 }
 async function importStatement(userId,orgId,payload){
- await finance.accessible(userId,orgId);
- const membership=await prisma.organizationMembership.findFirst({where:{userId,organizationId:orgId,status:"ACTIVE",role:"OWNER"}});
- if(!membership)throw new OrganizationError("Import wyciągów wymaga roli właściciela firmy.",403);
+ // The owner may import bank records even before the company connects KSeF.
+ // Bank access is checked against current ACTIVE company membership.
+ await bankAccess.authorize(userId,orgId,{ownerOnly:true});
  const rawIban=String(payload?.iban||"").replace(/[\s-]/g,"").toUpperCase();
  const iban=/^\d{26}$/.test(rawIban)?"PL"+rawIban:rawIban;
  const number=String(payload?.statementNumber||"").trim();
