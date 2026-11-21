@@ -62,7 +62,6 @@ test("active company members can see company projects but not other users' legac
   const where = calls.find(([type]) => type === "projects")[1].where;
   assert.deepEqual(where.OR, [
     { userId: "leszek", organizationId: null },
-    { organizationId: { in: ["dekonica"] }, userId: "leszek" },
     { organizationId: { in: ["dekonica"] }, projectAccesses: { some: { userId: "leszek" } } },
     { organizationId: { in: ["dekonica"] }, organization: { memberships: { some: { userId: "leszek", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } } } } }
   ]);
@@ -84,23 +83,23 @@ test("user without membership cannot create project for a foreign company", asyn
 test("authorized company project is scoped to its organization", async () => {
   calls.length = 0;
   memberships = ["dekonica"];
+  adminAllowed = true;
   const item = await new FinanceService().createProject("leszek", {
     name: "Zgorzelec", organizationId: "dekonica"
   });
+  adminAllowed = false;
   assert.equal(item.organizationId, "dekonica");
   assert.deepEqual(calls.find(([type]) => type === "existing")[1].where, {
     name: "Zgorzelec", status: "ACTIVE", organizationId: "dekonica"
   });
 });
 
-test("new projects are shared automatically when user has one active company", async () => {
+test("new company projects require admin role even for single-company members", async () => {
   calls.length = 0;
   memberships = ["dekonica"];
-  await new FinanceService().createProject("leszek", { name: "Prywatny projekt" });
-  assert.deepEqual(calls.find(([type]) => type === "existing")[1].where, {
-    name: "Prywatny projekt", status: "ACTIVE", organizationId: "dekonica"
-  });
-  assert.equal(calls.find(([type]) => type === "create")[1].data.organizationId, "dekonica");
+  adminAllowed = false;
+  await assert.rejects(() => new FinanceService().createProject("leszek", { name: "Prywatny projekt" }), /Brak uprawnień/);
+  assert.equal(calls.some(([type]) => type === "create"), false);
 });
 
 test("inactive membership cannot list another user's company projects", async () => {
@@ -110,7 +109,6 @@ test("inactive membership cannot list another user's company projects", async ()
   const query = calls.find(([type]) => type === "projects")[1];
   assert.deepEqual(query.where.OR, [
     { userId: "outsider", organizationId: null },
-    { organizationId: { in: [] }, userId: "outsider" },
     { organizationId: { in: [] }, projectAccesses: { some: { userId: "outsider" } } },
     { organizationId: { in: [] }, organization: { memberships: { some: { userId: "outsider", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } } } } }
   ]);
@@ -196,9 +194,11 @@ test("legacy mapping cannot transfer a project owned by another user", async () 
 test("multi-company member can explicitly create a project only in the selected tenant", async () => {
   calls.length = 0;
   memberships = ["dekonica", "deherus"];
+  adminAllowed = true;
   const result = await new FinanceService().createProject("member", {
     name: "Mielno", organizationId: "dekonica"
   });
+  adminAllowed = false;
   assert.equal(result.organizationId, "dekonica");
   assert.deepEqual(calls.find(([type]) => type === "existing")[1].where, {
     name: "Mielno", status: "ACTIVE", organizationId: "dekonica"
@@ -228,7 +228,6 @@ test("Deherus-only member cannot see Dekonica projects through the shared projec
   const query = calls.find(([type]) => type === "projects")[1];
   assert.deepEqual(query.where.OR, [
     { userId: "deherus-worker", organizationId: null },
-    { organizationId: { in: ["deherus"] }, userId: "deherus-worker" },
     { organizationId: { in: ["deherus"] }, projectAccesses: { some: { userId: "deherus-worker" } } },
     { organizationId: { in: ["deherus"] }, organization: { memberships: { some: { userId: "deherus-worker", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } } } } }
   ]);
