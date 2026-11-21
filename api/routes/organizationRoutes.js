@@ -16,6 +16,9 @@ const router = express.Router();
 // Private company documents (always check active membership before upload).
 const organizationDocumentRoutes = require("./organizationDocumentRoutes");
 router.use("/:id/documents", verifyToken, organizationDocumentRoutes);
+// Owner-uploaded bank files: saved to the correct company without asking for statement fields.
+const organizationBankFileRoutes=require("./organizationBankFileRoutes");
+router.use("/:id/bank/files", verifyToken, organizationBankFileRoutes);
 
 router.get("/:id/bank/summary", verifyToken, async (req,res)=>{
  try{
@@ -227,8 +230,8 @@ router.get("/:id/bank/statements",verifyToken,async(req,res)=>{
    orderBy:{periodEnd:"desc"},take:50,
    select:{id:true,statementNumber:true,periodEnd:true,openingBalance:true,closingBalance:true,transactionCount:true,
     bankAccount:{select:{label:true,iban:true}}}});
-  return res.json({success:true,data:data.map(x=>({...x,openingBalance:x.openingBalance.toString(),
-   closingBalance:x.closingBalance.toString(),bankAccount:{label:x.bankAccount.label,ibanSuffix:x.bankAccount.iban.slice(-4)}}))});
+  return res.json({success:true,data:data.map(x=>({...x,openingBalance:x.openingBalance?.toString()??null,
+   closingBalance:x.closingBalance?.toString()??null,bankAccount:{label:x.bankAccount.label,ibanSuffix:x.bankAccount.iban.slice(-4)}}))});
  }catch(error){
   const status=error instanceof OrganizationError?error.status||403:500;
   return res.status(status).json({success:false,error:status===500?"Nie udało się pobrać wyciągów.":error.message});

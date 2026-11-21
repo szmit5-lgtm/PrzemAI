@@ -585,6 +585,33 @@ export async function updateSystemUser(id,payload) {
   });
 }
 
+export async function getOrganizationBankFiles(orgId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/files");
+}
+export async function uploadOrganizationBankFile(orgId,file){
+ const data=new FormData();data.append("file",file);
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/files",{
+  method:"POST",body:data
+ });
+}
+export async function downloadOrganizationBankFile(orgId,fileId){
+ const token=getToken();
+ if(!token)throw new Error("Zaloguj się, aby pobrać wyciąg.");
+ const response=await fetch("/api/organizations/"+encodeURIComponent(orgId)+
+  "/bank/files/"+encodeURIComponent(fileId)+"/download",{
+  headers:{Authorization:"Bearer "+token},cache:"no-store"
+ });
+ if(response.status===401){
+  localStorage.removeItem("token");
+  window.location.href="/login";
+  throw new Error("Sesja wygasła.");
+ }
+ if(!response.ok){
+  const body=await response.json().catch(()=>null);
+  throw new Error(body?.error||"Nie udało się pobrać wyciągu.");
+ }
+ return response.blob();
+}
 export async function getOrganizationBankSummary(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/summary");
 }
