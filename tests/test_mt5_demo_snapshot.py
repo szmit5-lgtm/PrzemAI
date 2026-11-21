@@ -110,5 +110,23 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(fake.position_reads, 0)
         self.assertEqual(fake.shutdowns, 1)
 
+    def test_boolean_position_type_is_rejected(self):
+        fake = FakeMT5(positions=[SimpleNamespace(
+            symbol="EURUSD", type=False, volume=0.1,
+            price_open=1.0, price_current=1.1, profit=1.0, swap=0.0)])
+        with self.assertRaisesRegex(ValueError, "mt5_invalid_position_type"):
+            build_demo_snapshot(fake)
+        self.assertEqual(fake.shutdowns, 1)
+
+    def test_nonpositive_market_price_is_rejected(self):
+        for entry, current in ((0.0, 1.0), (1.0, -1.0)):
+            with self.subTest(entry=entry, current=current):
+                fake = FakeMT5(positions=[SimpleNamespace(
+                    symbol="EURUSD", type=0, volume=0.1,
+                    price_open=entry, price_current=current, profit=0.0, swap=0.0)])
+                with self.assertRaisesRegex(ValueError, "mt5_invalid_price"):
+                    build_demo_snapshot(fake)
+                self.assertEqual(fake.shutdowns, 1)
+
 if __name__ == "__main__":
     unittest.main()

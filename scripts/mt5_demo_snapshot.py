@@ -49,17 +49,21 @@ def build_demo_snapshot(mt5, *, now=None):
         for position in positions:
             if not isinstance(position.symbol, str) or not SYMBOL_RE.fullmatch(position.symbol):
                 raise ValueError("mt5_invalid_symbol")
-            if position.type not in (mt5.POSITION_TYPE_BUY, mt5.POSITION_TYPE_SELL):
+            if isinstance(position.type, bool) or not isinstance(position.type, int) or position.type not in (mt5.POSITION_TYPE_BUY, mt5.POSITION_TYPE_SELL):
                 raise ValueError("mt5_invalid_position_type")
             volume = _safe_number(position.volume, "volume")
             if volume <= 0:
                 raise ValueError("mt5_invalid_volume")
+            entry_price = _safe_number(position.price_open, "entry_price")
+            current_price = _safe_number(position.price_current, "current_price")
+            if entry_price <= 0 or current_price <= 0:
+                raise ValueError("mt5_invalid_price")
             sanitized.append({
                 "symbol": position.symbol,
                 "side": "buy" if position.type == mt5.POSITION_TYPE_BUY else "sell",
                 "volumeLots": volume,
-                "entryPrice": _safe_number(position.price_open, "entry_price"),
-                "currentPrice": _safe_number(position.price_current, "current_price"),
+                "entryPrice": entry_price,
+                "currentPrice": current_price,
                 "unrealizedPnl": _safe_number(position.profit, "position_profit"),
                 "swap": _safe_number(position.swap, "swap"),
             })
