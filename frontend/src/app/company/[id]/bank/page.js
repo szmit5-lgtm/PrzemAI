@@ -53,11 +53,22 @@ export default function CompanyBankPage(){
  const [fileName,setFileName]=useState("");
  const [pdfPreview,setPdfPreview]=useState(null);
  const [pdfLoading,setPdfLoading]=useState(false);
+ const [csvQueue,setCsvQueue]=useState([]);
+ function clearStatementFields(){
+  setStatementNumber("");setPeriodStart("");setPeriodEnd("");
+  setOpeningBalance("");setClosingBalance("");
+ }
  async function readFile(e){
-  const file=e.target.files?.[0];e.target.value="";
-  if(!file)return;
-  setError("");setNotice("");setTransactions([]);setFileName("");setPdfPreview(null);
-  if(/\.pdf$/i.test(file.name)){
+  const files=Array.from(e.target.files||[]);
+  e.target.value="";
+  if(!files.length)return;
+  setError("");setNotice("");setTransactions([]);setFileName("");setCsvQueue([]);setPdfPreview(null);
+  if(files.length>12){setError("Można wczytać maksymalnie 12 wyciągów CSV jednocześnie.");return;}
+  if(files.length>1&&files.some(file=>!/\\.csv$/i.test(file.name))){
+   setError("Wiele plików można wczytać wyłącznie jako CSV. PDF wybierz osobno do podglądu.");return;
+  }
+  if(files.length===1&&/\\.pdf$/i.test(files[0].name)){
+   const file=files[0];
    if(file.size>15*1024*1024){setError("PDF może mieć maksymalnie 15 MB.");return;}
    setPdfLoading(true);
    try{
@@ -70,17 +81,34 @@ export default function CompanyBankPage(){
    }catch(err){setError(err.message);}finally{setPdfLoading(false);}
    return;
   }
-  if(!/\.csv$/i.test(file.name)||file.size>1024*1024){setError("Wybierz plik CSV do 1 MB.");return;}
-  try{const rows=parseCsv(await file.text());setTransactions(rows);setFileName(file.name);}
-  catch(err){setError(err.message);}
+  try{
+   const parsed=[];
+   for(const file of files){
+    if(!/\\.csv$/i.test(file.name)||file.size>1024*1024){
+     throw Error("Każdy wyciąg CSV musi mieć rozszerzenie .csv i maksymalnie 1 MB: "+file.name);
+    }
+    parsed.push({name:file.name,rows:parseCsv(await file.text())});
+   }
+   const first=parsed.shift();
+   setTransactions(first.rows);setFileName(first.name);
+   setCsvQueue(parsed);
+   clearStatementFields();
+   setNotice(parsed.length?"Załadowano "+(parsed.length+1)+" plików CSV. Każdy miesiąc zatwierdzasz osobno po sprawdzeniu sald.":"Wczytano CSV. Sprawdź okres i salda przed zapisem.");
+  }catch(err){setError(err.message);}
  }
  async function submitImport(e){
   e.preventDefault();if(importing||!transactions.length)return;
   setImporting(true);setError("");setNotice("");
   try{
    const r=await importOrganizationBankStatement(id,{iban,statementNumber,periodStart,periodEnd,openingBalance,closingBalance,transactions});
-   setNotice("Zaimportowano "+r.data.transactionCount+" transakcji. Salda zapisano na podstawie wyciągu.");
-   setTransactions([]);setFileName("");
+   setNotice("Zaimportowano "+r.data.transactionCount+" transakcji z "+fileName+". "+(csvQueue.length?"Następny CSV jest gotowy do osobnego sprawdzenia.":"Wszystkie wybrane pliki zostały obsłużone."));
+   // Do not assume a later statement has the same account, number or balances.
+   // Each file is imported independently after explicit owner confirmation.
+   const next=csvQueue[0];
+   setCsvQueue(previous=>previous.slice(1));
+   setTransactions(next?.rows||[]);
+   setFileName(next?.name||"");
+   if(next)clearStatementFields();
    const [history,summary]=await Promise.all([getOrganizationBankStatements(id),getOrganizationBankSummary(id)]);
    setStatements(history?.data||[]);setAccounts(summary?.data?.accounts||[]);
   }catch(err){setError(err.message||"Nie udało się zaimportować wyciągu.");}
@@ -158,13 +186,19 @@ export default function CompanyBankPage(){
      {owner?<form onSubmit={submitImport} className="mt-5 space-y-4">
       <label className="block rounded-xl border border-dashed border-violet-400/40 p-5 text-sm">
        <FileUp size={24} className="mb-3 text-violet-300"/>
-       Wybierz wyciąg CSV (do 1 MB) lub PDF (do 15 MB)
-       <input type="file" accept=".csv,.pdf,text/csv,application/pdf" onChange={readFile} className="mt-3 block w-full text-sm"/>
+       Wybierz jeden lub wiele wyciągów CSV (do 12 plików po 1 MB) albo pojedynczy PDF (do 15 MB).
+       <input type="file" multiple accept=".csv,.pdf,text/csv,application/pdf" onChange={readFile} className="mt-3 block w-full text-sm"/>
       </label>
       <p className="text-xs text-slate-400">Wymagane nagłówki CSV oddzielone średnikami: date;amount;description;counterparty;reference. Daty RRRR-MM-DD, kwoty ze znakiem minus dla wydatków.</p>
       {pdfLoading&&<p className="text-sm text-slate-300">Odczytywanie PDF…</p>}
       {pdfPreview&&<div className="rounded-xl border border-amber-400/30 p-4"><p className="text-sm text-amber-200">{pdfPreview.warning}</p><p className="mt-2 text-xs">Strony: {pdfPreview.pages}</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{pdfPreview.lines.join("\n")}</pre></div>}
-      {fileName&&<p className="text-sm text-emerald-300">Wczytano {fileName}: {transactions.length ? transactions.length+" operacji do sprawdzenia" : "podgląd PDF bez zapisu transakcji"}.</p>}
+      {fileName&&<p className="text-sm text-emerald-300">Aktualny wyciąg: <strong>{fileName}</strong> — {transactions.length ? transactions.length+" operacji do sprawdzenia" : "podgląd PDF bez zapisu transakcji"}.</p>}
+      {csvQueue.length>0&&<div className="rounded-xl border border-violet-400/25 bg-violet-500/5 p-4 text-sm">
+       <p className="font-bold">Kolejne wyciągi do zatwierdzenia: {csvQueue.length}</p>
+       <p className="mt-1 text-xs text-slate-300">Po zapisaniu bieżącego wyciągu załaduję następny. Jego numer, okres, rachunek i salda trzeba potwierdzić osobno.</p>
+       <ul className="mt-2 space-y-1 text-xs text-slate-200">{csvQueue.map((item,index)=><li key={index}>• {item.name} ({item.rows.length} operacji)</li>)}</ul>
+       <button type="button" onClick={()=>setCsvQueue([])} className="mt-3 min-h-10 rounded-lg border border-white/15 px-3 text-xs text-slate-200">Usuń oczekujące pliki z kolejki</button>
+      </div>}
       <div className="grid gap-3 sm:grid-cols-2">
        {[[iban,setIban,"IBAN rachunku"],[statementNumber,setStatementNumber,"Numer wyciągu"],[openingBalance,setOpeningBalance,"Saldo początkowe PLN"],[closingBalance,setClosingBalance,"Saldo końcowe PLN"]].map(([value,setValue,label])=><label key={label} className="text-sm">{label}
         <input required value={value} onChange={e=>setValue(e.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#0a162d] p-3" placeholder={label}/>
