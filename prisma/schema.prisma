@@ -27,6 +27,7 @@ model User {
   projects      Project[]
   financialDocuments FinancialDocument[]
   organizationMemberships OrganizationMembership[]
+  uploadedOrganizationDocuments OrganizationDocument[]
   linkedOrganizationFinances OrganizationFinanceLink[]
 }
 
@@ -338,8 +339,29 @@ model Organization {
   bankStatements BankStatement[]
   bankTransactions BankTransaction[]
   whatsappMessages WhatsAppMessage[]
+  documents OrganizationDocument[]
 
   @@index([status])
+}
+
+// Original company files are stored durably in Postgres (not ephemeral Railway disk).
+// Company documents are never mixed into the personal History table.
+model OrganizationDocument {
+  id             String   @id @default(cuid())
+  organizationId String
+  uploadedById   String?
+  name           String   @db.VarChar(255)
+  contentType    String   @db.VarChar(120)
+  size           Int
+  sha256         String   @db.VarChar(64)
+  content        Bytes
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, sha256])
+  @@index([organizationId, createdAt])
 }
 
 model OrganizationMembership {
