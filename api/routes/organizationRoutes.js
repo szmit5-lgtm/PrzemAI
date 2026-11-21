@@ -9,6 +9,9 @@ const {OrganizationFinanceService}=require("../services/OrganizationFinanceServi
 const financeService=new OrganizationFinanceService();
 
 const router = express.Router();
+// Private company documents (always check active membership before upload).
+const organizationDocumentRoutes = require("./organizationDocumentRoutes");
+router.use("/:id/documents", verifyToken, organizationDocumentRoutes);
 
 router.get("/:id/bank/summary", verifyToken, async (req,res)=>{
  try{
