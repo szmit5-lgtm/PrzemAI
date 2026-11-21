@@ -114,6 +114,7 @@ export default function ChatPage(){
      const chunks=[];
      const turn={autoSend:voiceModeRef.current,prefix:message,transcript:"",cancelled:false,error:false};
      const active={recorder,stream,turn,timer:null};
+     voiceTurnRef.current=turn;
      recorderRef.current=active;
      recorder.ondataavailable=e=>{if(e.data?.size>0)chunks.push(e.data);};
      recorder.onerror=()=>{
@@ -126,7 +127,7 @@ export default function ChatPage(){
        stream.getTracks().forEach(track=>track.stop());
        if(recorderRef.current===active)recorderRef.current=null;
        setListening(false);
-       if(turn.cancelled||turn.error)return;
+       if(turn.cancelled||turn.error){if(voiceTurnRef.current===turn)voiceTurnRef.current=null;return;}
        const blob=new Blob(chunks,{type:mime||"audio/webm"});
        if(blob.size<12||blob.size>2*1024*1024){
          setVoiceError("Nagranie jest puste lub zbyt długie (limit 2 MB). Spróbuj ponownie.");
@@ -148,6 +149,7 @@ export default function ChatPage(){
        }catch(error){
          if(!turn.cancelled)setVoiceError(error?.message||"Nie udało się rozpoznać nagrania.");
        }finally{
+         if(voiceTurnRef.current===turn)voiceTurnRef.current=null;
          transcribingRef.current=false;
          setTranscribing(false);
        }
@@ -160,6 +162,7 @@ export default function ChatPage(){
      },30000);
    }catch(error){
      stream?.getTracks().forEach(track=>track.stop());
+     if(recorderRef.current?.stream===stream)recorderRef.current=null;
      setListening(false);
      setVoiceError(error?.name==="NotAllowedError"?
        "Zezwól PrzemAI na dostęp do mikrofonu w ustawieniach telefonu lub przeglądarki.":
