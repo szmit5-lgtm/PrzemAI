@@ -3,13 +3,14 @@ import Link from "next/link";
 import {useParams} from "next/navigation";
 import {useEffect,useState} from "react";
 import {ArrowLeft,Landmark,FileUp,FileDown,ShieldAlert,Wallet,CheckCircle2,
- AlertTriangle,RefreshCw,FileText} from "lucide-react";
+ AlertTriangle,RefreshCw,FileText,Trash2} from "lucide-react";
 import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
 import {
  getOrganizationFinanceStatus,getOrganizationWorkspace,
  getOrganizationBankSummary,getOrganizationBankStatements,
- getOrganizationBankFiles,uploadOrganizationBankFile,downloadOrganizationBankFile
+ getOrganizationBankFiles,uploadOrganizationBankFile,downloadOrganizationBankFile,
+ deleteOrganizationBankFile
 } from "@/lib/api";
 
 const MAX_FILES=60;
@@ -44,6 +45,7 @@ export default function CompanyBankPage(){
  const [accounts,setAccounts]=useState([]);
  const [statements,setStatements]=useState([]);
  const [downloading,setDownloading]=useState("");
+ const [deleting,setDeleting]=useState("");
 
  async function refresh(){
   const [f,accountsResult,history]=await Promise.allSettled([
@@ -128,6 +130,25 @@ export default function CompanyBankPage(){
   }finally{
    setProgress("");setUploading(false);
   }
+ }
+ async function deleteFile(item){
+  if(uploading||deleting)return;
+  const hasImported=item.status==="IMPORTED";
+  const warning=hasImported?
+   "UWAGA: usunięcie może wycofać transakcje bankowe powstałe z tego pliku i przeliczyć raporty. Nie usunie danych zaimportowanych niezależnie z innych wyciągów. Czy na pewno usunąć:\\n"+item.name+"?":
+   "Czy usunąć błędnie przesłany plik z tej spółki?\\n"+item.name;
+  if(!window.confirm(warning))return;
+  setDeleting(item.id);setError("");setNotice("");
+  try{
+   const result=await deleteOrganizationBankFile(id,item.id);
+   if(!result?.data?.removedFileId)throw Error("Serwer nie potwierdził usunięcia.");
+   setFiles(previous=>previous.filter(file=>file.id!==item.id));
+   const count=result.data.removedTransactions||0;
+   setNotice("Usunięto plik "+item.name+(count?
+    " i wycofano "+count+" jego niepowiązanych operacji bankowych.":" — nie wycofano innych operacji."));
+   await refresh();
+  }catch(err){setError(err?.message||"Nie można bezpiecznie usunąć wyciągu.");}
+  finally{setDeleting("");}
  }
  async function download(item){
   if(downloading)return;
@@ -225,10 +246,16 @@ export default function CompanyBankPage(){
          </p>
          {item.note&&<p className="mt-2 text-xs leading-5 text-slate-300">{item.note}</p>}
         </div>
-        <button type="button" disabled={Boolean(downloading)} onClick={()=>download(item)}
-         className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-3 text-xs disabled:opacity-50">
-         <FileDown size={16}/>{downloading===item.id?"Pobieranie…":"Pobierz"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+         <button type="button" disabled={Boolean(downloading||deleting||uploading)} onClick={()=>download(item)}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-3 text-xs disabled:opacity-50">
+          <FileDown size={16}/>{downloading===item.id?"Pobieranie…":"Pobierz"}
+         </button>
+         <button type="button" onClick={()=>deleteFile(item)} disabled={Boolean(deleting||uploading||downloading)}
+          aria-label={"Usuń "+item.name} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 text-xs font-bold text-rose-200 hover:bg-rose-500/20 disabled:opacity-50">
+          <Trash2 size={16}/>{deleting===item.id?"Usuwanie…":"Usuń"}
+         </button>
+        </div>
        </article>)}</div>}
     </section>}
     <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
