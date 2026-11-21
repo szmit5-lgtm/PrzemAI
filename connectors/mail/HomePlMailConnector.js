@@ -98,7 +98,7 @@ class HomePlMailConnector {
                         // triage of urgent messages. No HTML or full body is
                         // returned to the financial agent or written to logs.
                         preview: typeof parsed.text === "string"
-                            ? parsed.text.replace(/\\s+/g, " ").slice(0, 600) : "",
+                            ? parsed.text.replace(/\s+/g, " ").slice(0, 600) : "",
                         attachments: (parsed.attachments || []).map(
                             attachment => ({
                                 filename:
