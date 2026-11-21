@@ -17,7 +17,9 @@ const integration = {
   }
 };
 const updates = [];
+const scheduled = [];
 const prisma = {
+  agent:{async updateMany(query){scheduled.push(query);return {count:1};}},
   integration: {
     async findFirst({ where }) {
       return where.id === integration.id ? { ...integration, userId: where.userId } : null;
@@ -64,9 +66,13 @@ test("authorized owner can enable the shared mailbox", async () => {
   const previous = process.env.DEKONICA_MAIL_OWNER_USER_ID;
   process.env.DEKONICA_MAIL_OWNER_USER_ID = "owner-1";
   updates.length = 0;
+  scheduled.length = 0;
   try {
     await new AgentService().setIntegrationEnabled("owner-1", integration.id, true);
     assert.equal(updates.length, 1);
+    assert.equal(scheduled.length, 1);
+    assert.equal(scheduled[0].where.userId, "owner-1");
+    assert.equal(scheduled[0].where.key, "financial");
     assert.equal(updates[0].data.enabled, true);
     assert.equal(updates[0].data.config.autoEnablePending, false);
   } finally {
@@ -79,9 +85,11 @@ test("an unauthorized user can still disable a legacy shared integration", async
   const previous = process.env.DEKONICA_MAIL_OWNER_USER_ID;
   process.env.DEKONICA_MAIL_OWNER_USER_ID = "owner-1";
   updates.length = 0;
+  scheduled.length = 0;
   try {
     await new AgentService().setIntegrationEnabled("other-user", integration.id, false);
     assert.equal(updates.length, 1);
+    assert.equal(scheduled.length, 0);
     assert.equal(updates[0].data.enabled, false);
   } finally {
     if (previous === undefined) delete process.env.DEKONICA_MAIL_OWNER_USER_ID;

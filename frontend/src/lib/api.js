@@ -289,6 +289,12 @@ export async function updateSettings(settings) {
     });
 }
 
+export async function getHomePlMailStatus(){
+ return request("/api/agents/mail/status");
+}
+export async function getKsefHistoryStatus(){
+ return request("/api/finance/history/status");
+}
 export async function getHomePlMailAlerts(){
  return request("/api/agents/mail/alerts");
 }
