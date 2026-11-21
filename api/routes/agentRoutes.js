@@ -5,6 +5,42 @@ const verifyToken = require("../middleware/verifyToken");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
 const KALDEVA_HISTORY_TYPE = "KALDEVA_SALES";
+const MAIL_ALERT_TYPE="DEKONICA_MAIL_ALERT";
+// Saved alerts belong to exactly one authenticated user. No endpoint sends,
+// drafts or forwards messages to the shared mailbox.
+router.get("/mail/alerts",verifyToken,async(req,res)=>{
+ try{
+  const alerts=await prisma.history.findMany({
+   where:{userId:req.user.id,type:MAIL_ALERT_TYPE},
+   orderBy:{createdAt:"desc"},take:100,
+   select:{id:true,createdAt:true,report:true}
+  });
+  return res.json({success:true,data:{items:alerts.map(a=>({
+   id:a.id,createdAt:a.createdAt,...a.report
+  }))}});
+ }catch{
+  return res.status(500).json({success:false,error:"Nie można odczytać alertów poczty."});
+ }
+});
+router.patch("/mail/alerts/:alertId/review",verifyToken,async(req,res)=>{
+ try{
+  const found=await prisma.history.findFirst({
+   where:{id:req.params.alertId,userId:req.user.id,type:MAIL_ALERT_TYPE},
+   select:{id:true,report:true}
+  });
+  if(!found)return res.status(404).json({success:false,error:"Nie znaleziono alertu."});
+  const report={...found.report,status:"REVIEWED",reviewedAt:new Date().toISOString()};
+  const written=await prisma.history.updateMany({
+   where:{id:found.id,userId:req.user.id,type:MAIL_ALERT_TYPE},
+   data:{report}
+  });
+  if(written.count!==1)return res.status(409).json({success:false,error:"Nie można oznaczyć alertu."});
+  return res.json({success:true,data:{id:found.id,status:"REVIEWED"}});
+ }catch{
+  return res.status(500).json({success:false,error:"Nie można zapisać przeglądu alertu."});
+ }
+});
+
 
 // Live read-only Kaldeva MVP: authenticated, user-scoped, no outbound messages.
 // PostgreSQL History is the sole queue state; the worker owns execution.
