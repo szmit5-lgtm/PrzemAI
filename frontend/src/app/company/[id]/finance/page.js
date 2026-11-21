@@ -112,6 +112,13 @@ export default function CompanyFinancePage(){
     </span>
     <FolderKanban size={23} className="shrink-0 text-cyan-200"/>
    </Link>}
+   {status?.canView&&<Link href={"/company/"+encodeURIComponent(id)+"/finance/investments"}
+    className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-[#403018] to-[#1c294b] p-5 hover:border-amber-300/60">
+    <span><strong className="block text-lg">Koszty inwestycji — Mielno, Zgorzelec i pozostałe</strong>
+      <span className="mt-1 block text-sm text-slate-300">Faktury KSeF przypisane do budów · netto, VAT, brutto · miesiące · nierozliczone projekty</span>
+    </span>
+    <FolderKanban size={23} className="shrink-0 text-amber-200"/>
+   </Link>}
    {status?.canView&&<Link href={"/company/"+encodeURIComponent(id)+"/finance/bank-matches"}
     className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-emerald-400/30 bg-gradient-to-r from-[#153c37] to-[#1d2b4d] p-5 hover:border-emerald-300/60">
     <span><strong className="block text-lg">KSeF + bank — propozycje rozliczeń</strong>
