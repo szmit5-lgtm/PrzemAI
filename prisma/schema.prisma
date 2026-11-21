@@ -29,6 +29,7 @@ model User {
   organizationMemberships OrganizationMembership[]
   uploadedOrganizationDocuments OrganizationDocument[]
   createdOrganizationInvestments OrganizationInvestment[]
+  uploadedBankImportFiles BankImportFile[]
   linkedOrganizationFinances OrganizationFinanceLink[]
 }
 
@@ -339,6 +340,7 @@ model Organization {
   bankAccounts BankAccount[]
   bankStatements BankStatement[]
   bankTransactions BankTransaction[]
+  bankImportFiles BankImportFile[]
   whatsappMessages WhatsAppMessage[]
   documents OrganizationDocument[]
   investments OrganizationInvestment[]
@@ -467,8 +469,9 @@ model BankStatement {
   bankAccountId String
   statementNumber String
   sourceHash String
-  openingBalance Decimal @db.Decimal(18, 2)
-  closingBalance Decimal @db.Decimal(18, 2)
+  openingBalance Decimal? @db.Decimal(18, 2)
+  closingBalance Decimal? @db.Decimal(18, 2)
+  sourceType String @default("STATEMENT")
   periodStart DateTime?
   periodEnd DateTime
   importedAt DateTime @default(now())
@@ -481,6 +484,31 @@ model BankStatement {
 
   @@unique([organizationId, sourceHash, bankAccountId, statementNumber])
   @@index([organizationId, bankAccountId, periodEnd])
+}
+
+// Original bank uploads: scoped by company and uploader. Unrecognized formats
+// remain safely stored for review; no invented account balances or payments.
+model BankImportFile {
+  id String @id @default(cuid())
+  organizationId String
+  uploadedById String?
+  name String @db.VarChar(255)
+  mimeType String @db.VarChar(80)
+  size Int
+  sha256 String @db.VarChar(64)
+  content Bytes
+  status String @default("PROCESSING")
+  note String? @db.Text
+  transactionCount Int @default(0)
+  parsedRows Json?
+  statementId String?
+  uploadedAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, sha256])
+  @@index([organizationId, uploadedAt])
 }
 
 model BankTransaction {
