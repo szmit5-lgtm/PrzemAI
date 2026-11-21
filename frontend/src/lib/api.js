@@ -612,6 +612,10 @@ export async function downloadOrganizationBankFile(orgId,fileId){
  }
  return response.blob();
 }
+export async function getOrganizationBankMonthlyReport(orgId,year){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+
+  "/bank/monthly/"+encodeURIComponent(year));
+}
 export async function getOrganizationBankSummary(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/summary");
 }
