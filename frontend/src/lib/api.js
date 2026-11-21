@@ -428,6 +428,40 @@ export async function replyToAgentAssignment(key,id,message) {
     });
 }
 
+export async function getOrganizationDocuments(orgId) {
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/documents");
+}
+
+export async function uploadOrganizationDocument(orgId, file) {
+  const body = new FormData();
+  body.append("file", file);
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/documents", {
+    method: "POST", body
+  });
+}
+
+export async function downloadOrganizationDocument(orgId, documentId) {
+  const token = getToken();
+  if (!token) throw new Error("Zaloguj się, aby pobrać dokument.");
+  const response = await fetch("/api/organizations/" + encodeURIComponent(orgId) +
+    "/documents/" + encodeURIComponent(documentId) + "/download", {
+    headers: { Authorization: "Bearer " + token }, cache: "no-store"
+  });
+  if (response.status === 401) {
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+    throw new Error("Sesja wygasła.");
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Nie można pobrać dokumentu.");
+  }
+  if (response.headers.get("content-type")?.includes("application/json")) {
+    throw new Error("Serwer nie zwrócił pliku.");
+  }
+  return response.blob();
+}
+
 export async function getOrganization(id) {
   return request("/api/organizations/"+encodeURIComponent(id));
 }
