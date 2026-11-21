@@ -8,7 +8,7 @@ const {parseBankCsv,parseAmount}=require("./BankFileParser");
 
 const MAX_FILES=120;
 const MAX_BYTES=240*1024*1024;
-const CSV_MAX=2*1024*1024;
+const CSV_MAX=15*1024*1024;
 const PDF_MAX=15*1024*1024;
 const PUBLIC_SELECT={id:true,name:true,mimeType:true,size:true,status:true,
   note:true,transactionCount:true,statementId:true,uploadedAt:true};
@@ -20,7 +20,7 @@ function fileType(file) {
  if(ext!=="csv"&&ext!=="pdf")throw new OrganizationError("Można wczytać tylko plik CSV lub PDF.",400);
  const max=ext==="csv"?CSV_MAX:PDF_MAX;
  if(!file?.buffer?.length||file.buffer.length>max)
-  throw new OrganizationError("Plik jest pusty lub przekracza limit "+(ext==="csv"?"2 MB":"15 MB")+".",400);
+  throw new OrganizationError("Plik jest pusty lub przekracza limit "+(ext==="csv"?"15 MB":"15 MB")+".",400);
  if(ext==="pdf"&&file.buffer.subarray(0,5).toString("ascii")!=="%PDF-")
   throw new OrganizationError("Plik nie jest poprawnym PDF.",400);
  if(ext==="csv"&&(file.buffer.includes(0)||file.buffer.subarray(0,2).equals(Buffer.from([0x4d,0x5a]))))
