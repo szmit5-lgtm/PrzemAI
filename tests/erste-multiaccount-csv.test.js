@@ -72,11 +72,13 @@ test("Erste printed CSV contains two independent verified account groups",()=>{
 });
 
 test("Truncated or modified Erste balances are rejected before creating any ledger entry",()=>{
- const altered=sample.replace("Saldo końcowe:;;;;;;;;95,00","Saldo końcowe:;;;;;;;;99,00");
+ const correctEnd=row(13,{1:"31-10-2026",2:"Saldo końcowe:",10:"95,00"});
+ const brokenEnd=row(13,{1:"31-10-2026",2:"Saldo końcowe:",10:"99,00"});
+ const altered=sample.replace(correctEnd,brokenEnd);
  assert.throws(()=>parseBankCsv(Buffer.from(altered)),/sald|pozycji/i);
  const corrupt=printedGroup(current,"2026/009","CURRENT","100,00","95,00",["-20,00","15,00"],{broken:true});
  assert.throws(()=>parseBankCsv(Buffer.from(corrupt)),/Sald narastających/);
- const dropped=sample.replace("Przykładowa operacja nr 2","").replace("15,00","15,00");
+ const dropped=sample.replace("Przykładowa operacja nr 2 - dane testowe","");
  assert.throws(()=>parseBankCsv(Buffer.from(dropped)),/Brak opisu/);
 });
 
