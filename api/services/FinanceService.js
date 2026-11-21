@@ -217,6 +217,47 @@ class FinanceService {
         return { id: projectId, organizationId };
     }
 
+    // Only an active organization administrator can manage explicit project grants.
+    async setProjectAccess(actorId, projectId, targetUserId, enabled) {
+        if (![actorId, projectId, targetUserId].every(value =>
+            typeof value === "string" && value.trim() && value.length <= 128) ||
+            typeof enabled !== "boolean") {
+            throw new Error("Nieprawidłowe dane uprawnień.");
+        }
+        const project = await prisma.project.findFirst({
+            where: { id: projectId, status: "ACTIVE", organizationId: { not: null } },
+            select: { id: true, organizationId: true }
+        });
+        if (!project) throw new Error("Projekt spółki nie istnieje.");
+        const admin = await prisma.organizationMembership.findFirst({
+            where: {
+                userId: actorId, organizationId: project.organizationId,
+                status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] },
+                organization: { status: "ACTIVE" }
+            },
+            select: { id: true }
+        });
+        if (!admin) throw new Error("Brak uprawnień administratora spółki.");
+        const target = await prisma.organizationMembership.findFirst({
+            where: {
+                userId: targetUserId, organizationId: project.organizationId,
+                status: "ACTIVE", organization: { status: "ACTIVE" }
+            },
+            select: { id: true }
+        });
+        if (!target) throw new Error("Pracownik nie ma aktywnego dostępu do spółki.");
+        if (enabled) {
+            await prisma.projectAccess.upsert({
+                where: { projectId_userId: { projectId, userId: targetUserId } },
+                create: { projectId, userId: targetUserId },
+                update: {}
+            });
+        } else {
+            await prisma.projectAccess.deleteMany({ where: { projectId, userId: targetUserId } });
+        }
+        return { projectId, userId: targetUserId, enabled };
+    }
+
     async assignProject(userId, id, projectId) {
         if (typeof userId !== "string" || !userId.trim()) {
             throw new Error("Brak identyfikatora użytkownika.");
