@@ -41,26 +41,27 @@ class DocumentController {
 
             });
 
+            // Document analysis is successful once the report is stored. A single
+            // invalid AI-proposed task must not turn that success into HTTP 500.
+            const taskCreation = { created: 0, failed: 0 };
             if (Array.isArray(report.actionItems)) {
-
                 for (const item of report.actionItems) {
-
-                    await TaskService.create({
-
-                        title: item.title,
-
-                        description: item.description,
-
-                        priority: item.priority || "MEDIUM",
-
-                        dueDate: item.dueDate || null,
-
-                        userId: req.user.id
-
-                    });
-
+                    try {
+                        await TaskService.create({
+                            title: item.title,
+                            description: item.description,
+                            priority: item.priority || "MEDIUM",
+                            dueDate: item.dueDate ?? null,
+                            userId: req.user.id
+                        });
+                        taskCreation.created += 1;
+                    } catch (error) {
+                        taskCreation.failed += 1;
+                        // Never send Prisma's raw query, user identifiers or
+                        // analyzed document contents to the browser or logs.
+                        console.error("[DocumentController] Task creation failed:", error?.code || error?.name || "Error");
+                    }
                 }
-
             }
 
             return res.json({
@@ -69,7 +70,11 @@ class DocumentController {
 
                 filename: req.file.originalname,
 
-                report
+                report,
+                taskCreation,
+                ...(taskCreation.failed > 0 ? {
+                    warning: "Analiza dokumentu została zapisana, ale nie wszystkie zadania udało się utworzyć."
+                } : {})
 
             });
 
