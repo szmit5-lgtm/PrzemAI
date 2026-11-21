@@ -249,6 +249,16 @@ export default function CompanyWorkspace(){
      {isAdmin&&<button type="button" onClick={()=>{setTab("brand");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold"><Palette size={17}/> Edytuj profil firmy</button>}
     </section>
+    <Link href={"/company/"+encodeURIComponent(id)+"/investments"}
+      className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-[#103246] to-[#18294b] p-4 transition hover:border-cyan-300/60">
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="rounded-xl bg-cyan-400/15 p-3 text-cyan-200"><BriefcaseBusiness size={24}/></span>
+        <span className="min-w-0"><strong className="block text-base">Inwestycje {org.displayName||org.name}</strong>
+          <span className="mt-1 block text-xs text-slate-200">Wspólne projekty zespołu: Mielno, Zgorzelec i kolejne · dostęp również dla pracowników bez finansów</span>
+        </span>
+      </span>
+      <span className="shrink-0 text-xs font-bold text-cyan-200">Otwórz inwestycje</span>
+    </Link>
     <Link href={"/company/"+encodeURIComponent(id)+"/finance"}
       className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/10 p-4 transition hover:bg-violet-400/15">
       <span className="flex min-w-0 items-center gap-3">

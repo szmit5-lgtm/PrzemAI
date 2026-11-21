@@ -7,6 +7,8 @@ const {OrganizationService,OrganizationError}=require("../services/OrganizationS
 const service=new OrganizationService();
 const {OrganizationFinanceService}=require("../services/OrganizationFinanceService");
 const financeService=new OrganizationFinanceService();
+const { OrganizationInvestmentService } = require("../services/OrganizationInvestmentService");
+const investmentService = new OrganizationInvestmentService();
 
 const router = express.Router();
 // Private company documents (always check active membership before upload).
@@ -156,6 +158,13 @@ router.get("/:id/domains/:domainId",verifyToken,
   handler(req=>service.domainInstructions(req.user.id,req.params.id,req.params.domainId)));
 router.post("/:id/domains/:domainId/verify",verifyToken,
   handler(req=>service.verifyDomain(req.user.id,req.params.id,req.params.domainId)));
+router.get("/:id/investments",verifyToken,
+  handler(req=>investmentService.list(req.user.id,req.params.id)));
+router.post("/:id/investments",verifyToken,
+  handler(req=>investmentService.create(req.user.id,req.params.id,req.body)));
+router.patch("/:id/investments/:investmentId",verifyToken,
+  handler(req=>investmentService.update(req.user.id,req.params.id,req.params.investmentId,req.body)));
+
 router.get("/:id/workspace",verifyToken,handler(req=>service.workspace(req.user.id,req.params.id)));
 router.post("/:id/workspace/tasks",verifyToken,
   handler(req=>service.createCompanyTask(req.user.id,req.params.id,req.body)));

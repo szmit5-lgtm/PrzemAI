@@ -428,6 +428,24 @@ export async function replyToAgentAssignment(key,id,message) {
     });
 }
 
+export async function getOrganizationInvestments(orgId) {
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments");
+}
+
+export async function createOrganizationInvestment(orgId, payload) {
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateOrganizationInvestment(orgId, investmentId, payload) {
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments/" + encodeURIComponent(investmentId), {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function getOrganizationDocuments(orgId) {
   return request("/api/organizations/" + encodeURIComponent(orgId) + "/documents");
 }

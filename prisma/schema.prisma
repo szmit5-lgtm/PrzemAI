@@ -28,6 +28,7 @@ model User {
   financialDocuments FinancialDocument[]
   organizationMemberships OrganizationMembership[]
   uploadedOrganizationDocuments OrganizationDocument[]
+  createdOrganizationInvestments OrganizationInvestment[]
   linkedOrganizationFinances OrganizationFinanceLink[]
 }
 
@@ -340,6 +341,7 @@ model Organization {
   bankTransactions BankTransaction[]
   whatsappMessages WhatsAppMessage[]
   documents OrganizationDocument[]
+  investments OrganizationInvestment[]
 
   @@index([status])
 }
@@ -362,6 +364,27 @@ model OrganizationDocument {
 
   @@unique([organizationId, sha256])
   @@index([organizationId, createdAt])
+}
+
+// Shared non-financial investment register; visible to ACTIVE company members.
+model OrganizationInvestment {
+  id String @id @default(cuid())
+  organizationId String
+  createdById String?
+  name String @db.VarChar(160)
+  description String? @db.Text
+  status String @default("NOT_SET")
+  progress Int?
+  source String @default("MANUAL")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
 }
 
 model OrganizationMembership {
