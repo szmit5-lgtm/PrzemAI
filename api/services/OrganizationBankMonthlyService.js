@@ -40,18 +40,21 @@ function totalsForCurrency(accountRows){
  for(const row of accountRows){
   const key=row.currency;
   const total=grouped.get(key)||{currency:key,inflows:0n,outflows:0n,
-   current:0n,vat:0n,other:0n,known:0,missing:0,accounts:0,transactions:0};
+   current:0n,vat:0n,other:0n,known:0,missing:0,accounts:0,transactions:0,
+   currentCount:0,vatCount:0,otherCount:0,
+   currentMissing:0,vatMissing:0,otherMissing:0};
   total.accounts++;
   total.transactions+=row.transactionCount;
   total.inflows+=toCents(row.inflows);
   total.outflows+=toCents(row.outflows);
-  if(row.closingBalance===null)total.missing++;
-  else {
+  const group=row.accountType==="VAT"?"vat":row.accountType==="CURRENT"?"current":"other";
+  total[group+"Count"]++;
+  if(row.closingBalance===null){
+   total.missing++;
+   total[group+"Missing"]++;
+  }else{
    total.known++;
-   const cents=toCents(row.closingBalance);
-   if(row.accountType==="VAT")total.vat+=cents;
-   else if(row.accountType==="CURRENT")total.current+=cents;
-   else total.other+=cents;
+   total[group]+=toCents(row.closingBalance);
   }
   grouped.set(key,total);
  }
@@ -63,9 +66,9 @@ function totalsForCurrency(accountRows){
    missingBalances:x.missing,
    // Do NOT fabricate month-end totals from a partial set of accounts.
    balance:x.missing===0?money(x.current+x.vat+x.other):null,
-   currentBalance:x.missing===0?money(x.current):null,
-   vatBalance:x.missing===0?money(x.vat):null,
-   otherBalance:x.missing===0?money(x.other):null
+   currentBalance:x.currentCount>0&&x.currentMissing===0?money(x.current):null,
+   vatBalance:x.vatCount>0&&x.vatMissing===0?money(x.vat):null,
+   otherBalance:x.otherCount>0&&x.otherMissing===0?money(x.other):null
   }));
 }
 
