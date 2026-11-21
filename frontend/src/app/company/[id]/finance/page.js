@@ -112,6 +112,13 @@ export default function CompanyFinancePage(){
     </span>
     <FolderKanban size={23} className="shrink-0 text-cyan-200"/>
    </Link>}
+   {status?.canView&&<Link href={"/company/"+encodeURIComponent(id)+"/finance/bank-matches"}
+    className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-emerald-400/30 bg-gradient-to-r from-[#153c37] to-[#1d2b4d] p-5 hover:border-emerald-300/60">
+    <span><strong className="block text-lg">KSeF + bank — propozycje rozliczeń</strong>
+      <span className="mt-1 block text-sm text-slate-300">Porównanie faktur i przelewów; bez automatycznego potwierdzania płatności</span>
+    </span>
+    <Link2 size={23} className="shrink-0 text-emerald-200"/>
+   </Link>}
    {(status?.canView||isBankOwner)&&<Link href={"/company/"+encodeURIComponent(id)+"/bank"}
     className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-[#1b2847] p-5 hover:bg-[#26375c]">
     <span><strong className="block text-lg">Bank i rozliczenia</strong><span className="mt-1 block text-sm text-slate-300">Rachunki, salda, wyciągi i rozliczenia z KSeF</span></span>
