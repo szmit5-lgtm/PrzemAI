@@ -84,6 +84,10 @@ export default function CompanyBankMonthlyReports(){
     </p>
    </section>
 
+   <Link href="/company/bank/compare"
+    className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-4 text-sm font-semibold text-cyan-200">
+    <Landmark size={17}/> Porównaj Dekonica, Deherus i inne spółki
+   </Link>
    <form onSubmit={submit} className="mt-5 flex flex-wrap items-end gap-3 rounded-2xl border border-white/10 bg-[#111c35] p-4">
     <label className="text-sm font-semibold">Rok
      <input type="number" min="2020" max="2100" step="1" value={yearInput}
