@@ -27,7 +27,9 @@ test("mobile assistant exposes large mic and safe-area composer while preserving
  assert.match(ui,/env\(safe-area-inset-bottom/);
  assert.match(ui,/shouldSubmitVoiceTurn\(turn\)/);
  assert.match(ui,/recognition\.onend/);
- assert.match(ui,/if\(!BrowserRecognition\)/);
+ assert.match(ui,/if\(!BrowserRecognition\|\|recorderFallbackRef\.current\)/);
+ assert.match(ui,/startRecorder\(\);/);
+ assert.match(ui,/transcribeVoice\(formData\)/);
  assert.match(ui,/sendChatMessage\(text,activeConversationId\)/);
  assert.match(ui,/speechSynthesis/);
 });

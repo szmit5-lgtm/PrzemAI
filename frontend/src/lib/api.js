@@ -220,6 +220,13 @@ export async function sendChatMessage(
     });
 }
 
+export async function transcribeVoice(formData) {
+  return request("/api/chat/transcribe", {
+    method: "POST",
+    body: formData
+  });
+}
+
 export async function getConversations() {
     return request("/api/chat");
 }
