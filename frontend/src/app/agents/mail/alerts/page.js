@@ -4,7 +4,7 @@ import Link from "next/link";
 import {ArrowLeft,Mail,RefreshCw,CheckCircle2,AlertTriangle,Clipboard} from "lucide-react";
 import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
-import {getHomePlMailAlerts,markHomePlMailAlertReviewed} from "@/lib/api";
+import {getHomePlMailAlerts,getHomePlMailStatus,markHomePlMailAlertReviewed,setIntegrationEnabled} from "@/lib/api";
 
 const label={PAYMENT_DEMAND:"Wezwanie do zapłaty",PAYMENT_REMINDER:"Przypomnienie o płatności",
  DEADLINE_OR_CONTRACT:"Pilny termin lub umowa"};
@@ -15,6 +15,8 @@ function date(value){
 }
 export default function DekonicaMailAlertsPage(){
  const [items,setItems]=useState([]);
+ const [mailStatus,setMailStatus]=useState(null);
+ const [mailStatusError,setMailStatusError]=useState("");
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
@@ -22,12 +24,27 @@ export default function DekonicaMailAlertsPage(){
  const [refresh,setRefresh]=useState(0);
  useEffect(()=>{
   let active=true;setLoading(true);setError("");
-  getHomePlMailAlerts().then(r=>{
-   if(active)setItems(Array.isArray(r?.data?.items)?r.data.items:[]);
-  }).catch(err=>{if(active)setError(err?.message||"Nie można odczytać alertów.");})
-   .finally(()=>{if(active)setLoading(false);});
+  Promise.allSettled([getHomePlMailAlerts(),getHomePlMailStatus()]).then(([alerts,status])=>{
+   if(!active)return;
+   if(alerts.status==="fulfilled")setItems(Array.isArray(alerts.value?.data?.items)?alerts.value.data.items:[]);
+   else setError(alerts.reason?.message||"Nie można odczytać alertów.");
+   if(status.status==="fulfilled"){setMailStatus(status.value?.data||null);setMailStatusError("");}
+   else{setMailStatus(null);setMailStatusError(status.reason?.message||"Brak danych synchronizacji.");}
+  }).finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[refresh]);
+ async function changeMonitoring(){
+  if(busy||!mailStatus?.integrationId)return;
+  const next=!mailStatus.enabled;
+  if(next&&!window.confirm("Włączyć odczytywanie wiadomości office@dekonica.com i przygotowywanie lokalnych alertów? PrzemAI nie będzie wysyłać maili."))return;
+  setBusy("mail-integration");setError("");setNotice("");
+  try{
+   await setIntegrationEnabled(mailStatus.integrationId,next);
+   setNotice(next?"Włączono monitoring. Pierwszy odczyt zostanie zlecony agentowi finansowemu.":"Wyłączono monitoring poczty.");
+   setRefresh(x=>x+1);
+  }catch(err){setError(err?.message||"Nie udało się zmienić monitoringu poczty.");}
+  finally{setBusy("");}
+ }
  async function review(item){
   if(busy)return;setBusy(item.id);setNotice("");setError("");
   try{
@@ -51,6 +68,27 @@ export default function DekonicaMailAlertsPage(){
      Alerty zapisane przez uprawnionego agenta, po wykryciu wezwań do zapłaty, ponagleń i ważnych terminów.
      Przygotowane teksty są wyłącznie propozycjami. <strong>PrzemAI niczego stąd nie wysyła.</strong>
     </p>
+   </section>
+   <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-5">
+    <h2 className="font-bold">Stan synchronizacji HOME.PL</h2>
+    {mailStatus?<div className="mt-3 space-y-2 text-sm text-slate-300">
+     <p>Integracja: <strong className={mailStatus.enabled?"text-emerald-200":"text-amber-200"}>{
+      mailStatus.state==="SYNCED"?"Ostatni odczyt zakończony":
+      mailStatus.state==="AWAITING_FIRST_SYNC"?"Oczekiwanie na pierwszy odczyt":
+      mailStatus.state==="AGENT_DISABLED"?"Agent finansowy wyłączony":
+      mailStatus.state==="DISABLED"?"Monitoring wyłączony":
+      mailStatus.state==="NOT_PROVISIONED"?"Integracja nieutworzona":"Wymaga konfiguracji"
+     }</strong></p>
+     <p>Ostatni udany odczyt: <strong>{date(mailStatus.lastSuccessfulSyncAt)}</strong></p>
+     <p>Agent: {mailStatus.agentEnabled?"włączony":"wyłączony"} · następny cykl: {date(mailStatus.nextAgentRunAt)}</p>
+     <p>Zapisane alerty: {mailStatus.savedAlerts}</p>
+     {mailStatus.integrationId&&<button type="button" disabled={Boolean(busy)||mailStatus.state==="INVALID_CONFIGURATION"}
+      onClick={changeMonitoring}
+      className="mt-2 inline-flex min-h-11 items-center rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 text-sm font-bold text-cyan-100 disabled:opacity-50">
+      {busy==="mail-integration"?"Zapisuję…":mailStatus.enabled?"Wyłącz monitorowanie poczty":"Włącz monitorowanie poczty"}
+     </button>}
+     <p className="text-xs leading-5 text-slate-400">Odczyt jest ograniczony do najnowszych wiadomości. Data ostatniej synchronizacji nie jest potwierdzeniem przeczytania całej skrzynki. Żaden mail nie zostanie wysłany.</p>
+    </div>:<p role="status" className="mt-3 text-sm text-amber-200">{mailStatusError||"Sprawdzam gotowość integracji…"}</p>}
    </section>
    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
     <p className="text-sm text-slate-300">Nowe alerty: <strong>{items.filter(x=>x.status!=="REVIEWED").length}</strong></p>
