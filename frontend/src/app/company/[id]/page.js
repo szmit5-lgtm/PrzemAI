@@ -4,9 +4,10 @@ import Link from "next/link";
 import {useParams} from "next/navigation";
 import {ArrowLeft,Building2,CheckCircle2,Clock3,ExternalLink,
  Globe2,Plus,RefreshCw,ShieldCheck,Users,Wallet,Copy,Check,
- AlertTriangle,Palette,BriefcaseBusiness} from "lucide-react";
+ AlertTriangle,Palette,BriefcaseBusiness,FileText} from "lucide-react";
 import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
+import CompanyDocuments from "./CompanyDocuments";
 import {
  getOrganizationWorkspace,createOrganizationTask,changeOrganizationTaskStatus,
  getOrganizationMembers,inviteOrganizationMember,revokeOrganizationMember,activateOrganizationMember,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/api";
 const statuses={TODO:"Do zrobienia",IN_PROGRESS:"W trakcie",DONE:"Zakończone"};
 const roles={OWNER:"Właściciel",ADMIN:"Administrator",MEMBER:"Pracownik"};
-const tabs=[["tasks","Zadania firmowe"],["team","Zespół"],["brand","Wygląd i logo"],["domain","Domena"]];
+const tabs=[["tasks","Zadania firmowe"],["documents","Dokumenty"],["team","Zespół"],["brand","Wygląd i logo"],["domain","Domena"]];
 const date=value=>{
  if(!value)return "—";
  const d=new Date(value);
@@ -240,6 +241,8 @@ export default function CompanyWorkspace(){
     <section aria-label="Szybkie działania" className="mt-4 flex flex-wrap gap-2">
      <button type="button" onClick={()=>{setTab("tasks");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-bold text-white hover:bg-violet-400"><Plus size={17}/> Dodaj zadanie</button>
+     {isAdmin&&<button type="button" onClick={()=>{setTab("documents");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 text-sm font-semibold text-violet-200"><FileText size={17}/> Dodaj dokument</button>}
      {isAdmin&&<button type="button" onClick={()=>{setTab("team");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold"><Users size={17}/> Zarządzaj zespołem</button>}
      {isAdmin&&<button type="button" onClick={()=>{setTab("brand");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
@@ -258,13 +261,14 @@ export default function CompanyWorkspace(){
       <span className="text-xs font-bold text-violet-200">Otwórz finanse</span>
     </Link>
     <div id="company-workspace-tabs" className="mt-5 flex min-w-0 flex-wrap gap-2 scroll-mt-4" role="tablist" aria-label="Zarządzanie firmą">
-     {tabs.filter(([key])=>key==="tasks"||(key==="team"||key==="brand")&&isAdmin||key==="domain"&&isOwner)
+     {tabs.filter(([key])=>key==="tasks"||(key==="documents"||key==="team"||key==="brand")&&isAdmin||key==="domain"&&isOwner)
       .map(([key,label])=><button type="button" key={key} role="tab" aria-selected={tab===key}
        onClick={()=>{setTab(key);setError("");setNotice("");}}
        className={"min-h-11 rounded-xl border px-4 text-sm font-semibold "+(tab===key
         ?"border-violet-300/50 bg-violet-600 text-white"
         :"border-white/15 bg-[#111c35] text-slate-300 hover:bg-white/10")}>{label}</button>)}
     </div>
+    {tab==="documents"&&isAdmin&&<CompanyDocuments organizationId={id}/>}
     {tab==="tasks"&&<div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
       <form onSubmit={submitTask} className="min-w-0 space-y-4 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
        <h2 className="flex items-center gap-2 text-xl font-bold"><Plus size={18} className="text-violet-300"/> Nowe zadanie firmowe</h2>
