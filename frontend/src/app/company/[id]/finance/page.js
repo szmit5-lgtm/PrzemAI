@@ -25,6 +25,7 @@ export default function CompanyFinancePage(){
  const {id}=useParams();
  const [status,setStatus]=useState(null);
  const [companyName,setCompanyName]=useState("");
+ const [isBankOwner,setIsBankOwner]=useState(false);
  const [summary,setSummary]=useState(null);
  const [documents,setDocuments]=useState([]);
  const [projects,setProjects]=useState([]);
@@ -40,7 +41,10 @@ export default function CompanyFinancePage(){
   if(!id)return;
   let active=true;setLoading(true);setError("");
   Promise.all([getOrganizationFinanceStatus(id),getOrganizationWorkspace(id)]).then(async ([result,workspace])=>{
-   if(active)setCompanyName(workspace?.data?.company?.displayName||workspace?.data?.company?.name||"");
+   if(active){
+    setCompanyName(workspace?.data?.company?.displayName||workspace?.data?.company?.name||"");
+    setIsBankOwner(workspace?.data?.company?.role==="OWNER");
+   }
    if(!active)return;
    const value=result?.data||{};
    setStatus(value);
@@ -101,7 +105,7 @@ export default function CompanyFinancePage(){
     <span>Kwoty na tej stronie są wartościami faktur, a nie potwierdzonymi wpływami lub wypływami bankowymi.
     Dane są wybierane po NIP spółki, dlatego dokumenty z niepełnym NIP mogą wymagać uzupełnienia w KSeF.</span>
    </div>
-   {status?.canView&&<Link href={"/company/"+encodeURIComponent(id)+"/bank"}
+   {(status?.canView||isBankOwner)&&<Link href={"/company/"+encodeURIComponent(id)+"/bank"}
     className="mt-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-[#1b2847] p-5 hover:bg-[#26375c]">
     <span><strong className="block text-lg">Bank i rozliczenia</strong><span className="mt-1 block text-sm text-slate-300">Rachunki, salda, wyciągi i rozliczenia z KSeF</span></span>
     <Wallet size={24} className="shrink-0 text-violet-300"/>
