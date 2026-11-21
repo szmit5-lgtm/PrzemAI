@@ -56,6 +56,16 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
  const transactions=operations.filter(t=>t.reviewStatus==="UNMATCHED"&&
   t.bankAccount?.accountType!=="VAT"&&t.bankAccount?.currency);
  counts.operationsExamined=transactions.length;
+ // Index once by exact bank amount and currency to keep a large historical
+ // report linear rather than comparing every invoice with every transaction.
+ const byAmount=new Map();
+ for(const tx of transactions){
+  const amount=amountCents(tx.amount);
+  if(amount===null)continue;
+  const key=tx.bankAccount.currency+"|"+amount.toString();
+  if(!byAmount.has(key))byAmount.set(key,[]);
+  byAmount.get(key).push(tx);
+ }
  for(const inv of invoicesSorted) {
   // Only non-negative gross invoices tied to exactly one direction of
   // the selected company's NIP. Never match both-sides or unknown NIPs.
@@ -71,10 +81,7 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
   counts.invoicesExamined++;
   const reference=invoiceNumberPattern(inv.invoiceNumber);
   const matching=[];
-  for(const tx of transactions){
-   if(tx.bankAccount.currency!==inv.currency)continue;
-   const val=amountCents(tx.amount);
-   if(val===null||val!==(inv.direction==="INCOMING"?-cents:cents))continue;
+  for(const tx of byAmount.get(inv.currency+"|"+(inv.direction==="INCOMING"?-cents:cents).toString())||[]){
    const booked=day(tx.bookedAt);
    if(booked===null||booked<issued||booked>issued+180*DAY_MS)continue;
    const narrative=[tx.description,tx.reference].filter(Boolean).join(" ");
