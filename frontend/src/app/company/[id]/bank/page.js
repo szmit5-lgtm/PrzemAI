@@ -12,9 +12,9 @@ import {
  getOrganizationBankFiles,uploadOrganizationBankFile,downloadOrganizationBankFile
 } from "@/lib/api";
 
-const MAX_FILES=12;
+const MAX_FILES=60;
 const MAX_PDF=15*1024*1024;
-const MAX_CSV=2*1024*1024;
+const MAX_CSV=15*1024*1024;
 const formatMoney=(amount,currency="PLN")=>{
  if(amount==null)return "Saldo nieustalone";
  const value=Number(amount);
@@ -94,7 +94,7 @@ export default function CompanyBankPage(){
   event.target.value="";
   if(!selected.length||uploading)return;
   if(selected.length>MAX_FILES){
-   setError("Wybierz maksymalnie 12 plików jednocześnie.");return;
+   setError("Wybierz maksymalnie 60 plików jednocześnie.");return;
   }
   for(const file of selected){
    const pdf=/\.pdf$/i.test(file.name),csv=/\.csv$/i.test(file.name);
@@ -178,7 +178,7 @@ export default function CompanyBankPage(){
      <label htmlFor="bank-file-auto" className="mt-5 block cursor-pointer rounded-2xl border-2 border-dashed border-violet-400/40 bg-violet-500/[.055] p-6 text-center hover:border-violet-300">
       <FileUp size={36} className="mx-auto text-violet-300"/>
       <strong className="mt-3 block text-base">Wybierz wyciąg CSV lub PDF</strong>
-      <span className="mt-2 block text-xs text-slate-300">Możesz wybrać do 12 plików naraz · CSV do 2 MB · PDF do 15 MB</span>
+      <span className="mt-2 block text-xs text-slate-300">Możesz wybrać do 60 plików naraz · CSV/PDF do 15 MB na plik</span>
       <span className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-violet-500 px-5 text-sm font-bold text-white">
        {uploading?"Wczytywanie…":"Wybierz pliki z urządzenia"}
       </span>
