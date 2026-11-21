@@ -187,6 +187,17 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 
+const {listBankTransactions}=require("../services/BankTransactionReadService");
+router.get("/:id/bank/transactions",verifyToken,async(req,res)=>{
+ try{
+  const data=await listBankTransactions(req.user.id,req.params.id,req.query);
+  return res.json({success:true,data});
+ }catch(error){
+  const status=error instanceof OrganizationError?error.status||403:500;
+  return res.status(status).json({success:false,
+   error:status===500?"Nie udało się pobrać operacji bankowych.":error.message});
+ }
+});
 const {importStatement}=require("../services/BankStatementImportService");
 router.post("/:id/bank/statements",verifyToken,async(req,res)=>{
  try{
@@ -224,6 +235,7 @@ router.get("/:id/bank/statements",verifyToken,async(req,res)=>{
 
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
+const {previewStatementText}=require("../lib/bankStatementPdfText");
 const bankPdfUpload = multer({
  storage: multer.memoryStorage(),
  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
@@ -245,8 +257,15 @@ router.post("/:id/bank/pdf-preview",verifyToken,(req,res)=>{
    // Preview only: extract candidates without writing any financial records.
     const statementNumbers = Array.from(new Set((source.match(/\b\d{4}\s*\/\s*\d{1,5}\b/g) || []).map(v => v.replace(/\s/g, "")))).slice(0, 50);
     const accountNumbers = Array.from(new Set((source.match(/(?:PL\s*)?(?:\d[\s-]*){26}/g) || []).map(v => v.replace(/[\s-]/g, "")).filter(v => /^(?:PL)?\d{26}$/.test(v)))).slice(0, 50);
+   let structuredPreview=null;
+   let parseWarning=null;
+   try{structuredPreview=previewStatementText(source);}
+   catch(parseError){parseWarning=parseError.message;}
    return res.json({success:true,data:{pages:parsed.numpages,lines,statementNumbers,accountNumbers,
-    requiresReview:true,warning:"Wykryto "+statementNumbers.length+" numerów wyciągów i "+accountNumbers.length+" rachunków. Automatyczny zapis jest zablokowany do czasu zgodności liczby operacji i sald każdego wyciągu."}});
+    structuredPreview,parseWarning,requiresReview:true,
+    warning:structuredPreview
+     ?"Rozpoznano "+structuredPreview.transactionCount+" operacji z kontrolą sald. Sprawdź dane przed ręcznym importem; PDF nie jest automatycznie zapisywany."
+     :"Nie można bezpiecznie rozpoznać wszystkich operacji PDF. "+parseWarning}});
   }catch(e){return res.status(422).json({success:false,error:"Nie udało się odczytać PDF. Sprawdź format i zabezpieczenia dokumentu."});}
  });
 });
