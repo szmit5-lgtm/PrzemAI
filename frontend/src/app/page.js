@@ -8,6 +8,7 @@ import {Activity,ArrowUpRight,BarChart3,Bot,BriefcaseBusiness,
  RefreshCw,ShieldCheck,Wallet,Workflow,AlertCircle,Mail,TrendingUp,Calculator,ShoppingCart,MessageCircle,Search} from "lucide-react";
 import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
+import CompanyBankSnapshot from "./components/CompanyBankSnapshot";
 import {
  getAgents,getExecutiveDashboard,getFinanceSummary,getFinanceProjects,
  getOrganizations,getOrganizationFinanceSummary,getOrganizationFinanceAnnualReport,getFinancePeriodReport
@@ -240,6 +241,7 @@ export default function HomePage() {
       <p className="mt-3 text-xs text-slate-400">Suma zaimportowanych faktur, nie przychód kasowy. Ostatnia aktywność agenta: {companyFinance?.sync?.lastRunAt?new Date(companyFinance.sync.lastRunAt).toLocaleString("pl-PL"):"brak danych"}.</p>
      </details>}
     </section>
+    <CompanyBankSnapshot company={selectedOrg||null} refreshKey={refresh}/>
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
@@ -295,7 +297,7 @@ export default function HomePage() {
     </section>}
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#111c35] px-4 py-3 text-xs leading-5 text-slate-400">
      <Landmark size={17} className="shrink-0 text-slate-300"/>
-     <strong className="text-slate-200">Rachunki bankowe:</strong> brak podłączonej bankowości. Salda i wpływy będą dostępne po autoryzacji integracji.
+     <strong className="text-slate-200">Rachunki bankowe:</strong> potwierdzone salda z zaimportowanych wyciągów firmy znajdziesz w panelu bankowym. To nie jest podgląd banku na żywo.
      <Link href="/finance" className="ml-auto font-semibold text-violet-300">Finanse <ArrowUpRight size={12} className="inline"/></Link>
     </div>
     {!simpleMode&&<div className="mt-3 grid min-w-0 gap-3">
