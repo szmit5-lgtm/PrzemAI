@@ -1,0 +1,138 @@
+"use strict";
+const prisma=require("../../lib/prisma");
+const {OrganizationError}=require("./OrganizationService");
+const {OrganizationBankAccessService}=require("./OrganizationBankAccessService");
+
+const MAX_TRANSACTIONS=50000;
+const MAX_STATEMENTS=5000;
+const ACCESS=new OrganizationBankAccessService();
+
+function toCents(value){
+ const s=String(value??"").trim();
+ const match=/^(-?)(\d{1,18})(?:\.(\d{1,2}))?$/.exec(s);
+ if(!match)throw new Error("Niepoprawna wartość operacji lub salda bankowego.");
+ const abs=BigInt(match[2])*100n+BigInt((match[3]||"").padEnd(2,"0")||"0");
+ return match[1]==="-"?-abs:abs;
+}
+function money(value){
+ const neg=value<0n,abs=neg?-value:value;
+ return (neg?"-":"")+(abs/100n).toString()+"."+String(abs%100n).padStart(2,"0");
+}
+const iso=date=>new Date(date).toISOString().slice(0,10);
+const startOfMonth=(year,month)=>new Date(Date.UTC(year,month-1,1));
+const nextMonth=(year,month)=>new Date(Date.UTC(year,month,1));
+const lastDay=(year,month)=>new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+const MONTHS=12;
+function aggregateAccount(transactions,accountId,month){
+ const values=transactions.filter(tx=>tx.bankAccountId===accountId&&
+  new Date(tx.bookedAt).getUTCMonth()+1===month);
+ let inflows=0n,outflows=0n;
+ for(const row of values){
+  const amount=toCents(row.amount);
+  if(amount>=0n)inflows+=amount;
+  else outflows-=amount;
+ }
+ return {inflows:money(inflows),outflows:money(outflows),
+  net:money(inflows-outflows),transactionCount:values.length};
+}
+function totalsForCurrency(accountRows){
+ const grouped=new Map();
+ for(const row of accountRows){
+  const key=row.currency;
+  const total=grouped.get(key)||{currency:key,inflows:0n,outflows:0n,
+   current:0n,vat:0n,other:0n,known:0,missing:0,accounts:0,transactions:0};
+  total.accounts++;
+  total.transactions+=row.transactionCount;
+  total.inflows+=toCents(row.inflows);
+  total.outflows+=toCents(row.outflows);
+  if(row.closingBalance===null)total.missing++;
+  else {
+   total.known++;
+   const cents=toCents(row.closingBalance);
+   if(row.accountType==="VAT")total.vat+=cents;
+   else if(row.accountType==="CURRENT")total.current+=cents;
+   else total.other+=cents;
+  }
+  grouped.set(key,total);
+ }
+ return [...grouped.values()].sort((a,b)=>a.currency.localeCompare(b.currency))
+  .map(x=>({
+   currency:x.currency,inflows:money(x.inflows),outflows:money(x.outflows),
+   net:money(x.inflows-x.outflows),transactions:x.transactions,
+   accounts:x.accounts,accountsWithConfirmedBalance:x.known,
+   missingBalances:x.missing,
+   // Do NOT fabricate month-end totals from a partial set of accounts.
+   balance:x.missing===0?money(x.current+x.vat+x.other):null,
+   currentBalance:x.missing===0?money(x.current):null,
+   vatBalance:x.missing===0?money(x.vat):null,
+   otherBalance:x.missing===0?money(x.other):null
+  }));
+}
+
+class OrganizationBankMonthlyService{
+ constructor({db=prisma,access=ACCESS}={}){this.db=db;this.access=access;}
+ async report(userId,organizationId,yearInput){
+  await this.access.authorize(userId,organizationId);
+  const year=Number(yearInput);
+  if(!Number.isInteger(year)||year<2020||year>2100)
+   throw new OrganizationError("Wybierz poprawny rok zestawienia (2020–2100).",400);
+  const accounts=await this.db.bankAccount.findMany({
+   where:{organizationId},
+   select:{id:true,iban:true,label:true,accountType:true,currency:true},
+   orderBy:[{accountType:"asc"},{id:"asc"}],
+   take:200
+  });
+  if(accounts.length===200)
+   throw new OrganizationError("Zbyt wiele rachunków do wyświetlenia; skontaktuj się z administratorem.",413);
+  const [statements,transactions]=await Promise.all([
+   this.db.bankStatement.findMany({
+    where:{organizationId,periodEnd:{lt:startOfMonth(year+1,1)}},
+    select:{id:true,bankAccountId:true,periodEnd:true,closingBalance:true,
+     sourceType:true,importedAt:true},
+    orderBy:[{periodEnd:"asc"},{importedAt:"asc"}],
+    take:MAX_STATEMENTS+1
+   }),
+   this.db.bankTransaction.findMany({
+    where:{organizationId,bookedAt:{
+     gte:startOfMonth(year,1),lt:startOfMonth(year+1,1)
+    }},
+    select:{id:true,bankAccountId:true,bookedAt:true,amount:true},
+    orderBy:[{bookedAt:"asc"},{id:"asc"}],
+    take:MAX_TRANSACTIONS+1
+   })
+  ]);
+  if(statements.length>MAX_STATEMENTS||transactions.length>MAX_TRANSACTIONS)
+   throw new OrganizationError("Raport obejmuje zbyt wiele danych. Wybierz mniejszy zakres lub skontaktuj się z administratorem.",413);
+  const months=[];
+  for(let month=1;month<=MONTHS;month++){
+   const monthEnd=lastDay(year,month),boundary=nextMonth(year,month);
+   const accountRows=accounts.map(account=>{
+    const transactionsForAccount=aggregateAccount(transactions,account.id,month);
+    // The latest statement with an explicit balance is the source of truth.
+    // A previous-month or mid-month balance is NOT an end-of-month balance.
+    const confirmed=statements.filter(s=>
+     s.bankAccountId===account.id&&s.closingBalance!=null&&
+     new Date(s.periodEnd)<boundary).at(-1)||null;
+    const confirmedAt=confirmed?iso(confirmed.periodEnd):null;
+    const isMonthEnd=confirmedAt===monthEnd;
+    return {
+     accountId:account.id,ibanSuffix:account.iban.slice(-4),
+     label:account.label||null,currency:account.currency,
+     accountType:account.accountType,
+     ...transactionsForAccount,
+     closingBalance:isMonthEnd?String(confirmed.closingBalance):null,
+     lastKnownBalance:confirmed?String(confirmed.closingBalance):null,
+     lastKnownAt:confirmedAt,
+     confirmedMonthEnd:isMonthEnd
+    };
+   });
+   months.push({month,lastDay:monthEnd,accounts:accountRows,
+    currencies:totalsForCurrency(accountRows)});
+  }
+  return {organizationId,year,source:"IMPORTED_BANK_STATEMENTS",
+   accounts:accounts.map(a=>({id:a.id,ibanSuffix:a.iban.slice(-4),
+    label:a.label||null,accountType:a.accountType,currency:a.currency})),
+   months};
+ }
+}
+module.exports={OrganizationBankMonthlyService,toCents,money,aggregateAccount,totalsForCurrency};
