@@ -57,7 +57,7 @@ function decode(buffer){
  catch{return new TextDecoder("windows-1250",{fatal:true}).decode(bytes);}
 }
 function isErstePrintedCsv(buffer){
- const start=decode(buffer.subarray(0,Math.min(buffer.length,12000)));
+ const start=decode(buffer.subarray(0,Math.min(buffer.length,64000)));
  return start.includes("WYCIĄG Z RACHUNKU BANKOWEGO")&&
    start.includes("NR WYCIĄGU")&&start.includes("OBCIĄŻENIA");
 }
@@ -65,7 +65,7 @@ function parseErstePrintedCsv(buffer){
  const content=decode(buffer);
  if(content.includes("\0"))throw Error("Plik CSV zawiera dane binarne.");
  const rows=rowsFromCsv(content);
- if(!rows.length||rows.length>15000)throw Error("Nieprawidłowy rozmiar eksportu bankowego.");
+ if(!rows.length||rows.length>40000)throw Error("Nieprawidłowy rozmiar eksportu bankowego.");
  const groups=new Map();
  let group=null;
  for(let index=0;index<rows.length;index++){
@@ -80,17 +80,16 @@ function parseErstePrintedCsv(buffer){
    const number=meta.map(token).find(x=>/^\d{4}\/\d{3,5}$/.test(x));
    if(dates.length!==3||!number||dates[1]>dates[2])
     throw Error("Nie udało się odczytać dat lub numeru wyciągu bankowego.");
-   const previous=groups.get(account);
-   if(previous){
-    if(previous.statementNumber!==number||previous.periodStart!==dates[1]||
-     previous.periodEnd!==dates[2])
-     throw Error("Jeden rachunek ma sprzeczne nagłówki wyciągu.");
-    group=previous;
-   }else{
+   // Annual exports may contain several DIFFERENT monthly statements of
+   // the SAME account, as well as the VAT account. Group by statement period,
+   // not merely by IBAN. Identical repeated page headers reuse the group.
+   const key=account+"|"+number+"|"+dates[1]+"|"+dates[2];
+   if(groups.has(key))group=groups.get(key);
+   else{
     group={account,statementNumber:number,periodStart:dates[1],periodEnd:dates[2],
      currency:null,accountType:null,expectedCount:null,openingBalance:null,
      closingBalance:null,transactions:[],lastBalance:null};
-    groups.set(account,group);
+    groups.set(key,group);
    }
    continue;
   }
@@ -176,7 +175,7 @@ function parseErstePrintedCsv(buffer){
    balanceIssue:false
   });
  }
- if(total>3000)throw Error("Eksport zawiera zbyt wiele transakcji.");
+ if(total>10000)throw Error("Eksport zawiera zbyt wiele transakcji (limit 10 000).");
  return {accounts,extractedCount:total,format:"ERSTE_PRINTED_CSV"};
 }
 module.exports={isErstePrintedCsv,parseErstePrintedCsv};
