@@ -35,7 +35,7 @@ function safeName(name) {
 function normalizedRow(row,index,orgId,bankAccountId,statementId){
  const bookedAt=new Date(row.date+"T12:00:00.000Z");
  const data={organizationId:orgId,bankAccountId,bankStatementId:statementId,
-  bookedAt,amount:row.amount,
+  bookedAt,amount:row.amount,balanceAfter:row.balanceAfter||null,
   description:row.description,counterparty:row.counterparty||null,reference:row.reference||null};
  const fingerprint=crypto.createHash("sha256").update(JSON.stringify([
   index,row.date,row.amount,row.description,row.counterparty||"",row.reference||""
@@ -71,12 +71,18 @@ class BankFileUploadService {
   const existing=await this.db.bankImportFile.findFirst({
    where:{organizationId,sha256},select:PUBLIC_SELECT
   });
-  if(existing)return {item:existing,alreadySaved:true};
-  const stats=await this.db.bankImportFile.aggregate({
-   where:{organizationId},_count:{_all:true},_sum:{size:true}
-  });
-  if(stats._count._all>=MAX_FILES||(stats._sum.size||0)+file.buffer.length>MAX_BYTES)
-   throw new OrganizationError("Biblioteka wyciągów osiągnęła limit plików lub miejsca.",413);
+  // Re-uploading a previously unsupported CSV is an explicit request to
+  // retry it with newly added bank-specific parsers. Do not create a duplicate
+  // file or rerun already imported statements.
+  const retry=Boolean(existing&&existing.status==="REVIEW_REQUIRED"&&ext==="csv");
+  if(existing&&!retry)return {item:existing,alreadySaved:true};
+  if(!retry){
+   const stats=await this.db.bankImportFile.aggregate({
+    where:{organizationId},_count:{_all:true},_sum:{size:true}
+   });
+   if(stats._count._all>=MAX_FILES||(stats._sum.size||0)+file.buffer.length>MAX_BYTES)
+    throw new OrganizationError("Biblioteka wyciągów osiągnęła limit plików lub miejsca.",413);
+  }
 
   let parsed=null,reason="",count=0;
   if(ext==="csv"){
@@ -84,7 +90,10 @@ class BankFileUploadService {
     parsed=parseBankCsv(file.buffer);
     count=parsed.extractedCount;
     if(parsed.balanceIssue)reason="Saldo początkowe i końcowe nie zgadzają się z sumą operacji. Nie zapisano transakcji w banku.";
-    else if(!parsed.account)reason="Odczytano operacje, ale w pliku nie ma jednoznacznego numeru rachunku firmowego.";
+    else if(Array.isArray(parsed.accounts)){
+     if(!parsed.accounts.length||parsed.accounts.some(group=>!group.account||!group.currency||group.balanceIssue))
+      reason="Co najmniej jeden rachunek wyciągu wymaga weryfikacji.";
+    }else if(!parsed.account)reason="Odczytano operacje, ale w pliku nie ma jednoznacznego numeru rachunku firmowego.";
     else if(!parsed.currency)reason="Odczytano operacje, ale w pliku nie określono waluty rachunku.";
     else if(!/^[A-Z]{3}$/.test(parsed.currency))reason="Nierozpoznana waluta wyciągu.";
    }catch(error){
@@ -105,7 +114,11 @@ class BankFileUploadService {
 
   let created;
   try{
-   created=await this.db.bankImportFile.create({
+   created=retry?await this.db.bankImportFile.update({
+    where:{id:existing.id},data:{status:"PROCESSING",note:null,
+     transactionCount:count,parsedRows:parsed?.transactions||undefined},
+    select:PUBLIC_SELECT
+   }):await this.db.bankImportFile.create({
     data:{organizationId,uploadedById:userId,name,size:file.buffer.length,
      mimeType:ext==="csv"?"text/csv":"application/pdf",
      sha256,content:file.buffer,status:"PROCESSING",note:null,
@@ -126,6 +139,88 @@ class BankFileUploadService {
     select:PUBLIC_SELECT
    });
    return {item,alreadySaved:false};
+  }
+  if(Array.isArray(parsed.accounts)){
+   // Bank-verified printed statements: one upload may contain both CURRENT and
+   // VAT accounts. Commit every complete account in a single transaction, or
+   // none. A matching existing bank statement is not imported twice.
+   try{
+    const result=await this.db.$transaction(async tx=>{
+     const saved=[],skipped=[];
+     for(const group of parsed.accounts){
+      const account=await tx.bankAccount.upsert({
+       where:{organizationId_iban:{organizationId,iban:group.account}},
+       create:{organizationId,iban:group.account,currency:group.currency,
+        accountType:group.accountType},
+       // Correct legacy default CURRENT when an official VAT statement
+       // confirms this is the company's VAT account.
+       update:{accountType:group.accountType}
+      });
+      if(account.currency!==group.currency){
+       throw new OrganizationError("Waluta pliku różni się od waluty przypisanego rachunku.",422);
+      }
+      const old=await tx.bankStatement.findFirst({
+       where:{organizationId,bankAccountId:account.id,
+        statementNumber:group.statementNumber},
+       select:{id:true,transactionCount:true,openingBalance:true,
+        closingBalance:true,periodStart:true,periodEnd:true}
+      });
+      if(old){
+       const start=old.periodStart?new Date(old.periodStart).toISOString().slice(0,10):null;
+       const end=old.periodEnd?new Date(old.periodEnd).toISOString().slice(0,10):null;
+       if(old.transactionCount!==group.transactions.length||
+        old.openingBalance?.toString()!==group.openingBalance||
+        old.closingBalance?.toString()!==group.closingBalance||
+        start!==group.periodStart||end!==group.periodEnd){
+        throw new OrganizationError("Istnieje wyciąg o tym samym numerze, ale innych danych. Wymaga weryfikacji.",409);
+       }
+       skipped.push(group);
+       continue;
+      }
+      const sourceHash=crypto.createHash("sha256").update(
+       sha256+"|"+group.account+"|"+group.statementNumber).digest("hex");
+      const statement=await tx.bankStatement.create({
+       data:{organizationId,bankAccountId:account.id,sourceHash,
+        statementNumber:group.statementNumber,sourceType:"STATEMENT",
+        openingBalance:group.openingBalance,closingBalance:group.closingBalance,
+        periodStart:new Date(group.periodStart+"T12:00:00.000Z"),
+        periodEnd:new Date(group.periodEnd+"T12:00:00.000Z"),
+        importedByUserId:userId,transactionCount:group.transactions.length}
+      });
+      await tx.bankTransaction.createMany({
+       data:group.transactions.map((row,index)=>
+        normalizedRow(row,index,organizationId,account.id,statement.id))
+      });
+      saved.push({id:statement.id,group});
+     }
+     const newlyAdded=saved.reduce((sum,x)=>sum+x.group.transactions.length,0);
+     const note="Wyciąg Erste: "+parsed.accounts.map(g=>
+      g.accountType+" ••••"+g.account.slice(-4)+" ("+g.transactions.length+" operacji, "+
+      g.statementNumber+")").join("; ")+
+      ". Nowo zaimportowano "+newlyAdded+" operacji; "+
+      skipped.reduce((sum,g)=>sum+g.transactions.length,0)+
+      " pominięto jako wcześniej zaimportowane. Salda uzgodnione dla każdego rachunku.";
+     await tx.bankImportFile.update({
+      where:{id:created.id},
+      data:{status:"IMPORTED",note,transactionCount:parsed.extractedCount,
+       statementId:saved[0]?.id||null,parsedRows:null}
+     });
+     return {saved:saved.length,skipped:skipped.length,newlyAdded};
+    });
+    const item=await this.db.bankImportFile.findFirst({
+     where:{id:created.id,organizationId},select:PUBLIC_SELECT
+    });
+    return {item,alreadySaved:false,importedAccounts:result.saved,
+     skippedAccounts:result.skipped,newlyAdded:result.newlyAdded};
+   }catch(error){
+    const issue=error instanceof OrganizationError?error.message:
+     "Nie udało się uzgodnić i zapisać rachunków. Oryginał pozostaje w bibliotece.";
+    const item=await this.db.bankImportFile.update({
+     where:{id:created.id},data:{status:"REVIEW_REQUIRED",note:issue},
+     select:PUBLIC_SELECT
+    });
+    return {item,alreadySaved:false};
+   }
   }
   // Explicit account and currency come from the uploaded CSV. A transaction
   // export need not have bank statement opening/closing balances.

@@ -105,6 +105,10 @@ function decodeCsv(buffer){
  catch{return new TextDecoder("windows-1250",{fatal:true}).decode(source);}
 }
 function parseBankCsv(buffer) {
+ // Erste iBiznes24's printed-statement CSV is structurally different from
+ // ordinary bank transaction exports and can carry several accounts.
+ const {isErstePrintedCsv,parseErstePrintedCsv}=require("./ErsteStatementCsvParser");
+ if(isErstePrintedCsv(buffer))return parseErstePrintedCsv(buffer);
  const text=decodeCsv(buffer);
  if(text.includes("\0"))throw Error("CSV zawiera niepoprawne dane binarne.");
  let best=null;
