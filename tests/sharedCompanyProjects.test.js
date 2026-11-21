@@ -21,6 +21,26 @@ const prisma = {
     async updateMany(query) { calls.push(["mapLegacy", query]); return { count: 1 }; }
   }
 };
+prisma.projectAccess = {
+  async upsert(query) { calls.push(["grant", query]); return {}; },
+  async deleteMany(query) { calls.push(["revoke", query]); return { count: 1 }; }
+};
+let projectForAccess = { id: "mielno", organizationId: "dekonica" };
+let targetAllowed = true;
+const originalProjectFindFirst = prisma.project.findFirst;
+prisma.project.findFirst = async query => {
+  if (query.where?.organizationId?.not === null) {
+    calls.push(["accessProject", query]);
+    return projectForAccess;
+  }
+  return originalProjectFindFirst(query);
+};
+const originalMembershipFindFirst = prisma.organizationMembership.findFirst;
+prisma.organizationMembership.findFirst = async query => {
+  if (query.where?.role) return originalMembershipFindFirst(query);
+  calls.push(["targetMembership", query]);
+  return targetAllowed ? { id: "target" } : null;
+};
 const load = Module._load;
 Module._load = function(request, parent, isMain) {
   if (request === "../../lib/prisma" &&
@@ -243,4 +263,33 @@ test("legacy mapping fails closed when project is absent or already shared", asy
     prisma.project.updateMany = original;
     adminAllowed = false;
   }
+});
+
+test("admin grants and revokes project access only for active company member", async () => {
+  calls.length = 0; adminAllowed = true; targetAllowed = true;
+  const service = new FinanceService();
+  await service.setProjectAccess("admin", "mielno", "leszek", true);
+  assert.deepEqual(calls.find(([kind]) => kind === "grant")[1].where,
+    { projectId_userId: { projectId: "mielno", userId: "leszek" } });
+  await service.setProjectAccess("admin", "mielno", "leszek", false);
+  assert.deepEqual(calls.find(([kind]) => kind === "revoke")[1].where,
+    { projectId: "mielno", userId: "leszek" });
+  adminAllowed = false;
+});
+
+test("non-admin cannot grant project access", async () => {
+  calls.length = 0; adminAllowed = false;
+  await assert.rejects(
+    () => new FinanceService().setProjectAccess("member", "mielno", "leszek", true),
+    /Brak uprawnień administratora/);
+  assert.equal(calls.some(([kind]) => kind === "grant"), false);
+});
+
+test("admin cannot grant to user outside active company membership", async () => {
+  calls.length = 0; adminAllowed = true; targetAllowed = false;
+  await assert.rejects(
+    () => new FinanceService().setProjectAccess("admin", "mielno", "outsider", true),
+    /Pracownik nie ma aktywnego dostępu/);
+  assert.equal(calls.some(([kind]) => kind === "grant"), false);
+  adminAllowed = false; targetAllowed = true;
 });
