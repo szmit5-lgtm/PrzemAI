@@ -71,6 +71,22 @@ test("Erste printed CSV contains two independent verified account groups",()=>{
  assert.equal(second.transactions[0].amount,"50.00");
 });
 
+test("Annual Erste export can contain different monthly statements of the SAME account",()=>{
+ const september=printedGroup(current,"2026/008","CURRENT","200,00","195,00",["-15,00","10,00"])
+  .replaceAll("31-10-2026","30-09-2026")
+  .replaceAll("01-10-2026","01-09-2026")
+  .replaceAll("07-10-2026","07-09-2026");
+ const annual=Buffer.from(september+"\\r\\n"+sample);
+ const result=parseBankCsv(annual);
+ assert.equal(result.format,"ERSTE_PRINTED_CSV");
+ assert.equal(result.accounts.length,3);
+ assert.equal(result.extractedCount,6);
+ const monthly=result.accounts.filter(x=>x.account===result.accounts[0].account);
+ assert.equal(monthly.length,2);
+ assert.deepEqual(monthly.map(x=>x.statementNumber),["2026/008","2026/009"]);
+ assert.deepEqual(monthly.map(x=>x.periodEnd),["2026-09-30","2026-10-31"]);
+ assert.ok(result.accounts.every(x=>x.balanceIssue===false));
+});
 test("Truncated or modified Erste balances are rejected before creating any ledger entry",()=>{
  const correctEnd=row(13,{1:"31-10-2026",2:"Saldo końcowe:",10:"95,00"});
  const brokenEnd=row(13,{1:"31-10-2026",2:"Saldo końcowe:",10:"99,00"});
