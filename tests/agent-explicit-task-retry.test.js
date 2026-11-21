@@ -72,7 +72,7 @@ test("only an explicit retry of a failed draft task moves it back into queue and
 });
 test("non-owner and unrelated agent cannot retry another task",async()=>{
  const own=harness();
- await assert.rejects(own.service.retryAssignment("outsider","sales","task-1"),/zlecenie/);
+ await assert.rejects(own.service.retryAssignment("outsider","sales","task-1"),/wyłączony|niedostępny/);
  assert.equal(own.calls.some(x=>x.type==="task.update"),false);
  const wrong=harness();
  await assert.rejects(wrong.service.retryAssignment("owner","legal","task-1"),/zlecenie/);
