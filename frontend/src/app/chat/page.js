@@ -14,7 +14,7 @@ import {
   parseChatSendResponse,parseChatArchiveResponse
 } from "@/lib/chatDashboardPayload";
 import {
-  sendChatMessage,getConversations,getConversation,deleteConversation
+  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice
 } from "@/lib/api";
 import {combineVoiceText,shouldSubmitVoiceTurn} from "@/lib/voiceInputPayload";
 
@@ -43,18 +43,32 @@ export default function ChatPage(){
  const [speakReplies,setSpeakReplies]=useState(false);
  const [voiceError,setVoiceError]=useState("");
  const [voiceMode,setVoiceMode]=useState(false);
+ const [transcribing,setTranscribing]=useState(false);
  const messagesEndRef=useRef(null);
  const recognitionRef=useRef(null);
+ const recorderRef=useRef(null);
+ const recorderFallbackRef=useRef(false);
+ const transcribingRef=useRef(false);
  const speakRepliesRef=useRef(false);
  const voiceModeRef=useRef(false);
  const voiceTurnRef=useRef(null);
  const loadingRef=useRef(false);
 
  useEffect(()=>{
-   setVoiceSupported(Boolean(window.SpeechRecognition||window.webkitSpeechRecognition));
+   // Even where Web Speech API is absent, MediaRecorder can capture short turns
+   // for transcription by PrzemAI's existing backend.
+   setVoiceSupported(Boolean(window.SpeechRecognition||window.webkitSpeechRecognition||
+     (window.MediaRecorder&&navigator.mediaDevices?.getUserMedia)));
    return()=>{
      if(voiceTurnRef.current)voiceTurnRef.current.cancelled=true;
      recognitionRef.current?.abort();
+     if(recorderRef.current){
+       recorderRef.current.turn.cancelled=true;
+       clearTimeout(recorderRef.current.timer);
+       if(recorderRef.current.recorder.state==="recording")recorderRef.current.recorder.stop();
+       recorderRef.current.stream.getTracks().forEach(track=>track.stop());
+       recorderRef.current=null;
+     }
      window.speechSynthesis?.cancel();
    };
  },[]);
@@ -72,7 +86,85 @@ export default function ChatPage(){
    if(voiceTurnRef.current)voiceTurnRef.current.cancelled=true;
    recognitionRef.current?.abort();
    recognitionRef.current=null;
+   if(recorderRef.current){
+     const active=recorderRef.current;
+     active.turn.cancelled=true;
+     clearTimeout(active.timer);
+     if(active.recorder.state==="recording")active.recorder.stop();
+     active.stream.getTracks().forEach(track=>track.stop());
+     recorderRef.current=null;
+   }
    setListening(false);
+ }
+ async function startRecorder(){
+   if(!window.MediaRecorder||!navigator.mediaDevices?.getUserMedia){
+     setVoiceError("Ta przeglądarka nie obsługuje nagrywania dźwięku. Spróbuj Chrome lub Safari.");
+     return;
+   }
+   window.speechSynthesis?.cancel();
+   setVoiceError("");
+   let stream;
+   try{
+     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+     const mimeTypes=["audio/webm;codecs=opus","audio/mp4","audio/ogg;codecs=opus","audio/webm"];
+     const preferred=mimeTypes.find(mime=>window.MediaRecorder.isTypeSupported?.(mime));
+     const recorder=preferred?new window.MediaRecorder(stream,{mimeType:preferred}):new window.MediaRecorder(stream);
+     const mime=(recorder.mimeType||preferred||"").toLowerCase();
+     const ext=mime.includes("mp4")?"m4a":mime.includes("ogg")?"ogg":mime.includes("wav")?"wav":"webm";
+     const chunks=[];
+     const turn={autoSend:voiceModeRef.current,prefix:message,transcript:"",cancelled:false,error:false};
+     const active={recorder,stream,turn,timer:null};
+     recorderRef.current=active;
+     recorder.ondataavailable=e=>{if(e.data?.size>0)chunks.push(e.data);};
+     recorder.onerror=()=>{
+       turn.error=true;
+       setVoiceError("Nagrywanie zostało przerwane. Sprawdź dostęp do mikrofonu.");
+       setListening(false);
+     };
+     recorder.onstop=async()=>{
+       clearTimeout(active.timer);
+       stream.getTracks().forEach(track=>track.stop());
+       if(recorderRef.current===active)recorderRef.current=null;
+       setListening(false);
+       if(turn.cancelled||turn.error)return;
+       const blob=new Blob(chunks,{type:mime||"audio/webm"});
+       if(blob.size<12||blob.size>2*1024*1024){
+         setVoiceError("Nagranie jest puste lub zbyt długie (limit 2 MB). Spróbuj ponownie.");
+         return;
+       }
+       const formData=new FormData();
+       formData.append("file",blob,"voice."+ext);
+       transcribingRef.current=true;
+       setTranscribing(true);
+       try{
+         const result=await transcribeVoice(formData);
+         if(turn.cancelled)return;
+         const transcript=typeof result?.transcript==="string"?result.transcript.trim():"";
+         if(!transcript)throw Error("Nie rozpoznano wypowiedzi.");
+         turn.transcript=transcript;
+         const finalText=combineVoiceText(turn.prefix,transcript);
+         setMessage(finalText);
+         if(shouldSubmitVoiceTurn(turn))send(finalText);
+       }catch(error){
+         if(!turn.cancelled)setVoiceError(error?.message||"Nie udało się rozpoznać nagrania.");
+       }finally{
+         transcribingRef.current=false;
+         setTranscribing(false);
+       }
+     };
+     recorder.start(1000);
+     setListening(true);
+     // Hard stop bounds each transcription cost and prevents unattended audio.
+     active.timer=setTimeout(()=>{
+       if(recorder.state==="recording")recorder.stop();
+     },30000);
+   }catch(error){
+     stream?.getTracks().forEach(track=>track.stop());
+     setListening(false);
+     setVoiceError(error?.name==="NotAllowedError"?
+       "Zezwól PrzemAI na dostęp do mikrofonu w ustawieniach telefonu lub przeglądarki.":
+       "Nie udało się rozpocząć nagrywania. Sprawdź mikrofon lub wpisz tekst.");
+   }
  }
  function startVoiceMode(){
    if(!voiceSupported||loadingRef.current||loadingConversation)return;
@@ -148,15 +240,14 @@ export default function ChatPage(){
  }
  function toggleMicrophone(){
    if(listening){
-     // Finish a short voice turn; in conversation mode it is sent when
-     // the recognizer returns the final transcript.
-     recognitionRef.current?.stop();
+     if(recorderRef.current?.recorder?.state==="recording")recorderRef.current.recorder.stop();
+     else recognitionRef.current?.stop();
      return;
    }
-   if(loadingRef.current||loadingConversation)return;
+   if(loadingRef.current||loadingConversation||transcribingRef.current)return;
    const BrowserRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-   if(!BrowserRecognition){
-     setVoiceError("Rozpoznawanie mowy nie jest dostępne w tej przeglądarce. Możesz pisać wiadomości poniżej.");
+   if(!BrowserRecognition||recorderFallbackRef.current){
+     startRecorder();
      return;
    }
    window.speechSynthesis?.cancel();
@@ -182,11 +273,15 @@ export default function ChatPage(){
    recognition.onerror=event=>{
      turn.error=true;
      const reason=event.error;
+     if(["network","service-not-allowed","audio-capture"].includes(reason)&&
+       window.MediaRecorder&&navigator.mediaDevices?.getUserMedia){
+       recorderFallbackRef.current=true;
+     }
      if(reason!=="aborted"){
        setVoiceError(reason==="not-allowed"||reason==="service-not-allowed"
          ?"Włącz dostęp do mikrofonu w ustawieniach przeglądarki."
          :reason==="no-speech"?"Nie usłyszałem wiadomości. Dotknij mikrofonu i spróbuj ponownie."
-         :"Nie udało się rozpoznać mowy. Spróbuj ponownie lub wpisz tekst.");
+         :recorderFallbackRef.current?"Rozpoznawanie w przeglądarce nie działa. Dotknij mikrofonu ponownie — użyję nagrywania.":"Nie udało się rozpoznać mowy. Spróbuj ponownie lub wpisz tekst.");
      }
      setListening(false);
    };
@@ -207,7 +302,9 @@ export default function ChatPage(){
      turn.cancelled=true;
      recognitionRef.current=null;
      setListening(false);
-     setVoiceError("Nie udało się uruchomić mikrofonu. Sprawdź uprawnienia lub wpisz tekst.");
+     recorderFallbackRef.current=true;
+     if(window.MediaRecorder&&navigator.mediaDevices?.getUserMedia)startRecorder();
+     else setVoiceError("Nie udało się uruchomić mikrofonu. Sprawdź uprawnienia lub wpisz tekst.");
    }
  }
  function readAnswer(answer){
@@ -251,7 +348,7 @@ export default function ChatPage(){
      if(!listening)send();
    }
  }
- const busy=loading||loadingConversation;
+ const busy=loading||loadingConversation||transcribing;
  const voiceReady=voiceSupported&&!busy;
  const displayTitle=conversations.find(c=>c.id===activeConversationId)?.title;
  return <main className="h-[calc(100dvh-82px-env(safe-area-inset-bottom))] min-h-[320px] min-w-0 overflow-hidden bg-[#080e20] text-slate-100 lg:h-auto lg:min-h-screen lg:overflow-x-clip">
@@ -362,7 +459,7 @@ export default function ChatPage(){
       {voiceError&&<p role="alert" className="mb-2 text-xs text-rose-300">{voiceError}</p>}
       {!voiceSupported&&<p className="mb-2 text-xs text-slate-400">Mikrofon niedostępny w tej przeglądarce — możesz pisać normalnie.</p>}
       {voiceMode&&voiceSupported&&<p role="status" className="mb-2 text-xs leading-5 text-violet-200">
-       {listening?"Słucham… Po zakończeniu mówienia wyślę wiadomość automatycznie."
+       {transcribing?"Przetwarzam nagranie…":listening?"Słucham… Po zakończeniu mówienia wyślę wiadomość automatycznie."
         :"Dotknij dużego mikrofonu i mów. Po zakończeniu wypowiedzi asystent odpowie także głosowo."}
       </p>}
       <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/15 bg-[#0b152c] p-2 focus-within:border-violet-400/50">
@@ -387,7 +484,7 @@ export default function ChatPage(){
        </button>
       </div>
       <p className="mt-2 hidden text-[11px] leading-5 text-slate-500 sm:block">
-       Tryb głosowy korzysta z rozpoznawania mowy obsługiwanego przez przeglądarkę. Na telefonie po każdej odpowiedzi dotknij mikrofonu, aby mówić ponownie.
+       Dotknij mikrofonu i mów. Jeżeli rozpoznawanie w przeglądarce zawiedzie, PrzemAI nagra maksymalnie 30 sekund i prześle nagranie do transkrypcji przez API OpenAI (opłata według użycia). Nagrania nie zapisujemy w Historii.
       </p>
      </div>
     </section>
