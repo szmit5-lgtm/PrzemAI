@@ -4,6 +4,7 @@ import AuthGuard from "../components/AuthGuard";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import FileUpload from "../components/FileUpload";
+import DocumentScopeSwitcher from "../components/DocumentScopeSwitcher";
 import { FileText, ShieldCheck } from "lucide-react";
 
 export default function DocumentPage() {
@@ -18,10 +19,14 @@ export default function DocumentPage() {
           <Navbar />
           <section className="mb-7">
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1 text-xs font-bold text-violet-200"><FileText size={14} /> ANALIZA DOKUMENTÓW</div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Dokumenty</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Prześlij dokument PDF, DOCX lub TXT, aby otrzymać analizę i podsumowanie. Wcześniejsze wyniki znajdziesz w Historii.</p>
+            <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Dokumenty osobiste</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Ten widok należy do Twojego konta osobistego, a nie do spółki. Analizy znajdziesz w osobistej Historii. Dokumenty Dekonica i Deherus mają oddzielne biblioteki poniżej.</p>
           </section>
-          <FileUpload mode="document" />
+          <DocumentScopeSwitcher/>
+          <div className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4 text-sm text-sky-100">
+            <strong>Wybrana przestrzeń: konto osobiste.</strong> Prześlij tutaj plik tylko wtedy, gdy ma należeć do Ciebie osobiście. Aby dodać dokument firmowy, wybierz wyżej Dekonica lub Deherus.
+          </div>
+          <div className="mt-5"><FileUpload mode="document" /></div>
           <footer className="flex items-center justify-center gap-2 py-10 text-center text-xs text-slate-500"><ShieldCheck size={14} /> PrzemAI · Dokumenty dostępne wyłącznie dla uprawnionego konta</footer>
         </div>
       </main>

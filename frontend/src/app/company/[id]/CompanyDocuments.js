@@ -8,7 +8,7 @@ import {
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 const validExtension = /\.(pdf|docx|txt)$/i;
 const formatSize = size => (size / (1024 * 1024)).toLocaleString("pl-PL", { maximumFractionDigits: 2 }) + " MB";
-export default function CompanyDocuments({ organizationId }) {
+export default function CompanyDocuments({ organizationId, organizationName }) {
   const [items, setItems] = useState([]);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function CompanyDocuments({ organizationId }) {
       setItems(old => [result.item, ...old.filter(item => item.id !== result.item.id)]);
       setFile(null);
       formElement.reset();
-      setNotice("Dokument zapisany w przestrzeni tej firmy.");
+      setNotice("Dokument zapisany w przestrzeni: " + (organizationName || "wybrana spółka") + ".");
     } catch (err) { setError(err?.message || "Nie udało się dodać dokumentu."); }
     finally { setSaving(false); }
   }
@@ -74,8 +74,8 @@ export default function CompanyDocuments({ organizationId }) {
   return <section aria-label="Dokumenty firmowe" className="mt-5 min-w-0 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="flex items-center gap-2 text-lg font-bold"><FileText size={19} className="text-violet-300"/> Dokumenty firmowe</h2>
-        <p className="mt-1 text-xs leading-5 text-slate-400">Prywatna biblioteka firmy. Dostęp właściciela i administratorów; osobna od Historii konta osobistego.</p>
+        <h2 className="flex items-center gap-2 text-lg font-bold"><FileText size={19} className="text-violet-300"/> Dokumenty — {organizationName || "spółka"}</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-400">Dokumenty przypisane tylko do tej spółki. Dostęp mają właściciel i administratorzy; pliki nie trafiają do Historii konta osobistego ani do innych spółek.</p>
       </div>
       <button type="button" onClick={refresh} disabled={loading || saving}
         className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-3 text-sm hover:bg-white/5 disabled:opacity-50">
@@ -83,7 +83,8 @@ export default function CompanyDocuments({ organizationId }) {
       </button>
     </div>
     <form onSubmit={submit} className="mt-5 rounded-xl border border-violet-400/25 bg-violet-500/[.065] p-4">
-      <label htmlFor="company-document-file" className="block text-sm font-semibold">Dodaj dokument do tej spółki
+      <p className="mb-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100"><strong>Przypisanie pliku:</strong> {organizationName || "wybrana spółka"}</p>
+      <label htmlFor="company-document-file" className="block text-sm font-semibold">Dodaj dokument do: {organizationName || "wybrana spółka"}
         <input id="company-document-file" type="file" required accept=".pdf,.docx,.txt"
           onChange={event => { setFile(event.target.files?.[0] || null); setError(""); }}
           disabled={saving} className="mt-3 block w-full min-w-0 text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-400 file:px-3 file:py-2 file:font-semibold file:text-slate-950"/>
@@ -102,7 +103,7 @@ export default function CompanyDocuments({ organizationId }) {
         <span className="rounded-lg bg-violet-500/15 p-2 text-violet-200"><FileText size={18}/></span>
         <div className="min-w-0 flex-1">
           <p className="break-all text-sm font-semibold">{item.name}</p>
-          <p className="mt-1 text-xs text-slate-400">{formatSize(item.size)} · {new Date(item.createdAt).toLocaleString("pl-PL")}</p>
+          <p className="mt-1 text-xs text-slate-400">{formatSize(item.size)} · {new Date(item.createdAt).toLocaleString("pl-PL")} · Spółka: {organizationName || "wybrana spółka"}</p>
         </div>
         <button type="button" onClick={() => download(item)} disabled={Boolean(downloading)}
           aria-label={"Pobierz " + item.name}
