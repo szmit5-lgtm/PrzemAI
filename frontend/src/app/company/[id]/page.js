@@ -8,6 +8,7 @@ import {ArrowLeft,Building2,CheckCircle2,Clock3,ExternalLink,
 import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
 import CompanyDocuments from "./CompanyDocuments";
+import DocumentScopeSwitcher from "../../components/DocumentScopeSwitcher";
 import {
  getOrganizationWorkspace,createOrganizationTask,changeOrganizationTaskStatus,
  getOrganizationMembers,inviteOrganizationMember,revokeOrganizationMember,activateOrganizationMember,
@@ -241,8 +242,8 @@ export default function CompanyWorkspace(){
     <section aria-label="Szybkie działania" className="mt-4 flex flex-wrap gap-2">
      <button type="button" onClick={()=>{setTab("tasks");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-bold text-white hover:bg-violet-400"><Plus size={17}/> Dodaj zadanie</button>
-     {isAdmin&&<button type="button" onClick={()=>{setTab("documents");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
-      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 text-sm font-semibold text-violet-200"><FileText size={17}/> Dodaj dokument</button>}
+     {isAdmin&&<Link href={"/company/"+encodeURIComponent(id)+"/documents"}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 text-sm font-semibold text-violet-200"><FileText size={17}/> Dokumenty — {org.displayName||org.name}</Link>}
      {isAdmin&&<button type="button" onClick={()=>{setTab("team");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold"><Users size={17}/> Zarządzaj zespołem</button>}
      {isAdmin&&<button type="button" onClick={()=>{setTab("brand");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
@@ -268,7 +269,7 @@ export default function CompanyWorkspace(){
         ?"border-violet-300/50 bg-violet-600 text-white"
         :"border-white/15 bg-[#111c35] text-slate-300 hover:bg-white/10")}>{label}</button>)}
     </div>
-    {tab==="documents"&&isAdmin&&<CompanyDocuments organizationId={id}/>}
+    {tab==="documents"&&isAdmin&&<><DocumentScopeSwitcher activeOrganizationId={id}/><CompanyDocuments organizationId={id} organizationName={org.displayName||org.name}/></>}
     {tab==="tasks"&&<div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
       <form onSubmit={submitTask} className="min-w-0 space-y-4 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
        <h2 className="flex items-center gap-2 text-xl font-bold"><Plus size={18} className="text-violet-300"/> Nowe zadanie firmowe</h2>
