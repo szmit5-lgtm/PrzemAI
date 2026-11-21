@@ -2,7 +2,7 @@
 import {useEffect,useState} from "react";
 import Link from "next/link";
 import {useParams} from "next/navigation";
-import {ArrowLeft,RefreshCw,Send,Clipboard,CheckCircle2,Clock3,BriefcaseBusiness} from "lucide-react";
+import {ArrowLeft,RefreshCw,Send,Clipboard,CheckCircle2,Clock3,BriefcaseBusiness,MessageSquareText} from "lucide-react";
 import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
 import {getAgents,getAgentAssignments,createAgentAssignment,setAgentAssignmentStage,replyToAgentAssignment} from "@/lib/api";
@@ -17,6 +17,7 @@ export default function AgentWorkspace(){
  const [refresh,setRefresh]=useState(0);
  const [replyDrafts,setReplyDrafts]=useState({});
  const [replyBusy,setReplyBusy]=useState("");
+ const [replyTargetId,setReplyTargetId]=useState("");
  const hasPending=tasks.some(t=>t.status==="TODO"||t.status==="IN_PROGRESS");
  useEffect(()=>{
    if(!hasPending)return;
@@ -67,6 +68,10 @@ export default function AgentWorkspace(){
   finally{setBusy(false);}
  }
  const sales=key==="sales";
+ // Follow-up input must remain discoverable even when the results list is
+ // long, empty or the agent is still processing a previous user message.
+ const replyableTasks=tasks.filter(t=>["DONE","ERROR"].includes(t.status));
+ const currentReplyTarget=replyableTasks.find(t=>t.id===replyTargetId)||replyableTasks[0]||null;
  return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#070e22] px-3 py-5 text-slate-100 sm:px-6 lg:px-8">
   <div className="mx-auto w-full min-w-0 max-w-7xl">
    <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.04] p-4">
@@ -113,6 +118,40 @@ export default function AgentWorkspace(){
         </button>
         {!agent.enabled&&<p className="text-xs text-amber-200">Agent jest wyłączony. Włącz go w centrum agentów.</p>}
        </form>
+       <div id="agent-reply-panel" className="mt-6 rounded-2xl border border-violet-400/25 bg-[#131f3b] p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-lg font-bold"><MessageSquareText size={19} className="text-violet-300"/>
+          {sales?"Odpowiedz Agentowi Sprzedaży":"Odpowiedz agentowi"}</h3>
+        <p className="mt-2 text-xs leading-5 text-slate-300">
+          Kontynuuj istniejącą sprawę: odpowiedz na pytania agenta, doprecyzuj zakres albo poproś o poprawki.
+          Wiadomość pozostaje w rozmowie tej sprawy — nie jest wysyłana do klienta.
+        </p>
+        <form className="mt-4 space-y-3" onSubmit={event=>{
+          if(currentReplyTarget)sendReply(event,currentReplyTarget);else event.preventDefault();
+        }}>
+         <label className="block text-sm font-semibold">Wybierz sprawę
+          <select disabled={!replyableTasks.length||!!replyBusy}
+            value={currentReplyTarget?.id||""} onChange={event=>setReplyTargetId(event.target.value)}
+            className="mt-2 block min-h-11 w-full min-w-0 rounded-xl border border-white/20 bg-[#10213d] px-3">
+           {!replyableTasks.length&&<option value="">Brak zakończonej odpowiedzi — agent jeszcze pracuje</option>}
+           {replyableTasks.map(t=><option value={t.id} key={t.id}>{t.title.slice(0,80)} · {t.status==="ERROR"?"Wymaga poprawy":"Opracowano"}</option>)}
+          </select>
+         </label>
+         <label className="block text-sm font-semibold">Twoja odpowiedź
+          <textarea rows={4} maxLength={5000}
+            disabled={!currentReplyTarget||!!replyBusy||!agent.enabled}
+            value={replyDrafts[currentReplyTarget?.id]||""}
+            onChange={event=>currentReplyTarget&&setReplyDrafts(prev=>({...prev,[currentReplyTarget.id]:event.target.value}))}
+            placeholder="Wpisz odpowiedź na pytania, dodatkowe informacje lub poprawki do przygotowanej oferty…"
+            className="mt-2 block w-full min-w-0 resize-y rounded-xl border border-violet-400/25 bg-[#0c1931] p-3 text-white placeholder:text-slate-500 disabled:opacity-60"/>
+         </label>
+         <button type="submit"
+           disabled={!currentReplyTarget||!!agent.enabled||!!replyBusy||!(replyDrafts[currentReplyTarget?.id]||"").trim()}
+           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 font-semibold text-white hover:bg-violet-400 disabled:opacity-50">
+           <Send size={16}/>{replyBusy?"Przekazuję…":"Wyślij odpowiedź agentowi"}
+         </button>
+         {!currentReplyTarget&&<p role="status" className="text-xs text-amber-200">Gdy agent zakończy odpowiedź, wybierzesz tutaj sprawę i prześlesz kolejną wiadomość.</p>}
+        </form>
+       </div>
       </section>
       <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[.045] p-4 sm:p-6">
        <div className="flex flex-wrap items-center justify-between gap-3">
