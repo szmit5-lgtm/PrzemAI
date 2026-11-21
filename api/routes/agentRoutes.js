@@ -6,6 +6,13 @@ const router = express.Router();
 const prisma = require("../../lib/prisma");
 const KALDEVA_HISTORY_TYPE = "KALDEVA_SALES";
 const MAIL_ALERT_TYPE="DEKONICA_MAIL_ALERT";
+const {OperationalStatusService}=require("../services/OperationalStatusService");
+const operations=new OperationalStatusService();
+router.get("/mail/status",verifyToken,async(req,res)=>{
+ try{return res.json({success:true,data:await operations.mail(req.user.id)});}
+ catch(error){const status=error?.status===403?403:500;
+  return res.status(status).json({success:false,error:status===403?error.message:"Nie udało się ustalić statusu poczty."});}
+});
 // Saved alerts belong to exactly one authenticated user. No endpoint sends,
 // drafts or forwards messages to the shared mailbox.
 router.get("/mail/alerts",verifyToken,async(req,res)=>{
