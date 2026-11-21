@@ -443,6 +443,10 @@ export async function classifyFinanceExpense(id,payload) {
   });
 }
 
+export async function retryAgentAssignment(key,id){
+  return request("/api/agents/workspace/"+encodeURIComponent(key)+"/assignments/"+
+    encodeURIComponent(id)+"/retry",{method:"POST"});
+}
 export async function replyToAgentAssignment(key,id,message) {
   return request("/api/agents/workspace/"+encodeURIComponent(key)+"/assignments/"+
     encodeURIComponent(id)+"/replies",{
