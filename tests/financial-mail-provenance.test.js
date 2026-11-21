@@ -49,7 +49,7 @@ class FakeConnector {
   constructor(config) { this.config = config; }
 
   async fetchRecentMessages(limit) {
-    assert.equal(limit, 30);
+    assert.equal(limit, 50);
     fetchCount += 1;
     if (this.config.email === "broken@example.invalid") {
       throw new Error("IMAP password=NEVER-EXPOSE-THIS");
