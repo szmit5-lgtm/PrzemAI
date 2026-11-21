@@ -79,9 +79,9 @@ class TaskController {
 
         } catch (err) {
 
-            return res.status(500).json({
+            return res.status(err?.code === "INVALID_TASK_DUE_DATE" ? 400 : 500).json({
                 success: false,
-                error: "Nie udało się wykonać operacji na zadaniu."
+                error: err?.code === "INVALID_TASK_DUE_DATE" ? err.message : "Nie udało się wykonać operacji na zadaniu."
             });
 
         }
@@ -105,9 +105,9 @@ class TaskController {
 
         } catch (err) {
 
-            return res.status(500).json({
+            return res.status(err?.code === "INVALID_TASK_DUE_DATE" ? 400 : 500).json({
                 success: false,
-                error: "Nie udało się wykonać operacji na zadaniu."
+                error: err?.code === "INVALID_TASK_DUE_DATE" ? err.message : "Nie udało się wykonać operacji na zadaniu."
             });
 
         }

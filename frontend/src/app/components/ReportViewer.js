@@ -28,7 +28,7 @@ function ListSection({ title, items, accent = "blue" }) {
     );
 }
 
-export default function ReportViewer({ filename, report, onBack }) {
+export default function ReportViewer({ filename, report, notice = "", onBack }) {
     const [saving, setSaving] = useState(false);
     const data = report && typeof report === "object" && !Array.isArray(report) ? report : {};
     const tasks = Array.isArray(data.actionItems) ? data.actionItems.filter(item => item && typeof item.title === "string" && item.title.trim()) : [];
@@ -69,6 +69,8 @@ export default function ReportViewer({ filename, report, onBack }) {
                         </button>
                     </div>
                 </header>
+
+                {notice && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{notice}</p>}
 
                 {summary && (
                     <section className="rounded-3xl border border-blue-100 bg-blue-50 p-6 sm:p-8">

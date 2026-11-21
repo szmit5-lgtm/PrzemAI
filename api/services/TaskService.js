@@ -1,5 +1,40 @@
 const prisma = require("../../lib/prisma");
 
+// Task deadlines are calendar dates. Prisma DateTime accepts a Date instance,
+// not the date-only YYYY-MM-DD strings produced by <input type="date"> and AI.
+function invalidTaskDate() {
+    const error = new Error("Nieprawidłowy termin zadania. Podaj datę RRRR-MM-DD.");
+    error.code = "INVALID_TASK_DUE_DATE";
+    return error;
+}
+
+function normalizeTaskDueDate(value) {
+    if (value == null || (typeof value === "string" && !value.trim())) return null;
+    if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) throw invalidTaskDate();
+        return value;
+    }
+    if (typeof value !== "string") throw invalidTaskDate();
+
+    const input = value.trim();
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(input);
+    const timestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(input);
+    if (!dateOnly && !timestamp) throw invalidTaskDate();
+
+    // Validate calendar dates explicitly: Date() otherwise normalizes 31 February.
+    const day = input.slice(0, 10);
+    const checked = new Date(day + "T12:00:00.000Z");
+    if (Number.isNaN(checked.getTime()) || checked.toISOString().slice(0, 10) !== day) {
+        throw invalidTaskDate();
+    }
+
+    // UTC noon prevents a date-only deadline from appearing as the previous day
+    // in common time zones; no invented hour is shown to the user.
+    const date = new Date(dateOnly ? day + "T12:00:00.000Z" : input);
+    if (Number.isNaN(date.getTime())) throw invalidTaskDate();
+    return date;
+}
+
 class TaskService {
 
     async create(data) {
@@ -12,7 +47,7 @@ class TaskService {
                 description: data.description,
                 priority: data.priority || "MEDIUM",
                 status: data.status || "TODO",
-                dueDate: data.dueDate || null,
+                dueDate: normalizeTaskDueDate(data.dueDate),
                 userId: data.userId
 
             }
@@ -95,7 +130,9 @@ class TaskService {
         if (Object.keys(changes).length === 0) {
             throw new Error("Brak danych do aktualizacji zadania.");
         }
-        if (changes.dueDate === "") changes.dueDate = null;
+        if (Object.prototype.hasOwnProperty.call(changes, "dueDate")) {
+            changes.dueDate = normalizeTaskDueDate(changes.dueDate);
+        }
 
         // Scope the write itself to the owner, not only a preceding read.
         // This also removes the read/write authorization race.
