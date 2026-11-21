@@ -34,6 +34,7 @@ export default function FileUpload({ mode = "document" }) {
 
     const [filename, setFilename] = useState("");
     const [error, setError] = useState("");
+    const [taskNotice, setTaskNotice] = useState("");
 
     function selectFile(selected) {
 
@@ -68,6 +69,7 @@ export default function FileUpload({ mode = "document" }) {
         }
 
         setError("");
+        setTaskNotice("");
         setLoading(true);
 
         try {
@@ -87,6 +89,7 @@ export default function FileUpload({ mode = "document" }) {
             setFilename(analysis.filename);
 
             setReport(analysis.report);
+            setTaskNotice(typeof data?.warning === "string" ? data.warning : "");
 
         }
         catch (err) {
@@ -109,10 +112,11 @@ export default function FileUpload({ mode = "document" }) {
             <ReportViewer
                 filename={filename}
                 report={report}
+                notice={taskNotice}
                 onBack={() => {
 
                     setReport(null);
-
+                    setTaskNotice("");
                     setFile(null);
 
                 }}
