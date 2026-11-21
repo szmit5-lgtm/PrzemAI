@@ -57,7 +57,7 @@ function decode(buffer){
  catch{return new TextDecoder("windows-1250",{fatal:true}).decode(bytes);}
 }
 function isErstePrintedCsv(buffer){
- const start=decode(buffer.subarray(0,Math.min(buffer.length,64000)));
+ const start=decode(buffer).slice(0,64000);
  return start.includes("WYCIĄG Z RACHUNKU BANKOWEGO")&&
    start.includes("NR WYCIĄGU")&&start.includes("OBCIĄŻENIA");
 }
