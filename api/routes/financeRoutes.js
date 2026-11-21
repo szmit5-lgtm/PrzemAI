@@ -4,6 +4,13 @@ const verifyToken = require("../middleware/verifyToken");
 
 const router = express.Router();
 const controller = new FinanceController();
+const {OperationalStatusService}=require("../services/OperationalStatusService");
+const operations=new OperationalStatusService();
+router.get("/history/status",verifyToken,async(req,res)=>{
+ try{return res.json({success:true,data:await operations.ksef(req.user.id)});}
+ catch(error){const status=error?.status===403?403:500;
+  return res.status(status).json({success:false,error:status===403?error.message:"Nie udało się pobrać statusu historii KSeF."});}
+});
 
 router.get(
     "/documents",
