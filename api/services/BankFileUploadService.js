@@ -35,7 +35,7 @@ function safeName(name) {
 function normalizedRow(row,index,orgId,bankAccountId,statementId){
  const bookedAt=new Date(row.date+"T12:00:00.000Z");
  const data={organizationId:orgId,bankAccountId,bankStatementId:statementId,
-  bookedAt,amount:row.amount,
+  bookedAt,amount:row.amount,balanceAfter:row.balanceAfter||null,
   description:row.description,counterparty:row.counterparty||null,reference:row.reference||null};
  const fingerprint=crypto.createHash("sha256").update(JSON.stringify([
   index,row.date,row.amount,row.description,row.counterparty||"",row.reference||""
@@ -84,7 +84,10 @@ class BankFileUploadService {
     parsed=parseBankCsv(file.buffer);
     count=parsed.extractedCount;
     if(parsed.balanceIssue)reason="Saldo początkowe i końcowe nie zgadzają się z sumą operacji. Nie zapisano transakcji w banku.";
-    else if(!parsed.account)reason="Odczytano operacje, ale w pliku nie ma jednoznacznego numeru rachunku firmowego.";
+    else if(Array.isArray(parsed.accounts)){
+     if(!parsed.accounts.length||parsed.accounts.some(group=>!group.account||!group.currency||group.balanceIssue))
+      reason="Co najmniej jeden rachunek wyciągu wymaga weryfikacji.";
+    }else if(!parsed.account)reason="Odczytano operacje, ale w pliku nie ma jednoznacznego numeru rachunku firmowego.";
     else if(!parsed.currency)reason="Odczytano operacje, ale w pliku nie określono waluty rachunku.";
     else if(!/^[A-Z]{3}$/.test(parsed.currency))reason="Nierozpoznana waluta wyciągu.";
    }catch(error){
@@ -126,6 +129,87 @@ class BankFileUploadService {
     select:PUBLIC_SELECT
    });
    return {item,alreadySaved:false};
+  }
+  if(Array.isArray(parsed.accounts)){
+   // Bank-verified printed statements: one upload may contain both CURRENT and
+   // VAT accounts. Commit every complete account in a single transaction, or
+   // none. A matching existing bank statement is not imported twice.
+   try{
+    const result=await this.db.$transaction(async tx=>{
+     const saved=[],skipped=[];
+     for(const group of parsed.accounts){
+      const account=await tx.bankAccount.upsert({
+       where:{organizationId_iban:{organizationId,iban:group.account}},
+       create:{organizationId,iban:group.account,currency:group.currency,
+        accountType:group.accountType},
+       update:{}
+      });
+      if(account.currency!==group.currency||
+       (account.accountType&&account.accountType!==group.accountType)){
+       throw new OrganizationError("Niezgodna waluta lub typ rachunku w imporcie.",422);
+      }
+      const old=await tx.bankStatement.findFirst({
+       where:{organizationId,bankAccountId:account.id,
+        statementNumber:group.statementNumber},
+       select:{id:true,transactionCount:true,openingBalance:true,
+        closingBalance:true,periodStart:true,periodEnd:true}
+      });
+      if(old){
+       const start=old.periodStart?new Date(old.periodStart).toISOString().slice(0,10):null;
+       const end=old.periodEnd?new Date(old.periodEnd).toISOString().slice(0,10):null;
+       if(old.transactionCount!==group.transactions.length||
+        old.openingBalance?.toString()!==group.openingBalance||
+        old.closingBalance?.toString()!==group.closingBalance||
+        start!==group.periodStart||end!==group.periodEnd){
+        throw new OrganizationError("Istnieje wyciąg o tym samym numerze, ale innych danych. Wymaga weryfikacji.",409);
+       }
+       skipped.push(group);
+       continue;
+      }
+      const sourceHash=crypto.createHash("sha256").update(
+       sha256+"|"+group.account+"|"+group.statementNumber).digest("hex");
+      const statement=await tx.bankStatement.create({
+       data:{organizationId,bankAccountId:account.id,sourceHash,
+        statementNumber:group.statementNumber,sourceType:"STATEMENT",
+        openingBalance:group.openingBalance,closingBalance:group.closingBalance,
+        periodStart:new Date(group.periodStart+"T12:00:00.000Z"),
+        periodEnd:new Date(group.periodEnd+"T12:00:00.000Z"),
+        importedByUserId:userId,transactionCount:group.transactions.length}
+      });
+      await tx.bankTransaction.createMany({
+       data:group.transactions.map((row,index)=>
+        normalizedRow(row,index,organizationId,account.id,statement.id))
+      });
+      saved.push({id:statement.id,group});
+     }
+     const newlyAdded=saved.reduce((sum,x)=>sum+x.group.transactions.length,0);
+     const note="Wyciąg Erste: "+parsed.accounts.map(g=>
+      g.accountType+" ••••"+g.account.slice(-4)+" ("+g.transactions.length+" operacji, "+
+      g.statementNumber+")").join("; ")+
+      ". Nowo zaimportowano "+newlyAdded+" operacji; "+
+      skipped.reduce((sum,g)=>sum+g.transactions.length,0)+
+      " pominięto jako wcześniej zaimportowane. Salda uzgodnione dla każdego rachunku.";
+     await tx.bankImportFile.update({
+      where:{id:created.id},
+      data:{status:"IMPORTED",note,transactionCount:parsed.extractedCount,
+       statementId:saved[0]?.id||null,parsedRows:null}
+     });
+     return {saved:saved.length,skipped:skipped.length,newlyAdded};
+    });
+    const item=await this.db.bankImportFile.findFirst({
+     where:{id:created.id,organizationId},select:PUBLIC_SELECT
+    });
+    return {item,alreadySaved:false,importedAccounts:result.saved,
+     skippedAccounts:result.skipped,newlyAdded:result.newlyAdded};
+   }catch(error){
+    const issue=error instanceof OrganizationError?error.message:
+     "Nie udało się uzgodnić i zapisać rachunków. Oryginał pozostaje w bibliotece.";
+    const item=await this.db.bankImportFile.update({
+     where:{id:created.id},data:{status:"REVIEW_REQUIRED",note:issue},
+     select:PUBLIC_SELECT
+    });
+    return {item,alreadySaved:false};
+   }
   }
   // Explicit account and currency come from the uploaded CSV. A transaction
   // export need not have bank statement opening/closing balances.
