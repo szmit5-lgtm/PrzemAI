@@ -39,6 +39,7 @@ export default function CompanyDocuments({ organizationId }) {
   async function submit(event) {
     event.preventDefault();
     if (!file || saving) return;
+    const formElement = event.currentTarget;
     if (!validExtension.test(file.name) || file.size < 1 || file.size > MAX_FILE_SIZE) {
       setError("Wybierz dokument PDF, DOCX lub TXT o rozmiarze do 8 MB.");
       return;
@@ -49,7 +50,7 @@ export default function CompanyDocuments({ organizationId }) {
       if (!result?.item?.id) throw new Error("Brak potwierdzenia zapisu dokumentu.");
       setItems(old => [result.item, ...old.filter(item => item.id !== result.item.id)]);
       setFile(null);
-      event.currentTarget?.reset?.();
+      formElement.reset();
       setNotice("Dokument zapisany w przestrzeni tej firmy.");
     } catch (err) { setError(err?.message || "Nie udało się dodać dokumentu."); }
     finally { setSaving(false); }
