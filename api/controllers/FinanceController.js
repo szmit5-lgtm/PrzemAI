@@ -87,6 +87,24 @@ class FinanceController {
         }
     }
 
+    async setProjectAccess(req, res) {
+        try {
+            const enabled = req.method === "PUT";
+            const item = await this.service.setProjectAccess(
+                req.user.id, req.params.id, req.params.userId, enabled
+            );
+            return res.json({ success: true, item });
+        } catch (error) {
+            const message = error?.message || "Nie udało się zmienić dostępu.";
+            const forbidden = message === "Brak uprawnień administratora spółki." ||
+                message === "Pracownik nie ma aktywnego dostępu do spółki.";
+            const missing = message === "Projekt spółki nie istnieje.";
+            return res.status(forbidden ? 403 : missing ? 404 : 400).json({
+                success: false, error: message
+            });
+        }
+    }
+
     async assignProject(req, res) {
         try {
             const { projectId } = req.body || {};
