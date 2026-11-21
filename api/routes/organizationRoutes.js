@@ -35,7 +35,8 @@ router.get("/:id/bank/summary", verifyToken, async (req,res)=>{
   const accounts=await prisma.bankAccount.findMany({
    where:{organizationId:req.params.id},
    select:{id:true,label:true,accountType:true,currency:true,iban:true,
-    statements:{orderBy:[{periodEnd:"desc"},{importedAt:"desc"}],take:1,
+    statements:{where:{closingBalance:{not:null}},
+     orderBy:[{periodEnd:"desc"},{importedAt:"desc"}],take:1,
      select:{closingBalance:true,periodEnd:true,statementNumber:true}}}
   });
   return res.json({success:true,data:{accounts:accounts.map(a=>({
