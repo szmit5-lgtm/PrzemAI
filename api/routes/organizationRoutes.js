@@ -13,6 +13,8 @@ const {OrganizationBankAccessService}=require("../services/OrganizationBankAcces
 const bankAccess=new OrganizationBankAccessService();
 const {OrganizationBankMonthlyService}=require("../services/OrganizationBankMonthlyService");
 const bankMonthly=new OrganizationBankMonthlyService();
+const {OrganizationBankKsefMatchService}=require("../services/OrganizationBankKsefMatchService");
+const bankKsefMatches=new OrganizationBankKsefMatchService();
 
 const router = express.Router();
 // Private company documents (always check active membership before upload).
@@ -142,6 +144,8 @@ router.get("/:id/finance/summary",verifyToken,
   handler(req=>financeService.summary(req.user.id,req.params.id)));
 router.get("/:id/finance/report/:year",verifyToken,
   handler(req=>financeService.annualReport(req.user.id,req.params.id,req.params.year)));
+router.get("/:id/finance/bank-matches/:year",verifyToken,
+  handler(req=>bankKsefMatches.review(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/documents",verifyToken,
   handler(req=>financeService.documents(req.user.id,req.params.id,req.query)));
 router.get("/:id/finance/projects",verifyToken,
