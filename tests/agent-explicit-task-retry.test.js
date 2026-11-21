@@ -39,7 +39,7 @@ function harness({taskStatus="ERROR",agentEnabled=true,retryCount=0,owner="owner
    isAuthorizedDekonicaUser:()=>false,canSyncMailIntegration:()=>false};
   if(name==="../../lib/agentCatalog")return{
    catalog:[],getAgentDefinition:k=>k==="financial"?{mode:"LIVE_FINANCE"}:
-    k===key?{mode:"TASK_DRAFT"}:null,examples:[]};
+    ["sales","legal"].includes(k)?{mode:"TASK_DRAFT"}:null,examples:[]};
   if(name==="../../lib/agentConversation")return{
    initialTurns:()=>[],appendTurn:()=>[]};
   throw Error("Unexpected import "+name);
@@ -75,7 +75,7 @@ test("non-owner and unrelated agent cannot retry another task",async()=>{
  await assert.rejects(own.service.retryAssignment("outsider","sales","task-1"),/zlecenie/);
  assert.equal(own.calls.some(x=>x.type==="task.update"),false);
  const wrong=harness();
- await assert.rejects(wrong.service.retryAssignment("owner","legal","task-1"),/Agent jest wyłączony/);
+ await assert.rejects(wrong.service.retryAssignment("owner","legal","task-1"),/zlecenie/);
  assert.equal(wrong.calls.some(x=>x.type==="task.update"),false);
 });
 test("financial agent cannot retry via task draft endpoint; disabled agent blocks retry",async()=>{
