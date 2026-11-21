@@ -108,13 +108,44 @@ class FinanceService {
             : { queued: false, status: "RUNNING" };
     }
 
+    // Company projects require explicit grants for members; legacy personal projects
+    // remain visible only to their creator until explicitly assigned to a tenant.
+    async accessibleProjectOrganizations(userId) {
+        const memberships = await prisma.organizationMembership.findMany({
+            where: { userId, status: "ACTIVE", organization: { status: "ACTIVE" } },
+            select: { organizationId: true }
+        });
+        return memberships.map(member => member.organizationId);
+    }
+
     async listProjects(userId) {
         if (typeof userId !== "string" || !userId.trim()) {
             throw new Error("Brak identyfikatora użytkownika.");
         }
+        const organizationIds = await this.accessibleProjectOrganizations(userId);
         return prisma.project.findMany({
-            where: { userId, status: "ACTIVE" },
-            select: { id: true, name: true, aliases: true, company: true },
+            where: {
+                status: "ACTIVE",
+                OR: [
+                    { userId, organizationId: null },
+                    {
+                        organizationId: { in: organizationIds },
+                        projectAccesses: { some: { userId } }
+                    },
+                    {
+                        organizationId: { in: organizationIds },
+                        organization: {
+                            memberships: {
+                                some: {
+                                    userId, status: "ACTIVE",
+                                    role: { in: ["OWNER", "ADMIN"] }
+                                }
+                            }
+                        }
+                    }
+                ]
+            },
+            select: { id: true, name: true, aliases: true, company: true, organizationId: true },
             orderBy: { name: "asc" },
             take: 300
         });
@@ -126,6 +157,8 @@ class FinanceService {
         }
         const name = typeof payload?.name === "string" ? payload.name.trim() : "";
         const company = typeof payload?.company === "string" ? payload.company.trim() : "";
+        const organizationId = typeof payload?.organizationId === "string"
+            ? payload.organizationId.trim() : "";
         const aliases = Array.isArray(payload?.aliases)
             ? [...new Set(payload.aliases.map(x=>typeof x === "string" ? x.trim() : "")
                 .filter(x=>x.length >= 3 && x.length <= 100))].slice(0,10)
@@ -133,14 +166,108 @@ class FinanceService {
         if (name.length < 3 || name.length > 120 || company.length > 100) {
             throw new Error("Nazwa projektu musi mieć 3–120 znaków.");
         }
+        if (organizationId.length > 128) throw new Error("Nieprawidłowa spółka.");
+        const allowed = await this.accessibleProjectOrganizations(userId);
+        // A single-company member creates shared projects by default.
+        // Multiple-company members must choose explicitly to avoid cross-tenant mistakes.
+        const selectedOrganizationId = organizationId || (allowed.length === 1 ? allowed[0] : "");
+        if (organizationId && !allowed.includes(organizationId)) {
+            throw new Error("Brak dostępu do wybranej spółki.");
+        }
+        if (!organizationId && allowed.length > 1) {
+            throw new Error("Wybierz spółkę dla nowego projektu.");
+        }
+        // Only organization admins may create company-wide projects.
+        // Membership alone must not grant project creation or visibility.
+        if (selectedOrganizationId) {
+            const admin = await prisma.organizationMembership.findFirst({
+                where: {
+                    userId, organizationId: selectedOrganizationId, status: "ACTIVE",
+                    role: { in: ["OWNER", "ADMIN"] },
+                    organization: { status: "ACTIVE" }
+                },
+                select: { id: true }
+            });
+            if (!admin) throw new Error("Brak uprawnień do tworzenia projektu spółki.");
+        }
         const existing = await prisma.project.findFirst({
-            where: { userId, name, status: "ACTIVE" },
+            where: {
+                name, status: "ACTIVE",
+                ...(selectedOrganizationId ? { organizationId: selectedOrganizationId } : { userId, organizationId: null })
+            },
             select: { id: true }
         });
         if (existing) throw new Error("Projekt o tej nazwie już istnieje.");
         return prisma.project.create({ data: {
-            userId, name, company: company || null, aliases, status: "ACTIVE"
+            userId, name, company: company || null, aliases, status: "ACTIVE",
+            organizationId: selectedOrganizationId || null
         } });
+    }
+
+    // Explicit owner-initiated mapping for existing legacy projects. No automatic
+    // migration based on the display-only company field.
+    async shareLegacyProject(userId, projectId, organizationId) {
+        if (typeof userId !== "string" || !userId.trim() ||
+            typeof projectId !== "string" || !projectId.trim() || projectId.length > 128 ||
+            typeof organizationId !== "string" || !organizationId.trim() || organizationId.length > 128) {
+            throw new Error("Nieprawidłowe dane przypisania projektu.");
+        }
+        const membership = await prisma.organizationMembership.findFirst({
+            where: {
+                userId, organizationId, status: "ACTIVE",
+                role: { in: ["OWNER", "ADMIN"] },
+                organization: { status: "ACTIVE" }
+            },
+            select: { id: true }
+        });
+        if (!membership) throw new Error("Brak uprawnień administratora spółki.");
+        const updated = await prisma.project.updateMany({
+            where: { id: projectId, userId, organizationId: null, status: "ACTIVE" },
+            data: { organizationId }
+        });
+        if (updated.count !== 1) throw new Error("Projekt nie istnieje lub został już przypisany.");
+        return { id: projectId, organizationId };
+    }
+
+    // Only an active organization administrator can manage explicit project grants.
+    async setProjectAccess(actorId, projectId, targetUserId, enabled) {
+        if (![actorId, projectId, targetUserId].every(value =>
+            typeof value === "string" && value.trim() && value.length <= 128) ||
+            typeof enabled !== "boolean") {
+            throw new Error("Nieprawidłowe dane uprawnień.");
+        }
+        const project = await prisma.project.findFirst({
+            where: { id: projectId, status: "ACTIVE", organizationId: { not: null } },
+            select: { id: true, organizationId: true }
+        });
+        if (!project) throw new Error("Projekt spółki nie istnieje.");
+        const admin = await prisma.organizationMembership.findFirst({
+            where: {
+                userId: actorId, organizationId: project.organizationId,
+                status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] },
+                organization: { status: "ACTIVE" }
+            },
+            select: { id: true }
+        });
+        if (!admin) throw new Error("Brak uprawnień administratora spółki.");
+        const target = await prisma.organizationMembership.findFirst({
+            where: {
+                userId: targetUserId, organizationId: project.organizationId,
+                status: "ACTIVE", organization: { status: "ACTIVE" }
+            },
+            select: { id: true }
+        });
+        if (!target) throw new Error("Pracownik nie ma aktywnego dostępu do spółki.");
+        if (enabled) {
+            await prisma.projectAccess.upsert({
+                where: { projectId_userId: { projectId, userId: targetUserId } },
+                create: { projectId, userId: targetUserId },
+                update: {}
+            });
+        } else {
+            await prisma.projectAccess.deleteMany({ where: { projectId, userId: targetUserId } });
+        }
+        return { projectId, userId: targetUserId, enabled };
     }
 
     async assignProject(userId, id, projectId) {
