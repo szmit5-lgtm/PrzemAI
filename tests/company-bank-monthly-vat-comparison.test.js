@@ -34,7 +34,7 @@ function harness({role="OWNER",incomplete=false}={}){
  const db={
   bankAccount:{async findMany(options){calls.accounts.push(options);return bankAccounts;}},
   bankStatement:{async findMany(options){calls.statements.push(options);return bankStatements.filter(x=>
-   x.periodEnd<options.where.periodEnd.lt);}},
+   x.periodEnd<options.where.periodEnd.lt).sort((a,b)=>a.periodEnd-b.periodEnd||a.importedAt-b.importedAt);}},
   bankTransaction:{async findMany(options){calls.transactions.push(options);return transactions.filter(x=>
    x.bookedAt>=options.where.bookedAt.gte&&x.bookedAt<options.where.bookedAt.lt);}}
  };
