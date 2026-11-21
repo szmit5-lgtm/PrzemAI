@@ -87,6 +87,10 @@ export default function AgentWorkspace(){
       <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-200">{agent.description}</p>
       <p className="mt-3 text-xs leading-5 text-slate-400"><strong className="text-white">Ważne:</strong> {agent.limitations}</p>
      </section>
+     {key==="mail"&&<Link href="/agents/mail/alerts"
+      className="mt-5 flex min-h-14 min-w-0 items-center justify-between gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-4 text-sm font-bold text-cyan-100">
+      Ważne wiadomości HOME.PL — alerty i szkice odpowiedzi <MessageSquareText size={19}/>
+     </Link>}
      <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[.045] p-4 sm:p-6">
        <h2 className="flex items-center gap-2 text-xl font-bold"><Send className="text-cyan-300" size={19}/> Nowe zlecenie</h2>

@@ -289,6 +289,13 @@ export async function updateSettings(settings) {
     });
 }
 
+export async function getHomePlMailAlerts(){
+ return request("/api/agents/mail/alerts");
+}
+export async function markHomePlMailAlertReviewed(id){
+ return request("/api/agents/mail/alerts/"+encodeURIComponent(id)+"/review",
+  {method:"PATCH"});
+}
 export async function getAgents() {
     return request("/api/agents");
 }
