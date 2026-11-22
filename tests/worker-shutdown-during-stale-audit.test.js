@@ -70,6 +70,7 @@ test("SIGTERM waits for an in-flight stale-run audit before disconnecting", asyn
 
   vm.runInNewContext(source, {
     require(name) {
+      if(name==="./core/agents/OrphanedDraftTaskRecovery") return {recoverInterruptedDraftTasks:async()=>({recovered:0})};
       if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
       return dependencies[name];
     },

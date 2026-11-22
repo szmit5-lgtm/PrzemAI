@@ -54,6 +54,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
 
   vm.runInNewContext(source, {
     require(name) {
+      if(name==="./core/agents/OrphanedDraftTaskRecovery") return {recoverInterruptedDraftTasks:async()=>({recovered:0})};
       if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
       return dependencies[name];
     },
@@ -134,6 +135,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
 
   vm.runInNewContext(source, {
     require(name) {
+      if(name==="./core/agents/OrphanedDraftTaskRecovery") return {recoverInterruptedDraftTasks:async()=>({recovered:0})};
       if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
       return dependencies[name];
     },
@@ -198,6 +200,7 @@ test("SIGTERM while Kaldeva queued scan is pending never claims a job", async ()
   };
   vm.runInNewContext(source, {
     require(name) {
+      if(name==="./core/agents/OrphanedDraftTaskRecovery") return {recoverInterruptedDraftTasks:async()=>({recovered:0})};
       if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
       return dependencies[name];
     },

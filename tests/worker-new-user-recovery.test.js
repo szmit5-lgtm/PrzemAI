@@ -35,6 +35,7 @@ test("worker begins scheduling a newly provisioned user after an empty staging c
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
     "./salesLeadPipeline": { buildSalesLeadReport: () => ({}) },
+    "./core/agents/OrphanedDraftTaskRecovery": {recoverInterruptedDraftTasks:async()=>({recovered:0})},
     "./core/agents/AgentRunner": class {
       async run(item, trigger) { events.runs.push([item.id, trigger]); }
     },
