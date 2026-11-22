@@ -19,3 +19,14 @@ test("unknown service name in Railway is denied", () => {
 test("local tests remain available without Railway metadata", () => {
   assert.equal(check({ NODE_ENV:"test" }).ok,true);
 });
+
+test("Railway service without environment metadata is blocked", () => {
+  assert.deepEqual(check({ RAILWAY_SERVICE_NAME:"PrzemAI-worker-staging" }),
+    { ok:false, reason:"missing_railway_environment_name" });
+  assert.equal(check({ RAILWAY_PROJECT_ID:"railway-project" }).ok,false);
+});
+test("unknown Railway environment cannot silently consume a queue", () => {
+  assert.deepEqual(check({ RAILWAY_ENVIRONMENT_NAME:"preview",
+    RAILWAY_SERVICE_NAME:"PrzemAI-worker-staging" }),
+    { ok:false, reason:"unsupported_railway_environment" });
+});
