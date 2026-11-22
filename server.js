@@ -85,6 +85,8 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+const {ensureTelegramWebhook}=require("./api/services/TelegramWebhookSetup");
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log("");
   console.log("=======================================");
@@ -93,4 +95,10 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("HOST: 0.0.0.0");
   console.log("=======================================");
   console.log("");
+  // Explicit opt-in only. Never replace a different existing Telegram webhook.
+  ensureTelegramWebhook().then(result=>{
+    console.log("[TelegramBridge] Webhook bootstrap:",result.status);
+  }).catch(error=>{
+    console.error("[TelegramBridge] Webhook bootstrap failed",error?.message||"unknown");
+  });
 });
