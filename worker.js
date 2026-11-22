@@ -3,6 +3,7 @@ require("dotenv").config();
 const prisma = require("./lib/prisma");
 const AgentRunner = require("./core/agents/AgentRunner");
 const AgentService = require("./api/services/AgentService");
+const {recoverInterruptedDraftTasks}=require("./core/agents/OrphanedDraftTaskRecovery");
 
 const runner = new AgentRunner();
 const service = new AgentService();
@@ -178,6 +179,18 @@ async function cycle() {
       // A failed stale-run scan must not prevent healthy agents from running.
       console.error("[Worker] Stale run scan failed", error.message);
     }
+    // Only stale TASK_DRAFT records are eligible. Mark them ERROR so a user
+    // can explicitly retry; never automatically repeat an AI/external action.
+    let recoveredDraftTasks=0;
+    if (!stopping) try {
+      const draftRecovery=await recoverInterruptedDraftTasks({
+        db:prisma,ownerScope,shouldStop:()=>stopping
+      });
+      recoveredDraftTasks=draftRecovery.recovered;
+      if (recoveredDraftTasks) console.warn("[Worker] Abandoned draft tasks marked ERROR", recoveredDraftTasks);
+    }catch(error){
+      console.error("[Worker] Draft task recovery failed", error?.message||"unknown");
+    }
     if (stopping) return;
     try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }
     catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }
@@ -295,13 +308,14 @@ async function cycle() {
 
     cycleNumber += 1;
     if (cycleNumber === 1 || cycleNumber % 15 === 0 ||
-        completed || failed || recovered) {
+        completed || failed || recovered || recoveredDraftTasks) {
       console.log("[Worker] Cycle", JSON.stringify({
         users: users.length,
         due: due.length,
         completed,
         failed,
-        recovered
+        recovered,
+        recoveredDraftTasks
       }));
     }
   } catch (error) {
