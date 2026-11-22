@@ -22,11 +22,11 @@ class FinanceService {
             userId
         };
 
-        if (options.status) {
+        if (typeof options.status === "string" && options.status.trim()) {
             where.status = options.status;
         }
 
-        if (options.source) {
+        if (typeof options.source === "string" && options.source.trim()) {
             where.source = options.source;
         }
 
