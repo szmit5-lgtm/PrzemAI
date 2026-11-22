@@ -17,6 +17,7 @@ const financeRoutes = require("./api/routes/financeRoutes");
 const organizationRoutes = require("./api/routes/organizationRoutes");
 const adminRoutes = require("./api/routes/adminRoutes");
 const whatsappRoutes = require("./api/routes/whatsappRoutes");
+const telegramRoutes = require("./api/routes/telegramRoutes");
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use("/api/finance", financeRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use("/api/telegram", telegramRoutes);
 
 app.get("/", (req, res) => {
   res.json({

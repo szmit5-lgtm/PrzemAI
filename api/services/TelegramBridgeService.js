@@ -1,0 +1,111 @@
+"use strict";
+const crypto = require("node:crypto");
+const prisma = require("../../lib/prisma");
+const { getAgentDefinition } = require("../../lib/agentCatalog");
+
+const LINK_TYPE = "TELEGRAM_LINK";
+const EVENT_TYPE = "TELEGRAM_EVENT";
+const MAX_AGE_MS = 10 * 60 * 1000;
+const BOT_COMMANDS = "Komendy: /status, /zadanie <agent> <polecenie>. Przyklad: /zadanie construction Przygotuj plan odbiorow Mielno.";
+function code() { return crypto.randomUUID(); }
+
+async function createLink({ userId, db = prisma, now = new Date() }) {
+  if (!userId) throw Error("UNAUTHORIZED");
+  const linkCode = code();
+  await db.history.create({data:{
+    id:linkCode, userId, title:"Telegram: powiazanie konta",
+    filename:"", type: LINK_TYPE,
+    report:{ status:"PENDING", expiresAt:new Date(now.getTime()+MAX_AGE_MS).toISOString() }
+  }});
+  return { code:linkCode, expiresAt:new Date(now.getTime()+MAX_AGE_MS).toISOString() };
+}
+async function findBinding(db, telegramUserId) {
+  return db.history.findFirst({
+    where:{type:LINK_TYPE, report:{path:["telegramUserId"],equals:String(telegramUserId)}},
+    select:{userId:true,report:true},orderBy:{updatedAt:"desc"}
+  });
+}
+async function handleCommand({ update, db = prisma, now = new Date() }) {
+  const msg = update?.message;
+  if (!msg || typeof msg.text !== "string" || msg.chat?.type !== "private" ||
+      !Number.isSafeInteger(msg.from?.id) || msg.chat?.id !== msg.from.id)
+    return null;
+  const telegramUserId = String(msg.from.id), text = msg.text.trim();
+  if (text.startsWith("/start ")) {
+    const match = /^\/start\s+([0-9a-f]{8}-[0-9a-f-]{27,})$/.exec(text);
+    if (!match) return {chatId:msg.chat.id, text:"Nieprawidlowy kod laczenia."};
+    const id=match[1];
+    const candidate=await db.history.findFirst({where:{id,type:LINK_TYPE},select:{userId:true,report:true}});
+    if (!candidate || candidate.report?.status!=="PENDING" ||
+        !candidate.report?.expiresAt || new Date(candidate.report.expiresAt)<=now)
+      return {chatId:msg.chat.id,text:"Kod wygasl lub zostal wykorzystany. Wygeneruj nowy w PrzemAI."};
+    const existing = await findBinding(db,telegramUserId);
+    if (existing && existing.userId!==candidate.userId)
+      return {chatId:msg.chat.id,text:"To konto Telegram jest juz powiazane z innym uzytkownikiem."};
+    const claimed=await db.history.updateMany({
+      where:{id,type:LINK_TYPE,report:{path:["status"],equals:"PENDING"}},
+      data:{report:{status:"LINKED",telegramUserId,linkedAt:now.toISOString(),expiresAt:candidate.report.expiresAt}}
+    });
+    return {chatId:msg.chat.id,text:claimed.count===1?"Polaczono Telegram z kontem PrzemAI. "+BOT_COMMANDS:"Kod zostal juz wykorzystany."};
+  }
+  const binding=await findBinding(db,telegramUserId);
+  if (!binding || binding.report?.status!=="LINKED")
+    return {chatId:msg.chat.id,text:"Najpierw polacz konto Telegram z PrzemAI za pomoca jednorazowego kodu."};
+  if (text==="/start" || text==="/help")
+    return {chatId:msg.chat.id,text:BOT_COMMANDS};
+  if (text==="/status") {
+    const counts=await db.task.groupBy({by:["status"],where:{userId:binding.userId,source:"AGENT"},_count:{_all:true}});
+    const summary=counts.map(x=>x.status+": "+x._count._all).join(", ")||"brak zlecen";
+    return {chatId:msg.chat.id,text:"PrzemAI — zadania: "+summary};
+  }
+  if (text.startsWith("/zadanie ")) {
+    const m=/^\/zadanie\s+([a-z]+)\s+([\s\S]+)$/.exec(text);
+    const key=m?.[1],instruction=m?.[2]?.trim();
+    const def=getAgentDefinition(key);
+    if(!def || def.mode!=="TASK_DRAFT" || !instruction || instruction.length<5 || instruction.length>4000)
+      return {chatId:msg.chat.id,text:"Podaj: /zadanie <agent> <polecenie> (5–4000 znakow)."};
+    if(!Number.isSafeInteger(update.update_id) || update.update_id<0)
+      return {chatId:msg.chat.id,text:"Nie mozna potwierdzic identyfikatora wiadomosci."};
+    const eventId="tg-"+crypto.createHash("sha256").update(String(update.update_id)).digest("hex");
+    try {
+      const task=await db.$transaction(async tx=>{
+        await tx.history.create({data:{id:eventId,userId:binding.userId,type:EVENT_TYPE,
+          title:"Telegram command",filename:"",report:{telegramUserId,updateId:update.update_id}}});
+        const agent=await tx.agent.findFirst({where:{userId:binding.userId,key,enabled:true},select:{id:true}});
+        if(!agent) throw Error("AGENT_NOT_ENABLED");
+        const item=await tx.task.create({data:{
+          userId:binding.userId,source:"AGENT",priority:"MEDIUM",status:"TODO",
+          title:instruction.replace(/\s+/g," ").slice(0,110),description:instruction,tags:[key],
+          metadata:{agentKey:key,dispatchOrigin:"TELEGRAM",resultStatus:"QUEUED",
+            submittedAt:now.toISOString()}
+        },select:{id:true}});
+        await tx.agent.updateMany({
+          where:{id:agent.id,userId:binding.userId,enabled:true,NOT:{status:"RUNNING"}},
+          data:{nextRunAt:now,status:"IDLE"}
+        });
+        return item;
+      });
+      return {chatId:msg.chat.id,text:"Przyjeto zlecenie ("+key+"). ID: "+task.id+". Sprawdz /status."};
+    } catch(err) {
+      if (err?.code==="P2002") return {chatId:msg.chat.id,text:"Zlecenie z tej wiadomosci zostalo juz przyjete."};
+      if(err?.message==="AGENT_NOT_ENABLED") return {chatId:msg.chat.id,text:"Ten agent nie jest aktywny."};
+      throw err;
+    }
+  }
+  return {chatId:msg.chat.id,text:BOT_COMMANDS};
+}
+
+async function sendTelegramMessage({chatId,text,token=process.env.TELEGRAM_TOKEN,fetchFn=fetch}) {
+  if(!token) throw Error("TELEGRAM_TOKEN_NOT_SET");
+  const response=await fetchFn("https://api.telegram.org/bot"+token+"/sendMessage",{
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({chat_id:chatId,text:String(text).slice(0,3900)})
+  });
+  if(!response.ok) throw Error("Telegram API HTTP "+response.status);
+}
+function validWebhookSecret(received, expected=process.env.TELEGRAM_WEBHOOK_SECRET) {
+  if(typeof expected!=="string" || expected.length<16 || typeof received!=="string") return false;
+  const a=Buffer.from(received),b=Buffer.from(expected);
+  return a.length===b.length && crypto.timingSafeEqual(a,b);
+}
+module.exports={createLink,handleCommand,sendTelegramMessage,validWebhookSecret};
