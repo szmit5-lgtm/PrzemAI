@@ -83,6 +83,27 @@ app.use((err, req, res, next) => {
   });
 });
 
+const {notifyCompletedTelegramTasks}=require("./api/services/TelegramTaskNotifications");
+const TELEGRAM_NOTIFICATION_POLL_MS=30000;
+let notificationBusy=false;
+async function checkTelegramNotifications(){
+  if(notificationBusy||process.env.TELEGRAM_NOTIFICATIONS_ENABLED!=="true")return;
+  notificationBusy=true;
+  try{
+    const report=await notifyCompletedTelegramTasks();
+    if(report.sent)console.log("[TelegramNotifications] Sent",report.sent);
+  }catch(err){
+    console.error("[TelegramNotifications] Cycle failed",err?.name||"Error");
+  }finally{notificationBusy=false;}
+}
+if(process.env.TELEGRAM_NOTIFICATIONS_ENABLED==="true"){
+  // The API service has the Telegram bot token; work is claimed durably
+  // so concurrent instances cannot deliver the same terminal task twice.
+  const notifier=setInterval(checkTelegramNotifications,TELEGRAM_NOTIFICATION_POLL_MS);
+  notifier.unref?.();
+  setImmediate(checkTelegramNotifications);
+}
+
 const PORT = process.env.PORT || 3000;
 
 const {ensureTelegramWebhook}=require("./api/services/TelegramWebhookSetup");
