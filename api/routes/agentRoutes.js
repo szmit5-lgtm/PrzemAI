@@ -169,6 +169,23 @@ router.post("/kaldeva/jobs/:id/cancel", verifyToken, async (req, res) => {
   }
 });
 
+const { dispatchPlan } = require("../services/MultiAgentDispatchService");
+// Authenticated multi-agent delegation. The worker performs drafts later;
+// accepting a plan never executes an external or financial action.
+router.post("/plans", verifyToken, async (req, res) => {
+  try {
+    const data = await dispatchPlan({ userId: req.user?.id, payload: req.body });
+    return res.status(202).json({ success: true, data });
+  } catch (error) {
+    if (/^Agent .* jest wyłączony/.test(error?.message || ""))
+      return res.status(409).json({ success: false, error: error.message });
+    if (/^(Podaj plan|Tytuł planu|Plan musi|Nieobsługiwany agent|Instrukcja musi|Każdego agenta)/.test(error?.message || ""))
+      return res.status(400).json({ success: false, error: error.message });
+    console.error("[MultiAgentDispatch] Cannot accept plan", error?.name || "Error");
+    return res.status(503).json({ success: false, error: "Nie można zapisać całego planu. Nie przyjęto zlecenia." });
+  }
+});
+
 const controller = new AgentController();
 
 router.get("/workspace/:key/assignments",verifyToken,(req,res)=>controller.assignments(req,res));
