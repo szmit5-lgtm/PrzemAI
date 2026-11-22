@@ -1,5 +1,13 @@
 require("dotenv").config();
 
+// Stop before Prisma, queues, mail or external integrations are initialized.
+const { checkWorkerRailwayIsolation } = require("./lib/workerRailwayIsolation");
+const workerIsolation = checkWorkerRailwayIsolation(process.env);
+if (!workerIsolation.ok) {
+  console.error("[Worker] Refusing unsafe Railway environment:", workerIsolation.reason);
+  process.exit(78);
+}
+
 const prisma = require("./lib/prisma");
 const AgentRunner = require("./core/agents/AgentRunner");
 const AgentService = require("./api/services/AgentService");
