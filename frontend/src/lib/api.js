@@ -664,3 +664,7 @@ export async function importOrganizationBankStatement(orgId,payload){
 export async function getOrganizationBankStatements(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/statements");
 }
+
+export async function createTelegramLinkCode(){
+ return request("/api/telegram/link-code",{method:"POST"});
+}
