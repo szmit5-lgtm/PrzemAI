@@ -3,6 +3,7 @@ const prisma=require("../../lib/prisma");
 const AIEngine=require("../../core/ai/AIEngine");
 const {getAgentDefinition}=require("../../lib/agentCatalog");
 const {appendTurn,buildConversationPrompt,safeTurns}=require("../../lib/agentConversation");
+const {investmentContext}=require("../../api/services/InvestmentContextService");
 // Public-source discovery is opt-in per sales assignment and never sends messages.
 async function discoverPublicSources(query) {
  const q=String(query||"").replace(/https?:\/\/\S+/g," ").replace(/\s+/g," ").trim().slice(0,180);
@@ -60,6 +61,9 @@ class BusinessTaskAgent{
      if(!sources.length)throw Error("Brak wyników publicznego wyszukiwania; nie generuję fikcyjnych leadów.");
      console.log("[BusinessTaskAgent] Public source candidates",JSON.stringify({agentKey,count:sources.length}));
     }
+    const context=agentKey==="construction"
+      ?await investmentContext({userId,instruction:String(task.description||task.title||""),db:this.db})
+      :"";
     const result=await ai.ask({
      system:"Jesteś "+def.name+" w PrzemAI. "+def.description+
       " Odpowiadaj po polsku. Wykonujesz analizę, piszesz szkice i plany działań wyłącznie na podstawie informacji dostarczonych w zleceniu. "+
@@ -67,7 +71,7 @@ class BusinessTaskAgent{
       "Możesz wskazać znalezione publiczne strony jako kandydatów do kontaktu, wyłącznie z podaniem ich URL. Nie nazywaj ich zweryfikowanymi klientami ani nie twierdź, że wysłałeś ofertę, zweryfikowałeś kontakt, sprawdziłeś przetarg lub wykonałeś inną operację zewnętrzną. "+
       "Nie wymyślaj cen, klientów, faktów ani kontaktów. Jeśli brak danych, wymień potrzebne informacje. "+
       "Pokaż konkretne wyniki i następne kroki; ewentualne wysłanie wiadomości wymaga akceptacji użytkownika.",
-     user:buildConversationPrompt(task)+(sources.length?"\n\nPUBLICZNE WYNIKI WYSZUKIWANIA (niezweryfikowane kontakty; cytuj URL, deduplikuj firmy):\n"+JSON.stringify(sources):""),
+     user:buildConversationPrompt(task)+context+(sources.length?"\n\nPUBLICZNE WYNIKI WYSZUKIWANIA (niezweryfikowane kontakty; cytuj URL, deduplikuj firmy):\n"+JSON.stringify(sources):""),
      model:"gpt-5.5"
     });
     if(typeof result!=="string"||!result.trim())throw Error("Pusta odpowiedź.");
