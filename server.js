@@ -18,6 +18,7 @@ const organizationRoutes = require("./api/routes/organizationRoutes");
 const adminRoutes = require("./api/routes/adminRoutes");
 const whatsappRoutes = require("./api/routes/whatsappRoutes");
 const telegramRoutes = require("./api/routes/telegramRoutes");
+const mt5PersonalRoutes = require("./api/routes/mt5PersonalRoutes");
 
 const app = express();
 
@@ -51,6 +52,7 @@ app.use("/api/organizations", organizationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/telegram", telegramRoutes);
+app.use("/api/mt5/personal", mt5PersonalRoutes);
 
 app.get("/", (req, res) => {
   res.json({
