@@ -183,6 +183,10 @@ router.post("/:id/investments",verifyToken,
 router.patch("/:id/investments/:investmentId",verifyToken,
   handler(req=>investmentService.update(req.user.id,req.params.id,req.params.investmentId,req.body)));
 
+router.put("/:id/investments/:investmentId/assignees",verifyToken,
+  handler(req=>investmentService.assignMembers(req.user.id,req.params.id,
+    req.params.investmentId,req.body)));
+
 router.get("/:id/workspace",verifyToken,handler(req=>service.workspace(req.user.id,req.params.id)));
 router.post("/:id/workspace/tasks",verifyToken,
   handler(req=>service.createCompanyTask(req.user.id,req.params.id,req.body)));
