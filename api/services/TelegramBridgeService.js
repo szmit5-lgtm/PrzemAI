@@ -80,8 +80,8 @@ async function handleCommand({ update, db = prisma, now = new Date() }) {
     if(page>pages)return {chatId:msg.chat.id,text:"Raport ma "+pages+" stron. Uzyj /wynik "+id+" "+pages+"."};
     const chunk=full.slice((page-1)*size,page*size);
     const heading="PrzemAI — raport: "+String(task.title||"Zlecenie").slice(0,110)+
-      "\\nStrona "+page+"/"+pages+"\\n\\n";
-    const footer=page<pages?"\\n\\nDalej: /wynik "+id+" "+(page+1):"\\n\\nKoniec raportu.";
+      "\nStrona "+page+"/"+pages+"\n\n";
+    const footer=page<pages?"\n\nDalej: /wynik "+id+" "+(page+1):"\n\nKoniec raportu.";
     return {chatId:msg.chat.id,text:heading+chunk+footer};
   }
   if (text.startsWith("/zadanie ")) {
