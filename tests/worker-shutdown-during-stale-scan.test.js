@@ -61,6 +61,7 @@ test("SIGTERM during a stale-run scan does not recover agents or query users", a
 
   vm.runInNewContext(source, {
     require(name) {
+      if(name==="./core/agents/OrphanedDraftTaskRecovery") return {recoverInterruptedDraftTasks:async()=>({recovered:0})};
       if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
       return dependencies[name];
     },
