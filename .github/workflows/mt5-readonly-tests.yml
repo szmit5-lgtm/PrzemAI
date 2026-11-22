@@ -1,0 +1,27 @@
+name: MT5 read-only Python safety tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mt5_real_readonly_snapshot.py'
+      - 'tests/test_mt5_real_readonly_snapshot.py'
+      - '.github/workflows/mt5-readonly-tests.yml'
+  push:
+    paths:
+      - 'scripts/mt5_real_readonly_snapshot.py'
+      - 'tests/test_mt5_real_readonly_snapshot.py'
+      - '.github/workflows/mt5-readonly-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify read-only snapshot with synthetic broker
+        run: python -m unittest discover -s tests -p test_mt5_real_readonly_snapshot.py -v

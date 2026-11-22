@@ -31,6 +31,7 @@ model User {
   createdOrganizationInvestments OrganizationInvestment[]
   uploadedBankImportFiles BankImportFile[]
   linkedOrganizationFinances OrganizationFinanceLink[]
+  personalMt5Snapshots PersonalMt5Snapshot[]
 }
 
 model History {
@@ -551,4 +552,24 @@ model WhatsAppMessage {
 
   @@index([organizationId, receivedAt])
   @@index([organizationId, contactWaId, receivedAt])
+}
+
+// Personal-only MT5 read-only snapshots. Never associate with Organization.
+model PersonalMt5Snapshot {
+  id String @id @default(cuid())
+  userId String
+  capturedAt DateTime
+  receivedAt DateTime @default(now())
+  source String @default("MT5_LOCAL")
+  mode String @default("REAL")
+  currency String @db.VarChar(3)
+  balance Decimal @db.Decimal(20, 5)
+  equity Decimal @db.Decimal(20, 5)
+  positionCount Int
+  positions Json
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, capturedAt])
+  @@index([userId, receivedAt])
 }
