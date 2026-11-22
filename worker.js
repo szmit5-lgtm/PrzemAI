@@ -43,6 +43,7 @@ async function recoverStaleRuns() {
         where: {
           id: agent.id,
           status: "RUNNING",
+          ...(ownerScope ? { userId: ownerScope } : {}),
           updatedAt: { lt: cutoff }
         },
         data: { status: "ERROR", nextRunAt: now }
@@ -262,6 +263,7 @@ async function cycle() {
         lock = await prisma.agent.updateMany({
           where: {
             id: agent.id,
+            userId: agent.userId,
             enabled: true,
             NOT: { status: "RUNNING" },
             OR: [
@@ -287,7 +289,7 @@ async function cycle() {
       if (stopping) {
         try {
           await prisma.agent.updateMany({
-            where: { id: agent.id, status: "RUNNING" },
+            where: { id: agent.id, userId: agent.userId, status: "RUNNING" },
             data: { status: "IDLE", nextRunAt: new Date() }
           });
         } catch (error) {
