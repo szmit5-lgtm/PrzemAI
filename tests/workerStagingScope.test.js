@@ -15,3 +15,10 @@ test("invalid explicit scope fails closed for any worker", () => {
 test("legacy production without scope retains existing behavior until rollout", () => {
   assert.equal(workerOwnerScope({ RAILWAY_SERVICE_NAME: "PrzemAI-worker-production" }), null);
 });
+
+test("staging environment blocks an unscoped generically named worker", () => {
+  assert.throws(() => workerOwnerScope({ RAILWAY_SERVICE_NAME: "PrzemAI-worker", RAILWAY_ENVIRONMENT_NAME: "staging" }), /requires WORKER_OWNER_USER_ID/);
+});
+test("staging environment allows a valid explicit owner scope", () => {
+  assert.equal(workerOwnerScope({ RAILWAY_SERVICE_NAME: "PrzemAI-worker", RAILWAY_ENVIRONMENT_NAME: "staging", WORKER_OWNER_USER_ID: "owner-2" }), "owner-2");
+});
