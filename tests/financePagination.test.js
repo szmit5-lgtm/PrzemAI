@@ -7,6 +7,7 @@ const Module = require("node:module");
 const calls = [];
 let nextDocuments = null;
 const fakePrisma = {
+  organizationMembership: { async findMany() { return []; } },
   project: {
     async findMany(options) {
       calls.push({ method: "project.findMany", options });
@@ -200,8 +201,17 @@ test("finance project list rejects missing tenant without database reads", async
   assert.deepEqual(calls[0], {
     method: "project.findMany",
     options: {
-      where: { userId: "user-7", status: "ACTIVE" },
-      select: { id: true, name: true, aliases: true, company: true },
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { userId: "user-7", organizationId: null },
+          { organizationId: { in: [] }, projectAccesses: { some: { userId: "user-7" } } },
+          { organizationId: { in: [] }, organization: { memberships: { some: {
+            userId: "user-7", status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] }
+          } } } }
+        ]
+      },
+      select: { id: true, name: true, aliases: true, company: true, organizationId: true },
       orderBy: { name: "asc" },
       take: 300
     }
