@@ -45,6 +45,7 @@ test("SIGTERM during an in-flight agent claim releases the claim without startin
 
   vm.runInNewContext(source, {
     require(name) {
+      if(name==="./core/agents/OrphanedDraftTaskRecovery") return {recoverInterruptedDraftTasks:async()=>({recovered:0})};
       if (!Object.hasOwn(dependencies, name)) throw new Error("Unexpected dependency: " + name);
       return dependencies[name];
     },
