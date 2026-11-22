@@ -22,7 +22,7 @@ function formatNotification(task) {
   const result=String(task.metadata?.result||"").trim();
   return ("PrzemAI — zadanie zakończone\nAgent: "+key+"\nTemat: "+title+
     "\n\n"+(result?result.slice(0,MAX_TEXT_LENGTH):"Wynik jest dostępny w PrzemAI.")+
-    (result.length>MAX_TEXT_LENGTH?"\n\n[Dalsza część w PrzemAI]":"")+
+    (result.length>MAX_TEXT_LENGTH?"\n\nPełny wynik: /wynik "+task.id+" 1":"")+
     "\n\nID: "+task.id).slice(0,3900);
 }
 
