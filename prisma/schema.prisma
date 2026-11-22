@@ -378,6 +378,7 @@ model OrganizationInvestment {
   status String @default("NOT_SET")
   progress Int?
   source String @default("MANUAL")
+  assignedUserIds String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
