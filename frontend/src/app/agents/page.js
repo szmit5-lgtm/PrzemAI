@@ -59,6 +59,12 @@ export default function AgentsPage(){
            <RefreshCw size={17} className={loading?"animate-spin":""}/> Odśwież
          </button>
        </div>
+       <Link href="/agents/telegram"
+        className="mt-5 flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-[#1c2146] p-4">
+        <span><strong className="block text-base">Połącz Telegram z PrzemAI</strong>
+          <span className="mt-1 block text-xs text-slate-300">Jednorazowy kod, prywatny czat i powiązanie z kontem</span></span>
+        <ArrowUpRight size={20} className="shrink-0 text-violet-200"/>
+       </Link>
        <Link href="/agents/monitor"
         className="mt-5 flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-[#143c46] to-[#202447] p-4 sm:p-5">
         <span><strong className="block text-base">Centrum monitorowania agentów 24/7</strong>
