@@ -43,6 +43,7 @@ function startWorker(overrides = {}) {
     "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("Unexpected lead discovery"); } },
     "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("Unexpected company search"); } },
     "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("Unexpected sales report"); } },
+    "./core/agents/OrphanedDraftTaskRecovery": {recoverInterruptedDraftTasks:async()=>({recovered:0})},
     "./core/agents/AgentRunner": AgentRunner,
     "./api/services/AgentService": AgentService
   };
