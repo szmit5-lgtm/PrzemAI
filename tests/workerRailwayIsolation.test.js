@@ -31,4 +31,4 @@ test("unknown Railway environment cannot silently consume a queue", () => {
     { ok:false, reason:"unsupported_railway_environment" });
 });
 
-test("unclassified Railway service cannot consume production or staging queues", () => {\n  for (const name of ["PrzemAI", "PrzemAI-worker", "PrzemAI-isolated-api-test"]) {\n    for (const environment of ["production", "staging"]) {\n      assert.deepEqual(check({ RAILWAY_ENVIRONMENT_NAME: environment, RAILWAY_SERVICE_NAME: name }),\n        { ok:false, reason:"unclassified_worker_service" });\n    }\n  }\n});\n
+test("unclassified Railway service cannot consume production or staging queues", () => {\n  for (const name of ["PrzemAI", "PrzemAI-worker", "PrzemAI-worker-other"]) {\n    for (const environment of ["production", "staging"]) {\n      assert.deepEqual(check({ RAILWAY_ENVIRONMENT_NAME: environment, RAILWAY_SERVICE_NAME: name }),\n        { ok:false, reason:"unclassified_worker_service" });\n    }\n  }\n});\n
