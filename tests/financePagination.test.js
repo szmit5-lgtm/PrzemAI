@@ -247,3 +247,13 @@ test("finance expense classification rejects missing tenant before database acce
     assert.equal(calls.length, 0, "missing tenant must not read or update expense invoices");
   }
 });
+
+
+test("finance list rejects Prisma operator objects in status and source filters", async () => {
+  calls.length = 0;
+  await new FinanceService().list("tenant-safe", {
+    status: { not: "PAID" }, source: { in: ["KSEF", "MAIL"] }
+  });
+  const query = calls.find(call => call.method === "findMany").options;
+  assert.deepEqual(query.where, { userId: "tenant-safe" });
+});
