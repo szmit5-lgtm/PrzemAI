@@ -6,7 +6,7 @@ const { getAgentDefinition } = require("../../lib/agentCatalog");
 const LINK_TYPE = "TELEGRAM_LINK";
 const EVENT_TYPE = "TELEGRAM_EVENT";
 const MAX_AGE_MS = 10 * 60 * 1000;
-const BOT_COMMANDS = "Komendy: /status, /zadanie <agent> <polecenie>. Przyklad: /zadanie construction Przygotuj plan odbiorow Mielno.";
+const BOT_COMMANDS = "Komendy: /status, /zadanie <agent> <polecenie>, /wynik <ID> [strona]. Przyklad: /wynik cmws0bgef0001ob0xkssl3j9b 2.";
 function code() { return crypto.randomUUID(); }
 
 async function createLink({ userId, db = prisma, now = new Date() }) {
@@ -57,6 +57,32 @@ async function handleCommand({ update, db = prisma, now = new Date() }) {
     const counts=await db.task.groupBy({by:["status"],where:{userId:binding.userId,source:"AGENT"},_count:{_all:true}});
     const summary=counts.map(x=>x.status+": "+x._count._all).join(", ")||"brak zlecen";
     return {chatId:msg.chat.id,text:"PrzemAI — zadania: "+summary};
+  }
+  if (text==="/wynik" || text.startsWith("/wynik ")) {
+    const m=/^\/wynik\s+([a-z0-9_-]{12,80})(?:\s+(\d{1,3}))?$/.exec(text);
+    if(!m) return {chatId:msg.chat.id,text:"Uzyj: /wynik <ID zadania> [numer strony]."};
+    const id=m[1],page=Number(m[2]||"1");
+    if(page<1||page>100)return {chatId:msg.chat.id,text:"Strona musi byc od 1 do 100."};
+    const task=await db.task.findFirst({
+      where:{id,userId:binding.userId,source:"AGENT"},
+      select:{id:true,title:true,status:true,metadata:true}
+    });
+    if(!task || task.metadata?.dispatchOrigin!=="TELEGRAM")
+      return {chatId:msg.chat.id,text:"Nie znaleziono Twojego zlecenia Telegram."};
+    if(task.status!=="DONE" && task.status!=="ERROR")
+      return {chatId:msg.chat.id,text:"Zlecenie jest jeszcze w toku. Status: "+task.status+"."};
+    if(task.status==="ERROR")
+      return {chatId:msg.chat.id,text:"Zlecenie zakonczylo sie bledem. Sprawdz je w PrzemAI. ID: "+task.id};
+    const full=String(task.metadata?.result||"");
+    if(!full.trim())return {chatId:msg.chat.id,text:"Brak zapisanego wyniku dla tego zlecenia."};
+    const size=3000;
+    const pages=Math.ceil(full.length/size);
+    if(page>pages)return {chatId:msg.chat.id,text:"Raport ma "+pages+" stron. Uzyj /wynik "+id+" "+pages+"."};
+    const chunk=full.slice((page-1)*size,page*size);
+    const heading="PrzemAI — raport: "+String(task.title||"Zlecenie").slice(0,110)+
+      "\\nStrona "+page+"/"+pages+"\\n\\n";
+    const footer=page<pages?"\\n\\nDalej: /wynik "+id+" "+(page+1):"\\n\\nKoniec raportu.";
+    return {chatId:msg.chat.id,text:heading+chunk+footer};
   }
   if (text.startsWith("/zadanie ")) {
     const m=/^\/zadanie\s+([a-z]+)\s+([\s\S]+)$/.exec(text);
