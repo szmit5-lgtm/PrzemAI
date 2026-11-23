@@ -39,3 +39,15 @@ test("unclassified Railway service cannot consume production or staging queues",
     }
   }
 });
+
+test("API and frontend services never acquire worker queue access", () => {
+  for (const [environment, service] of [
+    ["production", "PrzemAI-api-production"],
+    ["production", "PrzemAI-frontend-production"],
+    ["staging", "PrzemAI-api-staging"],
+    ["staging", "PrzemAI-frontend-staging"]
+  ]) {
+    assert.deepEqual(check({ RAILWAY_ENVIRONMENT_NAME: environment, RAILWAY_SERVICE_NAME: service }),
+      { ok: false, reason: "unclassified_worker_service" });
+  }
+});
