@@ -51,3 +51,11 @@ test("API and frontend services never acquire worker queue access", () => {
       { ok: false, reason: "unclassified_worker_service" });
   }
 });
+
+test("production mode without Railway identity fails closed before queue access", () => {
+  assert.deepEqual(check({ NODE_ENV: "production" }),
+    { ok: false, reason: "missing_railway_environment_name" });
+  assert.deepEqual(check({ NODE_ENV: " production " }),
+    { ok: false, reason: "missing_railway_environment_name" });
+  assert.equal(check({ NODE_ENV: "development" }).ok, true);
+});
