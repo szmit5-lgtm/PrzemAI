@@ -41,6 +41,7 @@ test("SIGTERM waits for an active cycle and prevents new agent work", async () =
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./lib/workerRailwayIsolation": { checkWorkerRailwayIsolation: () => ({ ok: true }) },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
@@ -119,6 +120,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./lib/workerRailwayIsolation": { checkWorkerRailwayIsolation: () => ({ ok: true }) },
     "./lib/workerOwnerScope": { workerOwnerScope: () => "user-1" },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
@@ -195,6 +197,7 @@ test("SIGTERM during stale-agent scan skips Kaldeva and user queue reads", async
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./lib/workerRailwayIsolation": { checkWorkerRailwayIsolation: () => ({ ok: true }) },
     "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected run"); } },
     "./api/services/AgentService": class { async ensureDefaults() { throw new Error("unexpected provisioning"); } },
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
