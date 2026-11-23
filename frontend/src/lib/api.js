@@ -459,6 +459,13 @@ export async function getOrganizationInvestments(orgId) {
   return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments");
 }
 
+export async function assignOrganizationInvestmentMembers(orgId, investmentId, userIds) {
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments/" + encodeURIComponent(investmentId) + "/assignees", {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userIds })
+  });
+}
+
 export async function createOrganizationInvestment(orgId, payload) {
   return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments", {
     method: "POST", headers: { "Content-Type": "application/json" },
