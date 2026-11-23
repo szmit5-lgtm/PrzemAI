@@ -8,6 +8,8 @@ on:
       - 'tests/workerRailwayIsolation.test.js'
       - 'worker.js'
       - 'tests/worker-shutdown.test.js'
+      - 'tests/worker-stale-drain.test.js'
+      - 'tests/worker-stale-drain.test.js'
       - '.github/workflows/worker-isolation-ci.yml'
   pull_request:
     paths:
@@ -34,5 +36,6 @@ jobs:
           node --check tests/workerRailwayIsolation.test.js
           node --check worker.js
           node --check tests/worker-shutdown.test.js
+          node --check tests/worker-stale-drain.test.js
       - name: Regression tests
-        run: node --test tests/workerRailwayIsolation.test.js tests/worker-shutdown.test.js
+        run: node --test tests/workerRailwayIsolation.test.js tests/worker-shutdown.test.js tests/worker-stale-drain.test.js
