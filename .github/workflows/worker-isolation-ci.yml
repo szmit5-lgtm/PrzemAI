@@ -1,5 +1,12 @@
 name: Worker isolation regression
 on:
+  push:
+    branches:
+      - safety/whatsapp-worker-ci-20261115
+    paths:
+      - 'lib/workerRailwayIsolation.js'
+      - 'tests/workerRailwayIsolation.test.js'
+      - '.github/workflows/worker-isolation-ci.yml'
   pull_request:
     paths:
       - 'lib/workerRailwayIsolation.js'
