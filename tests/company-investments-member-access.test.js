@@ -59,6 +59,7 @@ test("active MEMBER can list ONLY nonfinancial projects from their own organizat
   assert.equal(result.items.length, 1);
   assert.equal(calls.memberships[0].organizationId, "dekonica-org");
   assert.equal(calls.reads[0].where.organizationId, "dekonica-org");
+  assert.equal(calls.reads[0].where.assignedUserIds.has, "leszek");
   assert.equal(calls.reads[0].select.progress, true);
   assert.equal(calls.reads[0].select.financialDocuments, undefined);
 });
@@ -104,5 +105,6 @@ test("API routing and workspace both expose company investments without finance 
   assert.match(routes, /router\.patch\("\/:id\/investments\/:investmentId",verifyToken/);
   assert.match(companyPage, /href=\{"\/company\/"\+encodeURIComponent\(id\)\+"\/investments"\}/);
   assert.match(investmentsPage, /getOrganizationInvestments\(id\)/);
-  assert.match(investmentsPage, /Wspólny widok inwestycji dla pracowników tej spółki/);
+  assert.match(investmentsPage, /Pracownicy widzą tylko przypisane im inwestycje/);
+  assert.match(investmentsPage, /Przypisz pracowników do inwestycji/);
 });
