@@ -119,6 +119,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./lib/workerOwnerScope": { workerOwnerScope: () => "user-1" },
     "./core/agents/AgentRunner": class {
       async run() { events.runs += 1; }
     },
@@ -141,7 +142,7 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
     },
     console: { log() {}, warn() {}, error(message) { throw new Error(message); } },
     process: {
-      env: {},
+      env: { WORKER_OWNER_USER_ID: "user-1", KSEF_OWNER_BOOT_RUN: "true", KSEF_SYNC_ENABLED: "true", KSEF_OWNER_USER_ID: "user-1" },
       on(signal, handler) { handlers[signal] = handler; },
       exit(code) { events.exits.push(code); }
     },
@@ -161,6 +162,8 @@ test("SIGTERM during default-agent provisioning waits and skips all subsequent w
   await shutdown;
   assert.deepEqual(events.provisioned, ["user-1"], "do not provision another user after SIGTERM");
   assert.equal(events.dueReads, 0, "do not scan due agents after SIGTERM");
+  // With KSeF boot explicitly enabled, agent.updateMany must still never run.
+  // Its mock throws if shutdown incorrectly queues a financial agent.
   assert.equal(events.runs, 0);
   assert.equal(events.disconnects, 1);
   assert.deepEqual(events.exits, [0]);
