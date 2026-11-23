@@ -5,11 +5,19 @@ const OpenAI = require("openai");
 class AIEngine {
 
     constructor() {
+        // Do not require an AI credential merely to boot non-AI routes.
+        this._client = null;
+    }
 
-        this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-
+    get client() {
+        if (!this._client) {
+            const apiKey = process.env.OPENAI_API_KEY;
+            if (!apiKey) {
+                throw new Error("OPENAI_API_KEY is required to execute AI requests.");
+            }
+            this._client = new OpenAI({ apiKey });
+        }
+        return this._client;
     }
 
     async ask(options) {
