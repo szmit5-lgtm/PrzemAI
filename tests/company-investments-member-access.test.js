@@ -61,7 +61,16 @@ test("active MEMBER can list ONLY nonfinancial projects from their own organizat
   assert.equal(calls.reads[0].where.organizationId, "dekonica-org");
   assert.equal(calls.reads[0].where.assignedUserIds.has, "leszek");
   assert.equal(calls.reads[0].select.progress, true);
+  assert.equal(calls.reads[0].select.assignedUserIds, false);
   assert.equal(calls.reads[0].select.financialDocuments, undefined);
+});
+
+test("admin can inspect assignment identifiers to manage investment access", async () => {
+  const { service, calls } = harness("ADMIN");
+  await service.list("admin", "dekonica-org");
+  assert.equal(calls.reads[0].where.organizationId, "dekonica-org");
+  assert.equal(calls.reads[0].where.assignedUserIds, undefined);
+  assert.equal(calls.reads[0].select.assignedUserIds, true);
 });
 
 test("nonmember is rejected before fetching any organization projects", async () => {
