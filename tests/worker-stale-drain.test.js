@@ -41,6 +41,7 @@ function boot(staleCount, lostClaims = new Set()) {
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
+    "./lib/workerRailwayIsolation": { checkWorkerRailwayIsolation: () => ({ ok: true }) },
     "./core/agents/AgentRunner": class { async run() { throw new Error("unexpected run"); } },
     "./publicLeadDiscovery": { discoverPublicLeads: async () => ({ leads: [] }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => [] },
