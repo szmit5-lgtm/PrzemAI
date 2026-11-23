@@ -61,7 +61,7 @@ test("active MEMBER can list ONLY nonfinancial projects from their own organizat
   assert.equal(calls.reads[0].where.organizationId, "dekonica-org");
   assert.equal(calls.reads[0].where.assignedUserIds.has, "leszek");
   assert.equal(calls.reads[0].select.progress, true);
-  assert.equal(calls.reads[0].select.assignedUserIds, false);
+  assert.equal(Object.hasOwn(calls.reads[0].select, "assignedUserIds"), false);
   assert.equal(calls.reads[0].select.financialDocuments, undefined);
 });
 
