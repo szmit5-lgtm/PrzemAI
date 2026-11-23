@@ -6,11 +6,15 @@ on:
     paths:
       - 'lib/workerRailwayIsolation.js'
       - 'tests/workerRailwayIsolation.test.js'
+      - 'worker.js'
+      - 'tests/worker-shutdown.test.js'
       - '.github/workflows/worker-isolation-ci.yml'
   pull_request:
     paths:
       - 'lib/workerRailwayIsolation.js'
       - 'tests/workerRailwayIsolation.test.js'
+      - 'worker.js'
+      - 'tests/worker-shutdown.test.js'
       - '.github/workflows/worker-isolation-ci.yml'
   workflow_dispatch:
 jobs:
@@ -28,5 +32,7 @@ jobs:
         run: |
           node --check lib/workerRailwayIsolation.js
           node --check tests/workerRailwayIsolation.test.js
+          node --check worker.js
+          node --check tests/worker-shutdown.test.js
       - name: Regression tests
-        run: node --test tests/workerRailwayIsolation.test.js
+        run: node --test tests/workerRailwayIsolation.test.js tests/worker-shutdown.test.js
