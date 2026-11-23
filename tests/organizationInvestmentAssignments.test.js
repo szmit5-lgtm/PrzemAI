@@ -49,14 +49,18 @@ test("can clear assignments", async () => {
 
 test("regular member sees only explicitly assigned investments in their company", async () => {
   let where;
+  let select;
   const db = { organizationInvestment: { findMany: async query => {
     where = query.where;
-    return [{ id: "mielno", assignedUserIds: ["leszek"] }];
+    select = query.select;
+    return [{ id: "mielno" }];
   } } };
   const orgService = { membership: async () => ({ role: "MEMBER" }) };
   const service = new OrganizationInvestmentService({ db, orgService });
   const result = await service.list("leszek", "dekonica");
   assert.deepEqual(where, { organizationId: "dekonica", assignedUserIds: { has: "leszek" } });
+  assert.equal(select.assignedUserIds, undefined, "Prisma select must not mix true and false");
+  assert.ok(Object.values(select).every(value => value === true), "Prisma select must contain only included fields");
   assert.equal(result.items.length, 1);
 });
 test("owner can still list all company investments without assignment filter", async () => {
