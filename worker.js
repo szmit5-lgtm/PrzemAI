@@ -217,6 +217,9 @@ async function cycle() {
       }
     }
 
+    // SIGTERM during default-agent provisioning must not queue a KSeF boot run.
+    if (stopping) return;
+
     // Explicit deployment-only kick-off for the verified production KSeF owner.
     // This never runs for ordinary users, the staging worker, or disabled KSeF.
     if (!ownerBootRunQueued && ownerScope &&
