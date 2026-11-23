@@ -15,7 +15,7 @@ class OrganizationInvestmentService {
   }
 
   async list(userId, organizationId) {
-    // Company membership alone suffices to view NON-FINANCIAL projects.
+    // Active organization membership is required; staff see only assigned projects.
     // KSeF, invoices and bank statements are deliberately not queried.
     const member = await this.orgService.membership(userId, organizationId);
     // Non-admin users can only see projects explicitly assigned to them.
@@ -23,9 +23,12 @@ class OrganizationInvestmentService {
     const where = ["OWNER", "ADMIN"].includes(member.role)
       ? { organizationId }
       : { organizationId, assignedUserIds: { has: userId } };
+    // Do not disclose other employees' identifiers to ordinary members.
+    const select = ["OWNER", "ADMIN"].includes(member.role)
+      ? SELECT : { ...SELECT, assignedUserIds: false };
     const rows = await this.db.organizationInvestment.findMany({
       where,
-      select: SELECT,
+      select,
       orderBy: [{ name: "asc" }, { createdAt: "asc" }],
       take: 150
     });
