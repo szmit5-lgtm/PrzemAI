@@ -70,3 +70,17 @@ test("owner can still list all company investments without assignment filter", a
   await service.list("owner", "dekonica");
   assert.deepEqual(where, { organizationId: "dekonica" });
 });
+
+test("admin may assign active members, but an unauthorized member is rejected before database writes", async () => {
+  const { service } = setup(["leszek"]);
+  await service.assignMembers("admin", "dekonica", "mielno", { userIds: ["leszek"] });
+  let touched = false;
+  const db = { organizationMembership: { findMany: async () => { touched = true; return []; } } };
+  const orgService = { membership: async () => { throw new OrganizationError("Brak uprawnień.", 403); } };
+  const denied = new OrganizationInvestmentService({ db, orgService });
+  await assert.rejects(
+    denied.assignMembers("member", "dekonica", "mielno", { userIds: ["leszek"] }),
+    error => error instanceof OrganizationError && error.status === 403
+  );
+  assert.equal(touched, false);
+});
