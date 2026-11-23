@@ -1,0 +1,25 @@
+name: Worker isolation regression
+on:
+  pull_request:
+    paths:
+      - 'lib/workerRailwayIsolation.js'
+      - 'tests/workerRailwayIsolation.test.js'
+      - '.github/workflows/worker-isolation-ci.yml'
+  workflow_dispatch:
+jobs:
+  worker-isolation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check lib/workerRailwayIsolation.js
+          node --check tests/workerRailwayIsolation.test.js
+      - name: Regression tests
+        run: node --test tests/workerRailwayIsolation.test.js
