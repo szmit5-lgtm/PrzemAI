@@ -64,6 +64,7 @@ export default function CompanyInvestments() {
   const [company, setCompany] = useState(null);
   const [items, setItems] = useState([]);
   const [members, setMembers] = useState([]);
+  const [membersLoaded, setMembersLoaded] = useState(false);
   const [assignmentId, setAssignmentId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -76,14 +77,14 @@ export default function CompanyInvestments() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    setLoading(true); setError(""); setItems([]); setCompany(null);
+    setLoading(true); setError(""); setItems([]); setCompany(null); setMembers([]); setMembersLoaded(false);
     Promise.all([getOrganization(id),getOrganizationInvestments(id)]).then(([c,p])=>{
       if (!active) return;
       if (c?.data?.id !== id || !Array.isArray(p?.data?.items)) throw new Error("Nie udało się potwierdzić danych spółki.");
       setCompany(c.data); setItems(p.data.items);
       if (["OWNER", "ADMIN"].includes(c.data.role)) {
         getOrganizationMembers(id).then(result => {
-          if (active && Array.isArray(result?.data)) setMembers(result.data);
+          if (active && Array.isArray(result?.data)) { setMembers(result.data); setMembersLoaded(true); }
         }).catch(e => { if (active) setError(e?.message || "Nie udało się pobrać listy pracowników."); });
       }
     }).catch(e=>{if(active)setError(e?.message||"Nie udało się pobrać inwestycji.");})
@@ -168,7 +169,8 @@ export default function CompanyInvestments() {
               className="ml-2 mt-4 min-h-11 rounded-xl border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200">
               {assignmentId===item.id?"Zamknij przypisania":"Przypisz pracowników"}
             </button>}
-            {canEdit&&assignmentId===item.id&&<AssignmentPanel key={item.id} item={item} members={members} busy={busy} save={saveAssignments}/>}
+            {canEdit&&assignmentId===item.id&&!membersLoaded&&<p role="status" className="mt-3 text-sm text-amber-200">Lista pracowników nie jest dostępna. Przypisywanie jest zablokowane do czasu jej pobrania.</p>}
+            {canEdit&&assignmentId===item.id&&membersLoaded&&<AssignmentPanel key={item.id} item={item} members={members} busy={busy} save={saveAssignments}/>}
             {canEdit&&editId===item.id&&<EditPanel key={item.id} item={item} busy={busy} save={save}/>}
           </article>)}
         </div>
