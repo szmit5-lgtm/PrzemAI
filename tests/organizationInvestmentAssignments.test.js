@@ -46,3 +46,27 @@ test("can clear assignments", async () => {
   const row = await service.assignMembers("owner", "dekonica", "mielno", { userIds: [] });
   assert.deepEqual(row.assignedUserIds, []);
 });
+
+test("regular member sees only explicitly assigned investments in their company", async () => {
+  let where;
+  const db = { organizationInvestment: { findMany: async query => {
+    where = query.where;
+    return [{ id: "mielno", assignedUserIds: ["leszek"] }];
+  } } };
+  const orgService = { membership: async () => ({ role: "MEMBER" }) };
+  const service = new OrganizationInvestmentService({ db, orgService });
+  const result = await service.list("leszek", "dekonica");
+  assert.deepEqual(where, { organizationId: "dekonica", assignedUserIds: { has: "leszek" } });
+  assert.equal(result.items.length, 1);
+});
+test("owner can still list all company investments without assignment filter", async () => {
+  let where;
+  const db = { organizationInvestment: { findMany: async query => {
+    where = query.where;
+    return [];
+  } } };
+  const orgService = { membership: async () => ({ role: "OWNER" }) };
+  const service = new OrganizationInvestmentService({ db, orgService });
+  await service.list("owner", "dekonica");
+  assert.deepEqual(where, { organizationId: "dekonica" });
+});
