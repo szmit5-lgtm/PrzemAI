@@ -6,7 +6,7 @@ import { ArrowLeft, Building2, FolderKanban, Plus, RefreshCw, ShieldCheck, Save 
 import Navbar from "../../../components/Navbar";
 import UserMenu from "../../../components/UserMenu";
 import {
-  getOrganization, getOrganizationInvestments,
+  getOrganization, getOrganizationMembers, getOrganizationInvestments, assignOrganizationInvestmentMembers,
   createOrganizationInvestment, updateOrganizationInvestment
 } from "@/lib/api";
 
@@ -15,6 +15,25 @@ const statusOptions = [
   ["ON_HOLD", "Wstrzymana"], ["COMPLETED", "Zakończona"]
 ];
 const statusLabels = Object.fromEntries(statusOptions);
+function AssignmentPanel({ item, members, busy, save }) {
+  const [selected, setSelected] = useState(item.assignedUserIds || []);
+  const activeMembers = members.filter(member => member.status === "ACTIVE" && member.user?.id);
+  return <form onSubmit={e => { e.preventDefault(); save(item.id, selected); }}
+    className="mt-4 space-y-3 rounded-xl border border-cyan-400/25 bg-cyan-500/5 p-4">
+    <h3 className="font-semibold">Przypisz pracowników do inwestycji</h3>
+    <p className="text-xs text-slate-300">Dostęp do inwestycji otrzymają wyłącznie wskazani aktywni członkowie tej spółki. Finanse pozostają oddzielnie chronione.</p>
+    {activeMembers.map(member => <label key={member.user.id} className="flex min-h-11 items-center gap-3 text-sm">
+      <input type="checkbox" checked={selected.includes(member.user.id)}
+        onChange={e => setSelected(current => e.target.checked
+          ? [...current, member.user.id]
+          : current.filter(id => id !== member.user.id))}
+        className="h-4 w-4" />
+      <span>{member.user.email} ({member.role})</span>
+    </label>)}
+    {!activeMembers.length && <p className="text-sm text-amber-200">Brak aktywnych pracowników do przypisania.</p>}
+    <button type="submit" disabled={busy} className="min-h-11 rounded-xl bg-cyan-700 px-4 font-semibold text-white disabled:opacity-50">Zapisz przypisania</button>
+  </form>;
+}
 function EditPanel({ item, busy, save }) {
   const [status, setStatus] = useState(item.status || "NOT_SET");
   const [progress, setProgress] = useState(item.progress == null ? "" : String(item.progress));
@@ -44,6 +63,8 @@ export default function CompanyInvestments() {
   const { id } = useParams();
   const [company, setCompany] = useState(null);
   const [items, setItems] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [assignmentId, setAssignmentId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +81,11 @@ export default function CompanyInvestments() {
       if (!active) return;
       if (c?.data?.id !== id || !Array.isArray(p?.data?.items)) throw new Error("Nie udało się potwierdzić danych spółki.");
       setCompany(c.data); setItems(p.data.items);
+      if (["OWNER", "ADMIN"].includes(c.data.role)) {
+        getOrganizationMembers(id).then(result => {
+          if (active && Array.isArray(result?.data)) setMembers(result.data);
+        }).catch(e => { if (active) setError(e?.message || "Nie udało się pobrać listy pracowników."); });
+      }
     }).catch(e=>{if(active)setError(e?.message||"Nie udało się pobrać inwestycji.");})
       .finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;};
@@ -73,7 +99,7 @@ export default function CompanyInvestments() {
       const result=await createOrganizationInvestment(id,{name:newName,description:newDescription});
       if(!result?.data?.id) throw new Error("Nie otrzymano potwierdzenia dodania inwestycji.");
       setNewName(""); setNewDescription("");
-      setNotice("Inwestycja dodana do tej spółki — widoczna dla aktywnych członków zespołu.");
+      setNotice("Inwestycja dodana. Przypisz pracowników, aby mogli ją zobaczyć.");
       setRefresh(n=>n+1);
     } catch(e){setError(e?.message||"Nie udało się dodać inwestycji.");}
     finally{setBusy(false);}
@@ -90,6 +116,18 @@ export default function CompanyInvestments() {
     }catch(e){setError(e?.message||"Nie udało się zapisać zmian.");}
     finally{setBusy(false);}
   }
+  async function saveAssignments(investmentId, userIds) {
+    if (busy) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await assignOrganizationInvestmentMembers(id, investmentId, userIds);
+      if (!result?.data?.id) throw new Error("Brak potwierdzenia przypisania.");
+      setItems(current => current.map(item => item.id === investmentId ? result.data : item));
+      setAssignmentId("");
+      setNotice("Zapisano przypisania pracowników.");
+    } catch (e) { setError(e?.message || "Nie udało się zapisać przypisań."); }
+    finally { setBusy(false); }
+  }
   return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] px-3 py-5 pb-28 text-slate-100 sm:px-6 lg:px-8">
     <div className="mx-auto w-full max-w-7xl">
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#111c35] p-4">
@@ -101,7 +139,7 @@ export default function CompanyInvestments() {
       <section className="rounded-3xl border border-violet-400/25 bg-gradient-to-r from-[#241847] to-[#103657] p-5 sm:p-7">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-violet-200"><FolderKanban size={16}/> Projekty zespołu</p>
         <h1 className="mt-2 break-words text-2xl font-black sm:text-4xl">Inwestycje — {company?.displayName||company?.name||"spółka"}</h1>
-        <p className="mt-3 text-sm text-slate-200">Wspólny widok inwestycji dla pracowników tej spółki, bez udostępniania faktur KSeF, banków i danych innych spółek.</p>
+        <p className="mt-3 text-sm text-slate-200">Pracownicy widzą tylko przypisane im inwestycje. Finanse KSeF i banków pozostają oddzielnie chronione.</p>
       </section>
       {loading&&<p role="status" className="mt-5 text-slate-300">Pobieram inwestycje tej spółki…</p>}
       {error&&<p role="alert" className="mt-5 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</p>}
@@ -126,11 +164,16 @@ export default function CompanyInvestments() {
               className="mt-4 min-h-11 rounded-xl border border-violet-400/30 px-4 text-sm font-semibold text-violet-200">
               {editId===item.id?"Zamknij edycję":"Aktualizuj"}
             </button>}
+            {canEdit&&<button type="button" onClick={()=>setAssignmentId(assignmentId===item.id?"":item.id)}
+              className="ml-2 mt-4 min-h-11 rounded-xl border border-cyan-400/30 px-4 text-sm font-semibold text-cyan-200">
+              {assignmentId===item.id?"Zamknij przypisania":"Przypisz pracowników"}
+            </button>}
+            {canEdit&&assignmentId===item.id&&<AssignmentPanel key={item.id} item={item} members={members} busy={busy} save={saveAssignments}/>}
             {canEdit&&editId===item.id&&<EditPanel key={item.id} item={item} busy={busy} save={save}/>}
           </article>)}
         </div>
         {!items.length&&<div className="mt-5 rounded-xl border border-dashed border-white/15 p-6 text-sm text-slate-400">
-          Brak wspólnych inwestycji. Właściciel lub administrator może dodać projekty tej spółki poniżej.
+          Brak dostępnych inwestycji. Właściciel lub administrator może dodać inwestycje i przypisać pracowników.
         </div>}
         {canEdit&&<form onSubmit={create} className="mt-6 max-w-2xl space-y-4 rounded-2xl border border-white/10 bg-[#111c35] p-5">
           <h2 className="flex items-center gap-2 text-lg font-bold"><Plus size={18} className="text-violet-300"/> Dodaj inwestycję spółki</h2>
