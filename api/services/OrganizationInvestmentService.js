@@ -25,7 +25,7 @@ class OrganizationInvestmentService {
       : { organizationId, assignedUserIds: { has: userId } };
     // Do not disclose other employees' identifiers to ordinary members.
     const select = ["OWNER", "ADMIN"].includes(member.role)
-      ? SELECT : { ...SELECT, assignedUserIds: false };
+      ? SELECT : Object.fromEntries(Object.entries(SELECT).filter(([key]) => key !== "assignedUserIds"));
     const rows = await this.db.organizationInvestment.findMany({
       where,
       select,
