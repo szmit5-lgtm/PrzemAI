@@ -11,7 +11,7 @@ import UserMenu from "./components/UserMenu";
 import CompanyBankSnapshot from "./components/CompanyBankSnapshot";
 import {
  getAgents,getExecutiveDashboard,getFinanceSummary,getFinanceProjects,
- getOrganizations,getOrganizationFinanceSummary,getOrganizationFinanceAnnualReport,getFinancePeriodReport
+ getOrganizations,getOrganizationInvestments,getOrganizationFinanceSummary,getOrganizationFinanceAnnualReport,getFinancePeriodReport
 } from "@/lib/api";
 
 const months=["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"];
@@ -76,6 +76,7 @@ function SmallLink({href,title,icon:Icon}) {
 }
 export default function HomePage() {
  const [data,setData]=useState(null);
+ const [orgProjects,setOrgProjects]=useState(null);
  const [loading,setLoading]=useState(true);
  const [errors,setErrors]=useState(0);
  const [refresh,setRefresh]=useState(0);
@@ -124,15 +125,24 @@ export default function HomePage() {
    else window.localStorage.removeItem("przemai-primary-organization");}catch{}
  };
  const agents=Array.isArray(data?.agents)?data.agents:[];
- const personalProjects=Array.isArray(data?.projects)?data.projects:[];
  const selectedOrg=(data?.organizations||[]).find(o=>o.id===primaryCompany);
  const companyFinance=selectedOrg&&companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
  const companyReport=selectedOrg&&companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
- const projects=primaryCompany&&!selectedOrg?[]:selectedOrg?personalProjects.filter(p=>{
-  const label=String(p.company||"").toLocaleLowerCase("pl-PL");
-  const orgName=String(selectedOrg.name||"").toLocaleLowerCase("pl-PL");
-  return label===orgName || (/(deherus|m1)/.test(orgName)&&/(deherus|^m1$)/.test(label));
- }):personalProjects;
+ const projectScope=JSON.stringify([primaryCompany,(data?.organizations||[]).map(o=>o.id)]);
+ useEffect(()=>{
+  if(!data)return;
+  let active=true;
+  const orgs=(data.organizations||[]).filter(o=>!primaryCompany||o.id===primaryCompany);
+  Promise.allSettled(orgs.map(async o=>{
+   const r=await getOrganizationInvestments(o.id);
+   if(!Array.isArray(r?.data?.items))throw Error("Nieprawidłowa lista inwestycji");
+   return r.data.items.map(p=>({...p,company:o.displayName||o.name,organizationId:o.id}));
+  })).then(results=>{if(active)setOrgProjects({scope:projectScope,items:results.flatMap(r=>r.status==="fulfilled"?r.value:[]),error:results.some(r=>r.status==="rejected")});});
+  return()=>{active=false;};
+ },[projectScope,data,refresh]);
+ const currentProjects=orgProjects?.scope===projectScope?orgProjects:null;
+ const projects=primaryCompany&&!selectedOrg?[]:currentProjects?.items||[];
+ const investmentHref=selectedOrg?"/company/"+encodeURIComponent(selectedOrg.id)+"/investments":"/company/setup";
  const organizations=Array.isArray(data?.organizations)?data.organizations:[];
  const summary=data?.executive?.summary||{};
  const finance=data?.finance||{};
@@ -253,15 +263,15 @@ export default function HomePage() {
     </section>
     {!simpleMode&&<><div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
      <Panel className="p-4 sm:p-5">
-      <SectionTitle href="/finance/projects" link="Zarządzaj inwestycjami">Kluczowe inwestycje</SectionTitle>
+      <SectionTitle href={investmentHref} link="Zarządzaj inwestycjami">Kluczowe inwestycje</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">Projekty dostępne na koncie</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
-       {projects.slice(0,3).map(p=><div key={p.id} className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-blue-400/20 bg-[#121b32] p-2">
+       {projects.map(p=><div key={p.organizationId+":"+p.id} className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-blue-400/20 bg-[#121b32] p-2">
         <span aria-hidden="true" className="flex h-16 items-center justify-center rounded-lg bg-gradient-to-br from-[#234562] to-[#172540] text-blue-200"><Building2 size={32}/></span>
         <div className="min-w-0 flex-1"><strong className="block break-words text-sm">{p.name}</strong><p className="truncate text-xs text-slate-400">{p.company||"Brak określonej spółki"}</p></div>
-        <Link href="/finance/projects" aria-label={"Zobacz "+p.name} className="flex min-h-9 items-center justify-between text-xs text-violet-300">Szczegóły <ChevronRight size={16}/></Link>
+        <Link href={"/company/"+encodeURIComponent(p.organizationId)+"/investments"} aria-label={"Zobacz "+p.name} className="flex min-h-9 items-center justify-between text-xs text-violet-300">Szczegóły <ChevronRight size={16}/></Link>
        </div>)}
-       {projects.length===0&&<p className="py-5 text-sm text-slate-400">{loading?"Pobieranie projektów…":"Nie utworzono jeszcze inwestycji."}</p>}
+       {projects.length===0&&<p className="py-5 text-sm text-slate-400">{loading||!currentProjects?"Pobieranie projektów…":currentProjects.error?"Nie udało się pobrać inwestycji.":"Brak dostępnych inwestycji."}</p>}
       </div>
      </Panel>
      <Panel className="p-4 sm:p-5">
