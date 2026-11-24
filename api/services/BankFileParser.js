@@ -105,9 +105,9 @@ function decodeCsv(buffer){
  catch{return new TextDecoder("windows-1250",{fatal:true}).decode(source);}
 }
 function parseErsteHistory(text){
- const rows=parseDelimited(text,",");
  const expected=["nadawca","rachuneknadawcy","odbiorca","rachunekodbiorcy","tytul","kwota","waluta","zaksiegowano","saldopooperacji"];
- if(JSON.stringify(rows[0]?.map(label))!==JSON.stringify(expected))return null;
+ const rows=[",",";","\t"].map(d=>parseDelimited(text,d)).find(rs=>JSON.stringify(rs[0]?.map(label))===JSON.stringify(expected));
+ if(!rows)return null;
  if(rows.length<2||rows.length>10001)throw Error("Nieprawidłowa liczba operacji.");
  const groups=new Map();
  for(const row of rows.slice(1)){
