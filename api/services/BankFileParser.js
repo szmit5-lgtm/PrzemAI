@@ -104,12 +104,42 @@ function decodeCsv(buffer){
  try{return new TextDecoder("utf-8",{fatal:true}).decode(source);}
  catch{return new TextDecoder("windows-1250",{fatal:true}).decode(source);}
 }
+function parseErsteHistory(text){
+ const rows=parseDelimited(text,",");
+ const expected=["nadawca","rachuneknadawcy","odbiorca","rachunekodbiorcy","tytul","kwota","waluta","zaksiegowano","saldopooperacji"];
+ if(JSON.stringify(rows[0]?.map(label))!==JSON.stringify(expected))return null;
+ if(rows.length<2||rows.length>10001)throw Error("Nieprawidłowa liczba operacji.");
+ const groups=new Map();
+ for(const row of rows.slice(1)){
+  const amount=parseAmount(row[5]),balance=parseAmount(row[8]),date=normalizeDate(row[7]);
+  if(row.length!==9||!amount||!balance||!date||amount.cents===0n||row[6]!=="PLN")throw Error("Nieprawidłowa operacja historii Erste.");
+  const outgoing=amount.cents<0n,account=iban(row[outgoing?1:3]);
+  if(!account)throw Error("Nieprawidłowy rachunek własny historii Erste.");
+  if(!groups.has(account))groups.set(account,[]);
+  groups.get(account).push({date,amount:amount.amount,balanceAfter:balance.amount,description:row[4].slice(0,1000),counterparty:row[outgoing?2:0].slice(0,250),reference:""});
+ }
+ const accounts=[];
+ for(const [account,rows] of groups){
+  const valid=rs=>rs.every((r,i)=>!i||(r.date>=rs[i-1].date&&parseAmount(rs[i-1].balanceAfter).cents+parseAmount(r.amount).cents===parseAmount(r.balanceAfter).cents));
+  const transactions=valid(rows)?rows:valid([...rows].reverse())?[...rows].reverse():null;
+  if(!transactions)throw Error("Brak ciągłości salda historii Erste.");
+  const first=transactions[0],last=transactions[transactions.length-1];
+  const cents=parseAmount(first.balanceAfter).cents-parseAmount(first.amount).cents;
+  const abs=cents<0n?-cents:cents;
+  const openingBalance=(cents<0n?"-":"")+(abs/100n)+"."+String(abs%100n).padStart(2,"0");
+  const hash=require("node:crypto").createHash("sha256").update(JSON.stringify(transactions)).digest("hex").slice(0,24);
+  accounts.push({account,currency:"PLN",sourceType:"CSV_EXPORT",statementNumber:"CSV_HISTORY_"+hash,transactions,openingBalance,closingBalance:last.balanceAfter,periodStart:first.date,periodEnd:last.date,balanceIssue:false});
+ }
+ return {accounts,extractedCount:rows.length-1,balanceIssue:false};
+}
 function parseBankCsv(buffer) {
  // Erste iBiznes24's printed-statement CSV is structurally different from
  // ordinary bank transaction exports and can carry several accounts.
  const {isErstePrintedCsv,parseErstePrintedCsv}=require("./ErsteStatementCsvParser");
  if(isErstePrintedCsv(buffer))return parseErstePrintedCsv(buffer);
  const text=decodeCsv(buffer);
+ const history=parseErsteHistory(text);
+ if(history)return history;
  if(text.includes("\0"))throw Error("CSV zawiera niepoprawne dane binarne.");
  let best=null;
  for(const delimiter of [";","\t",","]){
