@@ -12,7 +12,8 @@ const SCHEMA_QUERY = [
   'to_regclass(\'public."BankAccount"\') IS NOT NULL AS "bankAccount",',
   'to_regclass(\'public."BankStatement"\') IS NOT NULL AS "bankStatement",',
   'to_regclass(\'public."BankTransaction"\') IS NOT NULL AS "bankTransaction",',
-  'to_regclass(\'public."_prisma_migrations"\') IS NOT NULL AS "migrations"'
+  'to_regclass(\'public."_prisma_migrations"\') IS NOT NULL AS "migrations",',
+  'EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = \'public\' AND table_name = \'OrganizationInvestment\' AND column_name = \'assignedUserIds\' AND udt_name = \'_text\' AND is_nullable = \'NO\') AS "investmentAssignees"'
 ].join(" ");
 
 async function probe({ env = process.env, db, log = console } = {}) {
@@ -25,7 +26,7 @@ async function probe({ env = process.env, db, log = console } = {}) {
   if (!Array.isArray(rows) || rows.length !== 1) {
     throw new Error("STAGING_SCHEMA_PROBE_INVALID_RESULT");
   }
-  const keys = ["whatsapp", "bankAccount", "bankStatement", "bankTransaction", "migrations"];
+  const keys = ["whatsapp", "bankAccount", "bankStatement", "bankTransaction", "migrations", "investmentAssignees"];
   const result = {};
   for (const key of keys) {
     if (typeof rows[0][key] !== "boolean") {
