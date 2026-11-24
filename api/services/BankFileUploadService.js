@@ -212,10 +212,10 @@ class BankFileUploadService {
       const account=await tx.bankAccount.upsert({
        where:{organizationId_iban:{organizationId,iban:group.account}},
        create:{organizationId,iban:group.account,currency:group.currency,
-        accountType:group.accountType},
+        accountType:group.accountType||"CURRENT"},
        // Correct legacy default CURRENT when an official VAT statement
        // confirms this is the company's VAT account.
-       update:{accountType:group.accountType}
+       update:group.accountType?{accountType:group.accountType}:{}
       });
       if(account.currency!==group.currency){
        throw new OrganizationError("Waluta pliku różni się od waluty przypisanego rachunku.",422);
@@ -230,19 +230,23 @@ class BankFileUploadService {
        const start=old.periodStart?new Date(old.periodStart).toISOString().slice(0,10):null;
        const end=old.periodEnd?new Date(old.periodEnd).toISOString().slice(0,10):null;
        if(old.transactionCount!==group.transactions.length||
-        old.openingBalance?.toString()!==group.openingBalance||
-        old.closingBalance?.toString()!==group.closingBalance||
+        parseAmount(old.openingBalance?.toString())?.cents!==parseAmount(group.openingBalance)?.cents||
+        parseAmount(old.closingBalance?.toString())?.cents!==parseAmount(group.closingBalance)?.cents||
         start!==group.periodStart||end!==group.periodEnd){
         throw new OrganizationError("Istnieje wyciąg o tym samym numerze, ale innych danych. Wymaga weryfikacji.",409);
        }
        skipped.push(group);
        continue;
       }
+      if(group.sourceType==="CSV_EXPORT"){
+       const overlap=await tx.bankStatement.findFirst({where:{organizationId,bankAccountId:account.id,periodStart:{lte:new Date(group.periodEnd+"T12:00:00.000Z")},periodEnd:{gte:new Date(group.periodStart+"T12:00:00.000Z")}}});
+       if(overlap)throw new OrganizationError("Historia pokrywa się z istniejącym wyciągiem. Import zablokowany przed podwójnym księgowaniem.",409);
+      }
       const sourceHash=crypto.createHash("sha256").update(
        sha256+"|"+group.account+"|"+group.statementNumber).digest("hex");
       const statement=await tx.bankStatement.create({
        data:{organizationId,bankAccountId:account.id,sourceHash,
-        statementNumber:group.statementNumber,sourceType:"STATEMENT",
+        statementNumber:group.statementNumber,sourceType:group.sourceType||"STATEMENT",
         openingBalance:group.openingBalance,closingBalance:group.closingBalance,
         periodStart:new Date(group.periodStart+"T12:00:00.000Z"),
         periodEnd:new Date(group.periodEnd+"T12:00:00.000Z"),
@@ -256,7 +260,7 @@ class BankFileUploadService {
      }
      const newlyAdded=saved.reduce((sum,x)=>sum+x.group.transactions.length,0);
      const note="Wyciąg Erste: "+parsed.accounts.map(g=>
-      g.accountType+" ••••"+g.account.slice(-4)+" ("+g.transactions.length+" operacji, "+
+      (g.accountType||"Rachunek")+" ••••"+g.account.slice(-4)+" ("+g.transactions.length+" operacji, "+
       g.statementNumber+")").join("; ")+
       ". Nowo zaimportowano "+newlyAdded+" operacji; "+
       skipped.reduce((sum,g)=>sum+g.transactions.length,0)+
