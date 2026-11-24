@@ -10,9 +10,7 @@ class SpeechToText {
 
     constructor() {
 
-        this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
+        this.client = null;
 
         /*
          * Jeżeli plik jest mniejszy niż ten limit,
@@ -91,10 +89,20 @@ class SpeechToText {
 
     }
 
+    getClient() {
+        if (!this.client) {
+            if (!process.env.OPENAI_API_KEY) {
+                throw new Error("OPENAI_API_KEY is required for transcription");
+            }
+            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        }
+        return this.client;
+    }
+
     async transcribeSingleFile(filePath) {
 
         const transcript =
-            await this.client.audio.transcriptions.create({
+            await this.getClient().audio.transcriptions.create({
 
                 file:
                     fs.createReadStream(filePath),

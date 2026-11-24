@@ -5,7 +5,7 @@ const { OrganizationService, OrganizationError } = require("./OrganizationServic
 const STATUSES = new Set(["NOT_SET", "IN_PROGRESS", "ON_HOLD", "COMPLETED"]);
 const SELECT = {
   id: true, organizationId: true, name: true, description: true,
-  status: true, progress: true, source: true, createdAt: true, updatedAt: true
+  status: true, progress: true, source: true, assignedUserIds: true, createdAt: true, updatedAt: true
 };
 
 class OrganizationInvestmentService {
@@ -15,12 +15,20 @@ class OrganizationInvestmentService {
   }
 
   async list(userId, organizationId) {
-    // Company membership alone suffices to view NON-FINANCIAL projects.
+    // Active organization membership is required; staff see only assigned projects.
     // KSeF, invoices and bank statements are deliberately not queried.
-    await this.orgService.membership(userId, organizationId);
+    const member = await this.orgService.membership(userId, organizationId);
+    // Non-admin users can only see projects explicitly assigned to them.
+    // An organization membership must never imply access to every investment.
+    const where = ["OWNER", "ADMIN"].includes(member.role)
+      ? { organizationId }
+      : { organizationId, assignedUserIds: { has: userId } };
+    // Do not disclose other employees' identifiers to ordinary members.
+    const select = ["OWNER", "ADMIN"].includes(member.role)
+      ? SELECT : Object.fromEntries(Object.entries(SELECT).filter(([key]) => key !== "assignedUserIds"));
     const rows = await this.db.organizationInvestment.findMany({
-      where: { organizationId },
-      select: SELECT,
+      where,
+      select,
       orderBy: [{ name: "asc" }, { createdAt: "asc" }],
       take: 150
     });
@@ -45,6 +53,34 @@ class OrganizationInvestmentService {
       if (error?.code === "P2002") throw new OrganizationError("Inwestycja o tej nazwie już istnieje w tej spółce.", 409);
       throw error;
     }
+  }
+
+  async assignMembers(userId, organizationId, investmentId, input) {
+    await this.orgService.membership(userId, organizationId, ["OWNER", "ADMIN"]);
+    const ids = input?.userIds;
+    if (!Array.isArray(ids) || ids.length > 100 ||
+        ids.some(id => typeof id !== "string" || !id || id.length > 128) ||
+        new Set(ids).size !== ids.length) {
+      throw new OrganizationError("Podaj unikalną listę identyfikatorów pracowników (maksymalnie 100).");
+    }
+    const members = await this.db.organizationMembership.findMany({
+      where: { organizationId, status: "ACTIVE",
+        organization: { status: "ACTIVE" }, userId: { in: ids } },
+      select: { userId: true }
+    });
+    if (members.length !== ids.length) {
+      throw new OrganizationError("Wybrany pracownik nie ma aktywnego dostępu do tej spółki.", 403);
+    }
+    const updated = await this.db.organizationInvestment.updateMany({
+      where: { id: investmentId, organizationId },
+      data: { assignedUserIds: ids }
+    });
+    if (updated.count !== 1) {
+      throw new OrganizationError("Inwestycja nie istnieje w tej spółce.", 404);
+    }
+    return this.db.organizationInvestment.findFirst({
+      where: { id: investmentId, organizationId }, select: SELECT
+    });
   }
 
   async update(userId, organizationId, investmentId, input) {
