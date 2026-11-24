@@ -9,7 +9,7 @@ import UserMenu from "../../../components/UserMenu";
 import {
  getOrganizationFinanceStatus,linkOrganizationKsef,getOrganizationFinanceSummary,
  getOrganizationWorkspace,
- getOrganizationFinanceDocuments,getOrganizationFinanceProjects,
+ getOrganizationFinanceDocuments,getOrganizationInvestmentFinanceReport,
  getOrganizationFinanceMembers,changeOrganizationFinancePermission
 } from "@/lib/api";
 const AMOUNT=(value,currency)=> {
@@ -55,7 +55,7 @@ export default function CompanyFinancePage(){
    const queries=[
     getOrganizationFinanceSummary(id),
     getOrganizationFinanceDocuments(id,{offset:page*PAGE_SIZE,limit:PAGE_SIZE}),
-    getOrganizationFinanceProjects(id),
+    getOrganizationInvestmentFinanceReport(id,new Date().getFullYear()),
     value.canManage?getOrganizationFinanceMembers(id):Promise.resolve({data:[]})
    ];
    const results=await Promise.all(queries);
@@ -63,7 +63,7 @@ export default function CompanyFinancePage(){
    setSummary(results[0]?.data||null);
    setDocuments(Array.isArray(results[1]?.data?.items)?results[1].data.items:[]);
    setHasMore(Boolean(results[1]?.data?.hasMore));
-   setProjects(Array.isArray(results[2]?.data?.items)?results[2].data.items:[]);
+   setProjects(Array.isArray(results[2]?.data?.investments)?results[2].data.investments:[]);
    setMembers(Array.isArray(results[3]?.data)?results[3].data:[]);
   }).catch(e=>{if(active){setError(e.message||"Nie udało się pobrać finansów.");setSummary(null);}})
    .finally(()=>{if(active)setLoading(false);});
@@ -214,11 +214,11 @@ export default function CompanyFinancePage(){
     </section>
     <section className="mt-5 rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
      <h2 className="flex items-center gap-2 text-xl font-bold"><FolderKanban size={21} className="text-violet-300"/> Inwestycje {companyName||"firmy"}</h2>
-     <p className="mt-1 text-xs text-slate-400">Projekty powiązane z tą firmą na koncie właściciela</p>
+     <p className="mt-1 text-xs text-slate-400">Wspólny rejestr inwestycji tej spółki</p>
      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map(project=><div key={project.id} className="min-w-0 rounded-xl border border-white/10 bg-[#182742] p-4">
        <strong className="block break-words text-sm">{project.name}</strong>
-       <p className="mt-2 break-words text-xs text-slate-400">{project.company}</p>
+       <p className="mt-2 break-words text-xs text-slate-400">{project.accountMapping === "EXACT_NAME" ? "Powiązana z KSeF" : "Wymaga powiązania z KSeF"}</p>
       </div>)}
       {projects.length===0&&<p className="text-sm text-slate-400">Brak inwestycji przypisanych do tej firmy.</p>}
      </div>
