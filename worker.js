@@ -12,7 +12,9 @@ const service = new AgentService();
 const CYCLE_MS = 20000;
 const STALE_RUN_MS = 90 * 60000;
 const MAX_AGENTS_PER_CYCLE = 50;
-const ownerScope = process.env.WORKER_OWNER_USER_ID === undefined
+const ownerScope = process.env.WORKER_OWNER_USER_ID === undefined &&
+  !/worker.*staging|staging.*worker/i.test(process.env.RAILWAY_SERVICE_NAME || "") &&
+  !/^(staging|test|testing|development)$/i.test(process.env.RAILWAY_ENVIRONMENT_NAME || "")
   ? null : require("./lib/workerOwnerScope").workerOwnerScope();
 
 let busy = false;
@@ -43,6 +45,7 @@ async function recoverStaleRuns() {
         where: {
           id: agent.id,
           status: "RUNNING",
+          ...(ownerScope ? { userId: ownerScope } : {}),
           updatedAt: { lt: cutoff }
         },
         data: { status: "ERROR", nextRunAt: now }
@@ -262,6 +265,7 @@ async function cycle() {
         lock = await prisma.agent.updateMany({
           where: {
             id: agent.id,
+            userId: agent.userId,
             enabled: true,
             NOT: { status: "RUNNING" },
             OR: [
@@ -287,7 +291,7 @@ async function cycle() {
       if (stopping) {
         try {
           await prisma.agent.updateMany({
-            where: { id: agent.id, status: "RUNNING" },
+            where: { id: agent.id, userId: agent.userId, status: "RUNNING" },
             data: { status: "IDLE", nextRunAt: new Date() }
           });
         } catch (error) {
