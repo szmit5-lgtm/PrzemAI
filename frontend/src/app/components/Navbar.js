@@ -7,7 +7,7 @@ import { getProfile } from "@/lib/api";
 import {
   LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare,
   Brain, Settings, Bot, Wallet, Handshake, Building2, ShieldCheck,
-  Menu, X
+  Menu, X, BriefcaseBusiness
 } from "lucide-react";
 
 const links = [
@@ -25,14 +25,14 @@ const links = [
   {href:"/settings",label:"Ustawienia",icon:Settings},
   {href:"/administracja",label:"Administracja",icon:ShieldCheck}
 ];
-const mobilePrimary = ["/","/chat","/agents","/finance"];
+const mobilePrimary = ["/", "/chat", "/finance"];
 const isActive = (pathname, href) => href === "/"
   ? pathname === "/"
   : href === "/agents"
     ? pathname === "/agents" || (pathname.startsWith("/agents/") && !pathname.startsWith("/agents/sales"))
     : pathname === href || pathname.startsWith(href + "/");
 
-export default function Navbar({ vertical = false, organizationId = null }) {
+export default function Navbar({ vertical = false, organizationId = null, investmentOrganizationId = organizationId }) {
   const pathname = usePathname() || "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showAdministration, setShowAdministration] = useState(false);
@@ -59,10 +59,14 @@ export default function Navbar({ vertical = false, organizationId = null }) {
   const documentsHref = companySegment
     ? "/company/" + companySegment + "/documents"
     : organizationId ? "/company/" + encodeURIComponent(organizationId) + "/documents" : "/document";
+  const investmentCompany = companySegment || (investmentOrganizationId && encodeURIComponent(investmentOrganizationId));
+  const investmentsHref = investmentCompany ? "/company/" + investmentCompany + "/investments" : "/company/setup";
+  const investmentLink = { href: investmentsHref, label: "Inwestycje", icon: BriefcaseBusiness };
   const visible = links
     .filter(link => link.href !== "/administracja" || showAdministration)
     .map(link => link.href === "/document" && documentsHref !== "/document"
       ? { ...link, href: documentsHref, label: "Dokumenty spółki" } : link);
+  const primaryLinks = [...visible.filter(link => mobilePrimary.includes(link.href)), investmentLink];
   const dark = pathname === "/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company","/administracja"].some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
 
   const navLink = ({ href, label, icon: Icon }, compact = false) => {
@@ -90,7 +94,7 @@ export default function Navbar({ vertical = false, organizationId = null }) {
     </nav>
     <nav aria-label="Nawigacja mobilna" className="fixed inset-x-0 bottom-0 z-50 border-t border-white/15 bg-[#0b1530]/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 text-white shadow-[0_-12px_32px_rgba(0,0,0,.3)] backdrop-blur-xl lg:hidden">
       <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
-        {visible.filter(link => mobilePrimary.includes(link.href)).map(link => navLink(link, true))}
+        {primaryLinks.map(link => navLink(link, true))}
         <button type="button" aria-expanded={mobileOpen} aria-controls="przemai-more-navigation"
           aria-label={mobileOpen ? "Zamknij więcej opcji" : "Więcej opcji"}
           onClick={() => setMobileOpen(value => !value)}

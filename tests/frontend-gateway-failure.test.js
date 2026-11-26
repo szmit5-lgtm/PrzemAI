@@ -53,7 +53,8 @@ test("HTML 502 from API gateway reports an error without clearing the user sessi
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/history");
-      assert.equal(options.headers.Authorization, "Bearer active-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return gatewayResponse(502);
     };
     const api = await loadClient();
@@ -70,7 +71,7 @@ test("registration 401 from a non-JSON gateway response never logs out the curre
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/register");
-      assert.equal(options.headers.Authorization, undefined);
+      assert.equal(options.headers?.Authorization, undefined);
       return gatewayResponse(401);
     };
     const api = await loadClient();
@@ -85,13 +86,13 @@ test("registration 401 from a non-JSON gateway response never logs out the curre
   }
 });
 
-test("protected API 401 with HTML response still invalidates the expired token", async () => {
+test("protected API 401 with HTML response redirects to login", async () => {
   const browser = browserSession("/history");
   try {
     global.fetch = async () => gatewayResponse(401);
     const api = await loadClient();
     await assert.rejects(api.getHistory(), { message: "Sesja wygasła." });
-    assert.deepEqual(browser.removed, ["token"]);
+    assert.deepEqual(browser.removed, []);
     assert.equal(global.window.location.href, "/login");
   } finally {
     browser.restore();

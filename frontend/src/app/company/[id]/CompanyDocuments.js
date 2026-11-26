@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { FileDown, FileText, RefreshCw, UploadCloud, ShieldCheck } from "lucide-react";
+import { FileDown, FileText, RefreshCw, UploadCloud, ShieldCheck, Camera } from "lucide-react";
 import {
   getOrganizationDocuments, uploadOrganizationDocument, downloadOrganizationDocument
 } from "@/lib/api";
@@ -12,6 +12,7 @@ export default function CompanyDocuments({ organizationId, organizationName }) {
   const [items, setItems] = useState([]);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState("");
   const [error, setError] = useState("");
@@ -36,9 +37,27 @@ export default function CompanyDocuments({ organizationId, organizationName }) {
     return () => { active = false; };
   }, [organizationId]);
 
+  async function selectPhoto(event) {
+    const photo = event.target.files?.[0];
+    event.target.value = "";
+    if (!photo) return;
+    setConverting(true);
+    setFile(null);
+    setError("");
+    setNotice("");
+    try {
+      const { capturePhotoDocument } = await import("@/lib/photoDocument.mjs");
+      setFile(await capturePhotoDocument(photo));
+    } catch {
+      setError("Nie udało się przygotować zdjęcia. Wybierz mniejszy plik JPEG lub PNG.");
+    } finally {
+      setConverting(false);
+    }
+  }
+
   async function submit(event) {
     event.preventDefault();
-    if (!file || saving) return;
+    if (!file || saving || converting) return;
     const formElement = event.currentTarget;
     if (!validExtension.test(file.name) || file.size < 1 || file.size > MAX_FILE_SIZE) {
       setError("Wybierz dokument PDF, DOCX lub TXT o rozmiarze do 8 MB.");
@@ -85,12 +104,19 @@ export default function CompanyDocuments({ organizationId, organizationName }) {
     <form onSubmit={submit} className="mt-5 rounded-xl border border-violet-400/25 bg-violet-500/[.065] p-4">
       <p className="mb-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100"><strong>Przypisanie pliku:</strong> {organizationName || "wybrana spółka"}</p>
       <label htmlFor="company-document-file" className="block text-sm font-semibold">Dodaj dokument do: {organizationName || "wybrana spółka"}
-        <input id="company-document-file" type="file" required accept=".pdf,.docx,.txt"
-          onChange={event => { setFile(event.target.files?.[0] || null); setError(""); }}
-          disabled={saving} className="mt-3 block w-full min-w-0 text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-400 file:px-3 file:py-2 file:font-semibold file:text-slate-950"/>
+        <input id="company-document-file" type="file" accept=".pdf,.docx,.txt"
+          onChange={event => { setFile(event.target.files?.[0] || null); event.target.value = ""; setError(""); setNotice(""); }}
+          disabled={saving || converting} className="mt-3 block w-full min-w-0 text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-400 file:px-3 file:py-2 file:font-semibold file:text-slate-950"/>
       </label>
+      <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-white/20 px-3 text-sm focus-within:ring-2 focus-within:ring-violet-300">
+        <Camera size={18} aria-hidden="true"/> Zrób zdjęcie dokumentu
+        <input type="file" accept="image/*" capture="environment" onChange={selectPhoto}
+          disabled={saving || converting} className="sr-only"/>
+      </label>
+      {converting && <p role="status" className="mt-2 text-sm">Przygotowywanie PDF…</p>}
+      {file && <p className="mt-2 break-all text-sm">Wybrano: {file.name} · {formatSize(file.size)}</p>}
       <p className="mt-2 text-xs text-slate-400">PDF, DOCX lub TXT · maksymalnie 8 MB na plik. Dokument zostanie zapisany bez automatycznej analizy AI.</p>
-      <button type="submit" disabled={saving || !file}
+      <button type="submit" disabled={saving || converting || !file}
         className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-bold text-white hover:bg-violet-400 disabled:opacity-50">
         <UploadCloud size={18}/>{saving ? "Zapisywanie…" : "Dodaj dokument"}
       </button>

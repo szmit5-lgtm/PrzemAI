@@ -46,7 +46,8 @@ test("agent dashboard retrieves the authenticated agent list from the same-origi
     const payload = { success: true, data: [{ id: "agent-1", status: "IDLE", enabled: true }] };
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents");
-      assert.equal(options.headers.Authorization, "Bearer dashboard-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       assert.equal(options.method, undefined);
       return jsonResponse(payload);
     };
@@ -62,7 +63,8 @@ test("manual agent run posts to the selected agent with the user's token", async
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents/agent-1/run");
       assert.equal(options.method, "POST");
-      assert.equal(options.headers.Authorization, "Bearer dashboard-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(payload);
     };
     const api = await loadClient();
@@ -77,7 +79,8 @@ test("agent enable/disable sends a JSON boolean, not a string", async () => {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents/agent-1/enabled");
       assert.equal(options.method, "PATCH");
-      assert.equal(options.headers.Authorization, "Bearer dashboard-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       assert.equal(options.headers["Content-Type"], "application/json");
       seen.push(JSON.parse(options.body));
       return jsonResponse({ success: true });
@@ -95,7 +98,8 @@ test("integrations list uses the authenticated agents endpoint", async () => {
     const payload = { success: true, data: [] };
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents/integrations/list");
-      assert.equal(options.headers.Authorization, "Bearer dashboard-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(payload);
     };
     const api = await loadClient();
@@ -148,7 +152,8 @@ test("agent dashboard expires the session on HTTP 401 even when the proxy return
   await withAuthenticatedBrowser(async removed => {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents");
-      assert.equal(options.headers.Authorization, "Bearer dashboard-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return {
         status: 401,
         ok: false,
@@ -157,7 +162,7 @@ test("agent dashboard expires the session on HTTP 401 even when the proxy return
     };
     const api = await loadClient();
     await assert.rejects(api.getAgents(), { message: "Sesja wygasła." });
-    assert.deepEqual(removed, ["token"]);
+    assert.deepEqual(removed, []);
     assert.equal(global.window.location.href, "/login");
   });
 });

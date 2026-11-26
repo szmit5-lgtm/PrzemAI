@@ -1,0 +1,17 @@
+{
+  "name": "przemai-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync",
+    "test": "node --test *.test.cjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.3.6",
+    "@capacitor/core": "8.3.6",
+    "@capacitor/ios": "8.3.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.3.6"
+  }
+}

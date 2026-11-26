@@ -218,7 +218,7 @@ export default function HomePage() {
       <UserMenu/>
      </div>
     </header>
-    <div className="lg:hidden"><Navbar organizationId={["OWNER","ADMIN"].includes(selectedOrg?.role) ? selectedOrg.id : null}/></div>
+    <div className="lg:hidden"><Navbar organizationId={["OWNER","ADMIN"].includes(selectedOrg?.role) ? selectedOrg.id : null} investmentOrganizationId={selectedOrg?.id}/></div>
     <div className="relative mt-3 flex min-w-0 flex-wrap items-center justify-between gap-3 overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-r from-[#17132e] via-[#132947] to-[#173e60] p-3 sm:p-4" aria-busy={loading}>
      <svg aria-hidden="true" viewBox="0 0 420 100" className="pointer-events-none absolute right-0 bottom-0 hidden h-full w-[45%] opacity-35 md:block" fill="none" stroke="#a5b4fc" strokeWidth="1.3"><path d="M0 95h420M30 95V56h48v39M90 95V34h60v61M167 95V48h38v47M214 95V18h66v77M298 95V40h47v55M358 95V7h60v88M105 34v-15h25v15M230 18V4h35v14M195 95V12h-74M195 12l-22 9M140 12v30M320 40V4h-75M320 4l-20 8M260 4v27"/><path d="M38 66h32M38 76h32M100 46h40M100 58h40M100 70h40M224 30h46M224 42h46M224 54h46M224 66h46M224 78h46M367 20h42M367 32h42M367 44h42M367 56h42M367 68h42M367 80h42"/></svg>
      <div className="relative min-w-0 flex-1">

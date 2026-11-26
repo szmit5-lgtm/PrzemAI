@@ -49,7 +49,8 @@ test("integration enable and disable use an authenticated PATCH with JSON boolea
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents/integrations/gmail/enabled");
       assert.equal(options.method, "PATCH");
-      assert.equal(options.headers.Authorization, "Bearer integration-test-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       assert.equal(options.headers["Content-Type"], "application/json");
       requests.push(JSON.parse(options.body));
       return response(200, { success: true });

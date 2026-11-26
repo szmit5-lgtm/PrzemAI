@@ -2,34 +2,23 @@
 // Ignore legacy NEXT_PUBLIC_API_URL to avoid cross-origin browser requests.
 const API_URL = "";
 
-function getToken() {
-    if (typeof window === "undefined") {
-        return null;
+function handleExpiredSession() {
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
     }
-
-    return localStorage.getItem("token");
 }
 
 async function request(endpoint, options = {}) {
-    // A failed login is not an expired authenticated session.
     const isCredentialRequest = ["/api/auth/login", "/api/auth/register", "/api/organizations/register"].includes(endpoint);
-    const token = isCredentialRequest ? null : getToken();
-
-    const headers = {
-        ...(options.headers || {})
-    };
-
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        throw new Error("Brak połączenia z internetem. Spróbuj ponownie po odzyskaniu połączenia.");
     }
 
-    const response = await fetch(
-        `${API_URL}${endpoint}`,
-        {
-            ...options,
-            headers
-        }
-    );
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        credentials: "same-origin",
+        cache: "no-store"
+    });
 
     const contentType =
         response.headers.get("content-type") || "";
@@ -50,12 +39,7 @@ async function request(endpoint, options = {}) {
     }
 
     if (response.status === 401 && !isCredentialRequest) {
-        if (typeof window !== "undefined") {
-            localStorage.removeItem("token");
-            if (!window.location.pathname.startsWith("/login")) {
-                window.location.href = "/login";
-            }
-        }
+        handleExpiredSession();
         const error = new Error("Sesja wygasła.");
         error.status = 401;
         throw error;
@@ -114,6 +98,10 @@ export async function login(email, password) {
             password
         })
     });
+}
+
+export async function logout() {
+    return request("/api/auth/logout", { method: "POST" });
 }
 
 export async function getProfile() {
@@ -532,16 +520,13 @@ export async function uploadOrganizationDocument(orgId, file, investmentId, repo
 }
 
 export async function downloadOrganizationDocument(orgId, documentId, investmentId) {
-  const token = getToken();
-  if (!token) throw new Error("Zaloguj się, aby pobrać dokument.");
   const response = await fetch("/api/organizations/" + encodeURIComponent(orgId) +
     "/documents/" + (investmentId ? "investment/" + encodeURIComponent(investmentId) + "/" : "") +
     encodeURIComponent(documentId) + "/download", {
-    headers: { Authorization: "Bearer " + token }, cache: "no-store"
+    credentials: "same-origin", cache: "no-store"
   });
   if (response.status === 401) {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+    handleExpiredSession();
     throw new Error("Sesja wygasła.");
   }
   if (!response.ok) {
@@ -679,15 +664,12 @@ export async function deleteOrganizationBankFile(orgId,fileId){
   "/bank/files/"+encodeURIComponent(fileId),{method:"DELETE"});
 }
 export async function downloadOrganizationBankFile(orgId,fileId){
- const token=getToken();
- if(!token)throw new Error("Zaloguj się, aby pobrać wyciąg.");
  const response=await fetch("/api/organizations/"+encodeURIComponent(orgId)+
   "/bank/files/"+encodeURIComponent(fileId)+"/download",{
-  headers:{Authorization:"Bearer "+token},cache:"no-store"
+  credentials:"same-origin",cache:"no-store"
  });
  if(response.status===401){
-  localStorage.removeItem("token");
-  window.location.href="/login";
+  handleExpiredSession();
   throw new Error("Sesja wygasła.");
  }
  if(!response.ok){
