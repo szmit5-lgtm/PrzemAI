@@ -595,3 +595,8 @@ model OpenAIRequestBudget {
   day      DateTime @id @db.Date
   requests Int
 }
+
+model OpenAIMonthlyBudget {
+  month            DateTime @id @db.Date
+  reservedMicroPln BigInt
+}
