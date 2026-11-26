@@ -600,6 +600,11 @@ export async function getOrganizationFinanceDocuments(orgId,{offset=0,limit=50}=
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/documents?"+
   new URLSearchParams({offset:String(offset),limit:String(limit)}).toString());
 }
+export async function assignOrganizationFinanceProject(orgId,documentId,projectId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/documents/"+
+  encodeURIComponent(documentId)+"/project",{method:"PATCH",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId})});
+}
 export async function getOrganizationFinanceProjects(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/projects");
 }

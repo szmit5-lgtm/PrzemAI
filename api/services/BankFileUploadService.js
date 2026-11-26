@@ -6,6 +6,8 @@ const {OrganizationBankAccessService}=require("./OrganizationBankAccessService")
 const {OrganizationError}=require("./OrganizationService");
 const {parseBankCsv,parseAmount}=require("./BankFileParser");
 
+const {parseErsteStatementPdf}=require("./ErsteStatementPdfParser");
+
 const MAX_FILES=120;
 const MAX_BYTES=240*1024*1024;
 const CSV_MAX=15*1024*1024;
@@ -79,9 +81,12 @@ class BankFileUploadService {
    if(item.status==="PROCESSING")throw new OrganizationError(
     "Wyciąg jest przetwarzany. Spróbuj ponownie po zakończeniu importu.",409);
    let hashes=[item.sha256];
-   if(item.status==="IMPORTED"&&item.mimeType==="text/csv"){
+   if(item.status==="IMPORTED"){
     let source;
-    try{source=parseBankCsv(Buffer.from(item.content));}
+    try{
+     const bytes=Buffer.from(item.content);
+     source=item.mimeType==="application/pdf"?await parseErsteStatementPdf(bytes,this.pdfParser):parseBankCsv(bytes);
+    }
     catch{throw new OrganizationError(
      "Nie można potwierdzić, które operacje pochodzą z tego pliku. Usuwanie zablokowane dla bezpieczeństwa.",409);}
     if(Array.isArray(source.accounts)){
@@ -109,8 +114,11 @@ class BankFileUploadService {
      "Część operacji została już powiązana lub zweryfikowana. Najpierw odłącz powiązania — danych księgowych nie usuwamy automatycznie.",409);
    }
    const removedTx=statementIds.length?await tx.bankTransaction.deleteMany({
-    where:{organizationId,bankStatementId:{in:statementIds}}
+    where:{organizationId,bankStatementId:{in:statementIds},reviewStatus:"UNMATCHED"}
    }):{count:0};
+   if(statementIds.length && await tx.bankTransaction.count({
+    where:{organizationId,bankStatementId:{in:statementIds},reviewStatus:{not:"UNMATCHED"}}
+   })) throw new OrganizationError("Operacje zostały zweryfikowane w trakcie usuwania.",409);
    if(statementIds.length){
     const removedStatements=await tx.bankStatement.deleteMany({
      where:{organizationId,id:{in:statementIds},sourceHash:{in:hashes}}
@@ -132,10 +140,10 @@ class BankFileUploadService {
   const existing=await this.db.bankImportFile.findFirst({
    where:{organizationId,sha256},select:PUBLIC_SELECT
   });
-  // Re-uploading a previously unsupported CSV is an explicit request to
+  // Re-uploading a previously unsupported file is an explicit request to
   // retry it with newly added bank-specific parsers. Do not create a duplicate
   // file or rerun already imported statements.
-  const retry=Boolean(existing&&existing.status==="REVIEW_REQUIRED"&&ext==="csv");
+  const retry=Boolean(existing&&existing.status==="REVIEW_REQUIRED");
   if(existing&&!retry)return {item:existing,alreadySaved:true};
   if(!retry){
    const stats=await this.db.bankImportFile.aggregate({
@@ -162,14 +170,10 @@ class BankFileUploadService {
    }
   }else{
    try{
-    const data=await this.pdfParser(file.buffer,{max:120});
-    const pageCount=Number(data?.numpages)||0;
-    const foundText=String(data?.text||"").trim().length>40;
-    reason=foundText
-     ?"PDF zapisany ("+pageCount+" str.). Ten format wymaga jeszcze dopasowania odczytu operacji do banku; nie utworzono fikcyjnych transakcji."
-     :"PDF zapisany, ale nie zawiera tekstu możliwego do odczytania. Skan wymaga dodatkowego rozpoznawania.";
+    parsed=await parseErsteStatementPdf(file.buffer,this.pdfParser);
+    count=parsed.extractedCount;
    }catch{
-    reason="PDF zapisany. Automatyczne wydobycie operacji z tego formatu nie powiodło się.";
+    reason="PDF zapisany do weryfikacji. Nie udało się potwierdzić układu Erste, kompletności pozycji lub zgodności sald.";
    }
   }
 
@@ -238,7 +242,7 @@ class BankFileUploadService {
        skipped.push(group);
        continue;
       }
-      if(group.sourceType==="CSV_EXPORT"){
+      {
        const overlap=await tx.bankStatement.findFirst({where:{organizationId,bankAccountId:account.id,periodStart:{lte:new Date(group.periodEnd+"T12:00:00.000Z")},periodEnd:{gte:new Date(group.periodStart+"T12:00:00.000Z")}}});
        if(overlap)throw new OrganizationError("Historia pokrywa się z istniejącym wyciągiem. Import zablokowany przed podwójnym księgowaniem.",409);
       }
@@ -271,7 +275,7 @@ class BankFileUploadService {
        statementId:saved[0]?.id||null,parsedRows:null}
      });
      return {saved:saved.length,skipped:skipped.length,newlyAdded};
-    });
+    },{isolationLevel:"Serializable",timeout:20000});
     const item=await this.db.bankImportFile.findFirst({
      where:{id:created.id,organizationId},select:PUBLIC_SELECT
     });
@@ -318,6 +322,10 @@ class BankFileUploadService {
      select:{id:true}
     });
     if(old)throw new OrganizationError("Ten wyciąg jest już zarejestrowany jako transakcje.",409);
+    const overlap=await tx.bankStatement.findFirst({where:{organizationId,bankAccountId:account.id,
+     periodStart:{lte:new Date(periodEnd+"T12:00:00.000Z")},
+     periodEnd:{gte:new Date(periodStart+"T12:00:00.000Z")}}});
+    if(overlap)throw new OrganizationError("Historia pokrywa się z istniejącym wyciągiem.",409);
     // CSV_IMPORT is a system identifier, not a fabricated bank statement number.
     const statement=await tx.bankStatement.create({
      data:{organizationId,bankAccountId:account.id,
@@ -339,7 +347,7 @@ class BankFileUploadService {
       statementId:statement.id,parsedRows:null}
     });
     return statement.id;
-   });
+   },{isolationLevel:"Serializable",timeout:20000});
    const item=await this.db.bankImportFile.findFirst({
     where:{id:created.id,organizationId},select:PUBLIC_SELECT
    });

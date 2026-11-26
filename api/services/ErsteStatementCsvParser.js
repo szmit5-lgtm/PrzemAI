@@ -157,8 +157,8 @@ function parseErstePrintedCsv(buffer){
  let total=0;
  const accounts=[];
  for(const group of groups.values()){
-  if(!group.currency||!group.accountType||!group.expectedCount||
-   !group.transactions.length||group.transactions.length!==group.expectedCount||
+  if(!group.currency||!group.accountType||group.expectedCount===null||
+   group.transactions.length!==group.expectedCount||
    group.openingBalance===null||group.closingBalance===null||
    group.lastBalance!==group.closingBalance)
    throw Error("Wyciąg nie zawiera wszystkich pozycji lub zgodnych sald rachunku.");

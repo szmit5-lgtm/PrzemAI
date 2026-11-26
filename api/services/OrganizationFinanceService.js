@@ -1,9 +1,15 @@
 "use strict";
 const prisma=require("../../lib/prisma");
 const {OrganizationService,OrganizationError}=require("./OrganizationService");
+const {toCents,money}=require("./OrganizationBankMonthlyService");
 const NIP=/^\d{10}$/;
 const DEHERUS_NIP="1133200454";
 function isDeherus(org){return /(?:deherus|(?:^|\W)m1(?:\W|$))/i.test((org?.name||"")+" "+(org?.slug||"")+" "+(org?.displayName||""));}
+function projectCompanyFilter(org){
+  return isDeherus(org)
+    ? {OR:[{company:{contains:"Deherus",mode:"insensitive"}},{company:{equals:"M1",mode:"insensitive"}}]}
+    : {company:{contains:"Dekonica",mode:"insensitive"}};
+}
 function ksefDocPredicate(ownerUserId,nip){
   return {userId:ownerUserId,source:"KSEF",
     OR:[{buyerNip:nip},{sellerNip:nip}]};
@@ -165,6 +171,36 @@ class OrganizationFinanceService{
      }))
    };
  }
+ async agentTotals(userId,organizationId,year){
+   const link=await this.accessible(userId,organizationId);
+   const company=ksefDocPredicate(link.ownerUserId,link.nip);
+   const where=year?{AND:[company,{issueDate:{
+     gte:new Date(Date.UTC(year,0,1)),lt:new Date(Date.UTC(year+1,0,1))
+   }}]}:company;
+   const groups=await this.db.financialDocument.groupBy({
+     by:["issueDate","currency","direction"],where,
+     _sum:{grossAmount:true,netAmount:true,vatAmount:true},
+     _count:{_all:true,grossAmount:true,netAmount:true,vatAmount:true}
+   });
+   const totals=new Map();
+   const fields=["grossAmount","netAmount","vatAmount"];
+   for(const group of groups){
+     const month=group.issueDate?.toISOString().slice(0,7)||null;
+     const key=JSON.stringify([month,group.currency,group.direction]);
+     const row=totals.get(key)||{month,currency:group.currency,direction:group.direction,
+       count:0, amounts:fields.map(()=>0n), missing:fields.map(()=>0)};
+     row.count+=group._count._all;
+     fields.forEach((field,index)=>{
+       row.amounts[index]+=toCents(group._sum[field]??0);
+       row.missing[index]+=group._count._all-group._count[field];
+     });
+     totals.set(key,row);
+   }
+   return [...totals.values()].sort((a,b)=>(a.month||"").localeCompare(b.month||""))
+    .map(({amounts,missing,...row})=>({...row,
+     gross:money(amounts[0]),net:money(amounts[1]),vat:money(amounts[2]),
+     missingGross:missing[0],missingNet:missing[1],missingVat:missing[2]}));
+ }
  async annualReport(userId,organizationId,yearInput){
    const link=await this.accessible(userId,organizationId);
    const year=Number(yearInput);
@@ -180,19 +216,31 @@ class OrganizationFinanceService{
    for(const row of docs){
      const month=new Date(row.issueDate).getUTCMonth()+1;
      const key=month+"|"+row.direction+"|"+row.currency;
-     const old=totals.get(key)||{month,direction:row.direction,currency:row.currency,gross:0,count:0};
-     old.gross+=Number(row._sum.grossAmount||0);
+     const old=totals.get(key)||{month,direction:row.direction,currency:row.currency,gross:0n,count:0};
+     old.gross+=toCents(row._sum.grossAmount??0);
      old.count+=row._count._all;
      totals.set(key,old);
    }
-   return {year,source:"KSEF",rows:[...totals.values()].map(r=>({...r,gross:r.gross.toFixed(2)}))};
+   return {year,source:"KSEF",rows:[...totals.values()].map(r=>({...r,gross:money(r.gross)}))};
  }
  async documents(userId,organizationId,options={}){
    const link=await this.accessible(userId,organizationId);
    const limit=normalizePageNumber(options.limit,50,100);
    const offset=normalizePageNumber(options.offset,0,50000);
    if(limit<1)throw new OrganizationError("Nieprawidłowy limit.");
-   const where=ksefDocPredicate(link.ownerUserId,link.nip);
+   const company=ksefDocPredicate(link.ownerUserId,link.nip);
+   const filters=[company];
+   if(options.year && (!/^20[2-9]\d$|^2100$/.test(String(options.year))))
+     throw new OrganizationError("Nieprawidłowy rok raportu.",400);
+   if(options.reference && (typeof options.reference!=="string"||options.reference.length>100))
+     throw new OrganizationError("Nieprawidłowy numer faktury.",400);
+   if(options.year)filters.push({issueDate:{
+     gte:new Date(Date.UTC(options.year,0,1)),lt:new Date(Date.UTC(options.year+1,0,1))
+   }});
+   if(options.reference)filters.push({OR:["invoiceNumber","ksefNumber"].map(field=>({
+     [field]:{contains:options.reference,mode:"insensitive"}
+   }))});
+   const where=filters.length===1?company:{AND:filters};
    const documents=await this.db.financialDocument.findMany({
      where,skip:offset,take:limit+1,
      orderBy:[{issueDate:"desc"},{createdAt:"desc"},{id:"desc"}],
@@ -201,9 +249,23 @@ class OrganizationFinanceService{
        dueDate:true,currency:true,netAmount:true,grossAmount:true,vatAmount:true,
        project:{select:{id:true,name:true}}}
    });
+   const items=documents.slice(0,limit);
+   const projectIds=items.flatMap(row=>row.project?[row.project.id]:[]);
+   let visibleProjects=new Set();
+   if(projectIds.length){
+     const org=await this.db.organization.findUnique({
+       where:{id:organizationId},select:{name:true,slug:true,displayName:true}
+     });
+     const projects=await this.db.project.findMany({
+       where:{id:{in:projectIds},userId:link.ownerUserId,...projectCompanyFilter(org)},
+       select:{id:true}
+     });
+     visibleProjects=new Set(projects.map(project=>project.id));
+   }
    return {
-     items:documents.slice(0,limit).map(r=>({
+     items:items.map(r=>({
        ...r,
+       project:visibleProjects.has(r.project?.id)?r.project:null,
        netAmount:r.netAmount?.toString()||null,
        grossAmount:r.grossAmount?.toString()||null,
        vatAmount:r.vatAmount?.toString()||null
@@ -212,10 +274,44 @@ class OrganizationFinanceService{
      limit,offset
    };
  }
+ async assignProject(userId,organizationId,documentId,projectId){
+   const link=await this.accessible(userId,organizationId);
+   await this.orgService.membership(userId,organizationId,["OWNER"]);
+   if(link.ownerUserId!==userId)
+     throw new OrganizationError("Przypisanie wymaga dostępu właściciela integracji.",403);
+   if(projectId!==null && (typeof projectId!=="string"||!projectId.trim()||projectId.length>128))
+     throw new OrganizationError("Nieprawidłowy identyfikator inwestycji.",400);
+   const where={id:documentId,...ksefDocPredicate(link.ownerUserId,link.nip)};
+   return this.db.$transaction(async tx=>{
+     const document=await tx.financialDocument.findFirst({
+       where,select:{metadata:true,updatedAt:true}
+     });
+     if(!document)throw new OrganizationError("Nie znaleziono faktury tej spółki.",404);
+     let project=null;
+     if(projectId!==null){
+       const org=await tx.organization.findUnique({
+         where:{id:organizationId},select:{name:true,slug:true,displayName:true}
+       });
+       project=await tx.project.findFirst({
+         where:{id:projectId,userId:link.ownerUserId,status:"ACTIVE",...projectCompanyFilter(org)},
+         select:{id:true,name:true}
+       });
+       if(!project)throw new OrganizationError("Nie znaleziono inwestycji tej spółki.",404);
+     }
+     const metadata=document.metadata||{};
+     const updated=await tx.financialDocument.updateMany({
+       where:{...where,updatedAt:document.updatedAt},
+       data:{projectId,metadata:{...metadata,analysis:{...metadata.analysis,
+         projectDecision:"MANUAL",projectHint:project?.name||null}}}
+     });
+     if(updated.count!==1)throw new OrganizationError("Faktura zmieniła się. Ponów przypisanie.",409);
+     return {id:documentId,projectId,project};
+   });
+ }
  async projects(userId,organizationId){
    const link=await this.accessible(userId,organizationId);
    const org=await this.db.organization.findUnique({where:{id:organizationId},select:{name:true,slug:true,displayName:true}});
-   const companyFilter=isDeherus(org)?{OR:[{company:{contains:"Deherus",mode:"insensitive"}},{company:{equals:"M1",mode:"insensitive"}}]}:{company:{contains:"Dekonica",mode:"insensitive"}};
+   const companyFilter=projectCompanyFilter(org);
    const rows=await this.db.project.findMany({
      where:{userId:link.ownerUserId,status:"ACTIVE",...companyFilter},
      select:{id:true,name:true,company:true,aliases:true},

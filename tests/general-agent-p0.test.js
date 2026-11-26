@@ -190,7 +190,8 @@ test("financial context reuses KSeF permissions and excludes authorization and r
       assert.equal(where.organizationId, "company");
       return { ownerUserId: "owner", nip: "1234567890" };
     } },
-    financialDocument: { findMany: async ({ where }) => {
+    bankAccount: { findMany: async () => [] },
+    financialDocument: { groupBy: async () => [], findMany: async ({ where }) => {
       recordsRead++;
       assert.deepEqual(where, { userId: "owner", source: "KSEF",
         OR: [{ buyerNip: "1234567890" }, { sellerNip: "1234567890" }] });

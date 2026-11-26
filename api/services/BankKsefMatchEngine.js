@@ -67,15 +67,14 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
   byAmount.get(key).push(tx);
  }
  for(const inv of invoicesSorted) {
-  // Only non-negative gross invoices tied to exactly one direction of
-  // the selected company's NIP. Never match both-sides or unknown NIPs.
+  // Only invoices tied to exactly one side of the selected company's NIP.
   if(inv.source!=="KSEF"||!inv.id||!inv.issueDate||
    !["INCOMING","OUTGOING"].includes(inv.direction))continue;
   const inbound=inv.buyerNip===companyNip&&inv.sellerNip!==companyNip;
   const outbound=inv.sellerNip===companyNip&&inv.buyerNip!==companyNip;
   if(!((inbound&&inv.direction==="INCOMING")||(outbound&&inv.direction==="OUTGOING")))continue;
   const cents=amountCents(inv.grossAmount);
-  if(cents===null||cents<=0n||!/^[A-Z]{3}$/.test(String(inv.currency||"")))continue;
+  if(cents===null||cents===0n||!/^[A-Z]{3}$/.test(String(inv.currency||"")))continue;
   const issued=day(inv.issueDate);
   if(issued===null)continue;
   counts.invoicesExamined++;
@@ -87,7 +86,7 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
    const narrative=[tx.description,tx.reference].filter(Boolean).join(" ");
    const exact=reference&&reference.test(normalizeText(narrative));
    const name=confidenceName(inv,tx);
-   if(!exact&&!name)continue;
+   if(!exact&&(cents<0n||!name))continue;
    matching.push({invoice:inv,transaction:tx,reason:exact?"INVOICE_NUMBER_AMOUNT_DATE":"AMOUNT_DATE_COUNTERPARTY",
     confidence:exact?"STRONG":"REVIEW"});
   }
