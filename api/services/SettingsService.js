@@ -4,21 +4,20 @@ const ALLOWED_MODELS = new Set(["gpt-5.5","gpt-6.1-sol","gpt-6.1-terra","gpt-6-a
 class SettingsService {
 
     async get(userId) {
-
-        return prisma.userSettings.upsert({
-
-            where: {
-                userId
-            },
-
-            update: {},
-
-            create: {
-                userId
-            }
-
-        });
-
+        try {
+            return await prisma.userSettings.upsert({
+                where: { userId },
+                update: {},
+                create: { userId }
+            });
+        } catch (error) {
+            // Prisma may emulate upsert with a read and insert when update is empty.
+            // Concurrent first requests can race to create this unique row.
+            if (error.code !== "P2002") throw error;
+            const settings = await prisma.userSettings.findUnique({ where: { userId } });
+            if (!settings) throw error;
+            return settings;
+        }
     }
 
     async update(userId, data) {

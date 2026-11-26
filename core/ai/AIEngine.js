@@ -39,13 +39,17 @@ class AIEngine {
 
             model = "gpt-5.5",
 
-            json = false
+            json = false,
+
+            requestOptions,
+            maxOutputTokens
 
         } = options;
 
         const response = await this.client.responses.create({
 
             model,
+            ...(maxOutputTokens && { max_output_tokens: maxOutputTokens }),
 
             text: json
                 ? {
@@ -79,7 +83,7 @@ class AIEngine {
 
             ]
 
-        });
+        }, requestOptions);
 
         const output = response.output_text;
 
