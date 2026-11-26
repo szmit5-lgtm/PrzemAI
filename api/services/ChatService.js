@@ -16,7 +16,7 @@ class ChatService {
 
     }
 
-    async chat(userId, message, conversationId = null, { organizationId = null } = {}) {
+    async chat(userId, message, conversationId = null, { organizationId = null, channel = "WEB" } = {}) {
 
         if (typeof userId !== "string" || !userId) throw new Error("Brak uwierzytelnionego użytkownika.");
         if (typeof message !== "string" || !message.trim() || message.length > 12000)
@@ -29,7 +29,8 @@ class ChatService {
             await this.getOrCreateConversation(
                 userId,
                 conversationId,
-                organizationId ? "Rozmowa firmowa" : message
+                organizationId ? "Rozmowa firmowa" : message,
+                channel
             );
 
         const turn = await this.createMessage(
@@ -352,7 +353,8 @@ ${redactText(message, 12000)}
     async getOrCreateConversation(
         userId,
         conversationId,
-        firstMessage
+        firstMessage,
+        channel = "WEB"
     ) {
 
         if (conversationId) {
@@ -364,6 +366,7 @@ ${redactText(message, 12000)}
                         where: {
                             id: conversationId,
                             userId,
+                            channel,
                             archivedAt: null
                         }
 
@@ -390,6 +393,7 @@ ${redactText(message, 12000)}
                         firstMessage
                     ),
 
+                channel,
                 userId
 
             }
@@ -451,6 +455,7 @@ ${redactText(message, 12000)}
                 where: {
 
                     userId,
+                    channel: "WEB",
                     archivedAt: null
 
                 },
@@ -497,6 +502,7 @@ ${redactText(message, 12000)}
 
                     id: conversationId,
                     userId,
+                    channel: "WEB",
                     archivedAt: null
 
                 },
@@ -549,6 +555,7 @@ ${redactText(message, 12000)}
 
                         id: conversationId,
                         userId,
+                        channel: "WEB",
                         archivedAt: null
 
                     }
