@@ -8,7 +8,9 @@ class ChatController {
 
             const {
                 message,
-                conversationId
+                conversationId,
+                organizationId,
+                requestId
             } = req.body || {};
 
             if (typeof message !== "string" || !message.trim()) {
@@ -38,14 +40,26 @@ class ChatController {
                 });
             }
 
+            if (organizationId != null &&
+                (typeof organizationId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(organizationId))) {
+                return res.status(400).json({ success: false, error: "Nieprawidłowy identyfikator spółki." });
+            }
+
+            if (requestId != null &&
+                (typeof requestId !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(requestId))) {
+                return res.status(400).json({ success: false, error: "Nieprawidłowy identyfikator żądania." });
+            }
+
             const result = await ChatService.chat(
 
                 req.user.id,
                 message,
-                conversationId || null
+                conversationId || null,
+                { organizationId: organizationId || null, requestId: requestId || null }
 
             );
 
+            res.set("Cache-Control", "private, no-store");
             return res.json({
 
                 success: true,
@@ -61,7 +75,9 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            const status = { GENERAL_RATE_LIMIT: 429, CHAT_REQUEST_CONFLICT: 409 }[err?.code];
+            if (status) return res.status(status).json({ success: false, error: err.message });
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 
@@ -97,7 +113,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 
@@ -135,6 +151,7 @@ class ChatController {
 
             }
 
+            res.set("Cache-Control", "private, no-store");
             return res.json({
 
                 success: true,
@@ -146,7 +163,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 
@@ -182,7 +199,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 

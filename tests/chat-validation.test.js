@@ -6,8 +6,8 @@ const Module = require("node:module");
 
 const service = {
   calls: [],
-  async chat(userId, message, conversationId) {
-    this.calls.push({ userId, message, conversationId });
+  async chat(userId, message, conversationId, { organizationId }) {
+    this.calls.push({ userId, message, conversationId, organizationId });
     return { conversationId: "conversation-1", answer: "OK", message: { id: "message-1" } };
   }
 };
@@ -28,7 +28,8 @@ try {
 
 function response() {
   return {
-    statusCode: 200, body: null,
+    statusCode: 200, body: null, headers: {},
+    set(name, value) { this.headers[name] = value; return this; },
     status(code) { this.statusCode = code; return this; },
     json(body) { this.body = body; return this; }
   };
@@ -64,8 +65,18 @@ test("chat rejects invalid conversation IDs", async () => {
 test("chat uses authenticated user ID and valid conversation ID", async () => {
   service.calls = [];
   const res = response();
-  await controller.chat({ user: { id: "u1" }, body: { message: "Czy są faktury?", conversationId: "c1" } }, res);
+  await controller.chat({ user: { id: "u1" }, body: { message: "Czy są faktury?", conversationId: "c1", organizationId: "org1", userId: "other" } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.answer, "OK");
-  assert.deepEqual(service.calls, [{ userId: "u1", message: "Czy są faktury?", conversationId: "c1" }]);
+  assert.deepEqual(service.calls, [{ userId: "u1", message: "Czy są faktury?", conversationId: "c1", organizationId: "org1" }]);
+  assert.equal(res.headers["Cache-Control"], "private, no-store");
+});
+
+test("chat rejects invalid company scope before dispatch", async () => {
+  service.calls = [];
+  const res = response();
+  await controller.chat({ user: { id: "u1" },
+    body: { message: "Czy są faktury?", organizationId: { id: "org1" } } }, res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(service.calls.length, 0);
 });
