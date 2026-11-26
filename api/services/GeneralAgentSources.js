@@ -6,6 +6,9 @@ const { visibleInvestmentWhere } = require("./OrganizationInvestmentService");
 const { normalize } = require("./InvestmentContextService");
 const { redactText, documentReport } = require("../../lib/aiContext");
 
+const { OrganizationBankMonthlyService } = require("./OrganizationBankMonthlyService");
+const { OrganizationBankAccessService } = require("./OrganizationBankAccessService");
+
 const DOCUMENT_ROLES = ["OWNER", "ADMIN"];
 
 function rankDocuments(rows, instruction, name) {
@@ -20,6 +23,9 @@ class GeneralAgentSources {
     this.db = db;
     this.organizations = new OrganizationService({ db });
     this.finance = new OrganizationFinanceService({ db, orgService: this.organizations });
+    this.bank = new OrganizationBankMonthlyService({
+      db, access: new OrganizationBankAccessService({ db, organizationService: this.organizations })
+    });
   }
 
   async authorize({ userId, organizationId, agentKey, investmentIds }) {
@@ -47,9 +53,36 @@ class GeneralAgentSources {
     const { userId, organizationId, agentKey } = scope;
     if (!await this.authorize(scope)) return null;
     if (agentKey === "financial") {
-      const page = await this.finance.documents(userId, organizationId, { limit: 25 });
+      const text = String(instruction);
+      const reference = text.match(/(?:^|\s)([a-z0-9]+(?:[/-][a-z0-9]+)+)(?=$|[\s,.?!])/i)?.[1];
+      const periodText = reference ? text.replace(reference, "") : text;
+      const years = [...new Set(periodText.match(/\b(?:20[2-9][0-9]|2100)\b/g) || [])].map(Number);
+      const year = years.length === 1 ? years[0] : undefined;
+      const [invoiceTotals, page] = await Promise.all([
+        this.finance.agentTotals(userId, organizationId, year),
+        this.finance.documents(userId, organizationId, { limit: 25, year, reference })
+      ]);
+      const bankPeriods = [];
+      try {
+        for (const bankYear of years.length ? years.slice(0, 5) : [new Date().getUTCFullYear()]) {
+          const report = await this.bank.report(userId, organizationId, bankYear);
+          if (!report.accounts.length) continue;
+          bankPeriods.push({
+            year: bankYear,
+            months: report.months.map(({month, currencies}) => ({month, currencies})),
+            quarters: report.quarters.map(({quarter, currencies}) => ({quarter, currencies}))
+          });
+        }
+      } catch (error) {
+        if (![403, 404, 413].includes(error.status)) throw error;
+      }
       return {
-        coverage: "Do 25 najnowszych zapisanych faktur KSeF; w razie dalszych pozycji nie podawaj sum dla całej firmy.",
+        coverage: "Sumy obejmują wszystkie zapisane faktury KSeF w podanym zakresie, według daty wystawienia. " +
+          "Kwoty zawierają korekty ze znakiem z KSeF. Pola missing wskazują kwoty nieznane. " +
+          "Szczegóły faktur to maksymalnie 25 pozycji. Raport bankowy obejmuje wyłącznie zaimportowane operacje i potwierdzone salda. " +
+          "Dane bankowe dotyczą lat jawnie wskazanych w pytaniu (maksymalnie pięciu) lub bieżącego roku. Brak okresu bankowego oznacza brak danych w kontekście.",
+        invoiceTotals,
+        bankPeriods,
         hasMore: page.hasMore,
         invoices: page.items.map(row => ({
           invoice: redactText(row.invoiceNumber, 100),
