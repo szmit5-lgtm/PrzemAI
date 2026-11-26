@@ -41,13 +41,15 @@ class AIEngine {
 
             json = false,
 
-            requestOptions
+            requestOptions,
+            maxOutputTokens
 
         } = options;
 
         const response = await this.client.responses.create({
 
             model,
+            ...(maxOutputTokens && { max_output_tokens: maxOutputTokens }),
 
             text: json
                 ? {

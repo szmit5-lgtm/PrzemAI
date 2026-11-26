@@ -207,7 +207,8 @@ export async function getExecutiveDashboard() {
 export async function sendChatMessage(
     message,
     conversationId = null,
-    organizationId = null
+    organizationId = null,
+    requestId = null
 ) {
     return request("/api/chat", {
         method: "POST",
@@ -217,7 +218,8 @@ export async function sendChatMessage(
         body: JSON.stringify({
             message,
             conversationId,
-            ...(organizationId && { organizationId })
+            ...(organizationId && { organizationId }),
+            ...(requestId && { requestId })
         })
     });
 }

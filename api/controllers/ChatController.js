@@ -9,7 +9,8 @@ class ChatController {
             const {
                 message,
                 conversationId,
-                organizationId
+                organizationId,
+                requestId
             } = req.body || {};
 
             if (typeof message !== "string" || !message.trim()) {
@@ -44,12 +45,17 @@ class ChatController {
                 return res.status(400).json({ success: false, error: "Nieprawidłowy identyfikator spółki." });
             }
 
+            if (requestId != null &&
+                (typeof requestId !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(requestId))) {
+                return res.status(400).json({ success: false, error: "Nieprawidłowy identyfikator żądania." });
+            }
+
             const result = await ChatService.chat(
 
                 req.user.id,
                 message,
                 conversationId || null,
-                { organizationId: organizationId || null }
+                { organizationId: organizationId || null, requestId: requestId || null }
 
             );
 
@@ -69,6 +75,8 @@ class ChatController {
         }
         catch (err) {
 
+            const status = { GENERAL_RATE_LIMIT: 429, CHAT_REQUEST_CONFLICT: 409 }[err?.code];
+            if (status) return res.status(status).json({ success: false, error: err.message });
             console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
