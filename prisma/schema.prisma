@@ -76,7 +76,7 @@ model Task {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   investmentId String?
-  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
 
   @@index([investmentId])
   @@index([userId])
@@ -369,7 +369,7 @@ model OrganizationDocument {
   uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   investmentId String?
-  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
   isInvestmentReport Boolean @default(false)
 
   @@index([investmentId, createdAt])
