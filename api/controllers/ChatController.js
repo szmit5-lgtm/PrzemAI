@@ -8,7 +8,8 @@ class ChatController {
 
             const {
                 message,
-                conversationId
+                conversationId,
+                organizationId
             } = req.body || {};
 
             if (typeof message !== "string" || !message.trim()) {
@@ -38,14 +39,21 @@ class ChatController {
                 });
             }
 
+            if (organizationId != null &&
+                (typeof organizationId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(organizationId))) {
+                return res.status(400).json({ success: false, error: "Nieprawidłowy identyfikator spółki." });
+            }
+
             const result = await ChatService.chat(
 
                 req.user.id,
                 message,
-                conversationId || null
+                conversationId || null,
+                { organizationId: organizationId || null }
 
             );
 
+            res.set("Cache-Control", "private, no-store");
             return res.json({
 
                 success: true,
@@ -61,7 +69,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 
@@ -97,7 +105,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 
@@ -135,6 +143,7 @@ class ChatController {
 
             }
 
+            res.set("Cache-Control", "private, no-store");
             return res.json({
 
                 success: true,
@@ -146,7 +155,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 
@@ -182,7 +191,7 @@ class ChatController {
         }
         catch (err) {
 
-            console.error(err);
+            console.error("[ChatController]", err?.name || "Error");
 
             return res.status(500).json({
 

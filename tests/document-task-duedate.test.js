@@ -15,6 +15,7 @@ function taskHarness() {
     async update(payload) { calls.push({ operation: "update", payload }); return payload.data; }
   } };
   const context = { module: { exports: {} }, Date, require: name => {
+    if (name === "../../lib/agentCatalog") return require("../lib/agentCatalog");
     assert.equal(name, "../../lib/prisma");
     return prisma;
   } };

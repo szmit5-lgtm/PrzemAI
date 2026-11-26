@@ -39,7 +39,9 @@ class AIEngine {
 
             model = "gpt-5.5",
 
-            json = false
+            json = false,
+
+            requestOptions
 
         } = options;
 
@@ -79,7 +81,7 @@ class AIEngine {
 
             ]
 
-        });
+        }, requestOptions);
 
         const output = response.output_text;
 

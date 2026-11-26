@@ -1,4 +1,6 @@
 const prisma = require("../../lib/prisma");
+const { GENERAL_SOURCE } = require("../../lib/agentCatalog");
+const personalSource = { notIn: ["COMPANY", GENERAL_SOURCE] };
 
 // Task deadlines are calendar dates. Prisma DateTime accepts a Date instance,
 // not the date-only YYYY-MM-DD strings produced by <input type="date"> and AI.
@@ -63,7 +65,7 @@ class TaskService {
             where: {
 
                 userId,
-                source: { not: "COMPANY" },
+                source: personalSource,
 
                 ...(status ? { status } : {})
 
@@ -101,7 +103,7 @@ class TaskService {
 
                 id,
                 userId,
-                source: { not: "COMPANY" }
+                source: personalSource
 
             }
 
@@ -137,7 +139,7 @@ class TaskService {
         // Scope the write itself to the owner, not only a preceding read.
         // This also removes the read/write authorization race.
         return prisma.task.update({
-            where: { id, userId, source: { not: "COMPANY" } },
+            where: { id, userId, source: personalSource },
             data: changes
         });
 
@@ -158,7 +160,7 @@ class TaskService {
 
         // Authorization belongs in the DELETE predicate as well.
         return prisma.task.delete({
-            where: { id, userId, source: { not: "COMPANY" } }
+            where: { id, userId, source: personalSource }
         });
 
     }

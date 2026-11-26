@@ -4,16 +4,21 @@ const AIEngine = require("../../core/ai/AIEngine");
 const TaskService = require("./TaskService");
 const MemoryService = require("./MemoryService");
 const SettingsService = require("./SettingsService");
+const GeneralAgentService = require("./GeneralAgentService");
+const { redactText, documentReport } = require("../../lib/aiContext");
 
 class ChatService {
 
     constructor() {
 
         this.ai = new AIEngine();
+        this.general = new GeneralAgentService({ ai: this.ai });
 
     }
 
-    async chat(userId, message, conversationId = null) {
+    async chat(userId, message, conversationId = null, { organizationId = null } = {}) {
+
+        if (typeof userId !== "string" || !userId) throw new Error("Brak uwierzytelnionego użytkownika.");
 
         const settings =
             await SettingsService.get(userId);
@@ -22,14 +27,34 @@ class ChatService {
             await this.getOrCreateConversation(
                 userId,
                 conversationId,
-                message
+                organizationId ? "Rozmowa firmowa" : message
             );
 
-        await this.createMessage(
+        const turn = await this.createMessage(
             conversation.id,
             "user",
-            message
+            message,
+            organizationId ? { organizationId } : undefined
         );
+
+        const delegated = await this.general.handleTurn({
+            userId, conversationId: conversation.id, organizationId,
+            turnId: turn.id, message, historyEnabled: settings.historyEnabled
+        });
+        if (delegated) {
+            const metadata = delegated.planId
+                ? { generalPlanId: delegated.planId, organizationId, note: delegated.note || "" }
+                : undefined;
+            // Company results are loaded from protected tasks after authorization,
+            // never copied into ordinary chat history or long-term memory.
+            const reply = await this.createMessage(conversation.id, "assistant",
+                metadata ? "Wyniki zleceń General Agenta." : delegated.answer, metadata);
+            await prisma.chatConversation.update({
+                where: { id: conversation.id }, data: { lastMessageAt: new Date() }
+            });
+            return { conversationId: conversation.id, answer: delegated.answer,
+                message: { ...reply, content: delegated.answer } };
+        }
 
         const [
             tasks,
@@ -46,7 +71,8 @@ class ChatService {
                 ? prisma.history.findMany({
 
                     where: {
-                        userId
+                        userId,
+                        type: { in: ["document", "meeting"] }
                     },
 
                     orderBy: {
@@ -86,6 +112,7 @@ class ChatService {
                 select: {
                     role: true,
                     content: true,
+                    metadata: true,
                     createdAt: true
                 }
 
@@ -95,11 +122,12 @@ class ChatService {
 
         const conversationHistory =
             previousMessages
+                .filter(item => !item.metadata?.organizationId)
                 .reverse()
                 .map(item => ({
 
                     role: item.role,
-                    content: item.content
+                    content: redactText(item.content)
 
                 }));
 
@@ -125,13 +153,13 @@ class ChatService {
                 .slice(0, 50)
                 .map(memory => ({
 
-                    type: memory.type,
-                    title: memory.title,
-                    content: memory.content,
-                    source: memory.source,
+                    type: redactText(memory.type, 100),
+                    title: redactText(memory.title, 200),
+                    content: redactText(memory.content, 1600),
+                    source: redactText(memory.source, 100),
                     importance:
                         memory.importance,
-                    tags: memory.tags
+                    tags: (memory.tags || []).slice(0, 10).map(tag => redactText(tag, 80))
 
                 })),
 
@@ -139,23 +167,23 @@ class ChatService {
                 .slice(0, 30)
                 .map(task => ({
 
-                    title: task.title,
+                    title: redactText(task.title, 200),
                     description:
-                        task.description,
+                        redactText(task.description, 1600),
                     status: task.status,
                     priority: task.priority,
                     source: task.source,
-                    owner: task.owner,
+                    owner: redactText(task.owner, 120),
                     dueDate: task.dueDate
 
                 })),
 
             history: history.map(item => ({
 
-                title: item.title,
+                title: redactText(item.title, 200),
                 type: item.type,
                 createdAt: item.createdAt,
-                report: item.report
+                report: documentReport(item.report)
 
             })),
 
@@ -208,7 +236,7 @@ ${JSON.stringify(context, null, 2)}
 
 AKTUALNA WIADOMOŚĆ UŻYTKOWNIKA:
 
-${message}
+${redactText(message, 12000)}
 `;
 
         const systemPrompt =
@@ -259,10 +287,10 @@ ${message}
                     await this.ai.extractMemories({
 
                         userMessage:
-                            message,
+                            redactText(message, 12000),
 
                         assistantMessage:
-                            answer
+                            redactText(answer)
 
                     });
 
@@ -278,7 +306,7 @@ ${message}
 
                 console.error(
                     "Błąd zapisu pamięci AI:",
-                    err.message
+                    err.name
                 );
 
             }
@@ -371,7 +399,8 @@ ${message}
     async createMessage(
         conversationId,
         role,
-        content
+        content,
+        metadata
     ) {
 
         return prisma.chatMessage.create({
@@ -380,7 +409,8 @@ ${message}
 
                 conversationId,
                 role,
-                content
+                content,
+                ...(metadata && { metadata })
 
             }
 
@@ -458,7 +488,7 @@ ${message}
         conversationId
     ) {
 
-        return prisma.chatConversation
+        const conversation = await prisma.chatConversation
             .findFirst({
 
                 where: {
@@ -484,6 +514,23 @@ ${message}
                 }
 
             });
+
+        if (!conversation) return null;
+        if (!conversation.messages.some(message => message.metadata?.generalPlanId)) return conversation;
+        const { historyEnabled } = await SettingsService.get(userId);
+        const plans = new Map();
+        for (const message of conversation.messages) {
+            const metadata = message.metadata;
+            if (message.role !== "assistant" || !metadata?.generalPlanId) continue;
+            const { generalPlanId, organizationId } = metadata;
+            if (!plans.has(generalPlanId)) {
+                plans.set(generalPlanId, await this.general.readPlan(
+                    { userId, conversationId, organizationId }, generalPlanId, { historyEnabled }
+                ));
+            }
+            message.content = plans.get(generalPlanId).answer + (metadata.note || "");
+        }
+        return conversation;
 
     }
 

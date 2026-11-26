@@ -14,7 +14,7 @@ import {
   parseChatSendResponse,parseChatArchiveResponse
 } from "@/lib/chatDashboardPayload";
 import {
-  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice
+  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice,getOrganizations
 } from "@/lib/api";
 import {combineVoiceText,shouldSubmitVoiceTurn} from "@/lib/voiceInputPayload";
 
@@ -32,6 +32,8 @@ export default function ChatPage(){
  const [activeConversationId,setActiveConversationId]=useState(null);
  const [messages,setMessages]=useState([welcomeMessage]);
  const [message,setMessage]=useState("");
+ const [organizations,setOrganizations]=useState([]);
+ const [organizationId,setOrganizationId]=useState("");
  const [loading,setLoading]=useState(false);
  const [loadingConversations,setLoadingConversations]=useState(true);
  const [loadingConversation,setLoadingConversation]=useState(false);
@@ -54,6 +56,13 @@ export default function ChatPage(){
  const voiceTurnRef=useRef(null);
  const loadingRef=useRef(false);
 
+ useEffect(()=>{
+   let active=true;
+   getOrganizations().then(result=>{
+     if(active&&Array.isArray(result?.data))setOrganizations(result.data.filter(org=>org.status==="ACTIVE"));
+   }).catch(()=>{});
+   return ()=>{active=false;};
+ },[]);
  useEffect(()=>{
    // Even where Web Speech API is absent, MediaRecorder can capture short turns
    // for transcription by PrzemAI's existing backend.
@@ -332,7 +341,7 @@ export default function ChatPage(){
    }]);
    setMessage("");
    try{
-     const result=parseChatSendResponse(await sendChatMessage(text,activeConversationId));
+     const result=parseChatSendResponse(await sendChatMessage(text,activeConversationId,organizationId));
      setActiveConversationId(result.conversationId);
      setMessages(current=>[...current,{
        id:result.message?.id||"answer-"+Date.now(),role:"assistant",content:result.answer
@@ -413,6 +422,14 @@ export default function ChatPage(){
         <p className="text-[11px] text-slate-400">Rozmawiaj, planuj i zlecaj pracę agentom</p>
        </div>
       </div>
+      {organizations.length>0&&<label className="flex items-center gap-2 text-xs text-slate-300">
+       Zakres
+       <select value={organizationId} onChange={event=>setOrganizationId(event.target.value)}
+        disabled={busy} className="max-w-48 rounded-xl border border-white/15 bg-[#18243f] px-2 py-2 text-slate-100">
+        <option value="">Osobisty</option>
+        {organizations.map(org=><option key={org.id} value={org.id}>{org.displayName||org.name}</option>)}
+       </select>
+      </label>}
       <Link href="/agents" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-300/20 bg-violet-400/10 px-3 text-xs font-semibold text-violet-200 hover:bg-violet-400/15">
        <Bot size={15}/> Wszyscy agenci <ChevronRight size={13}/>
       </Link>
