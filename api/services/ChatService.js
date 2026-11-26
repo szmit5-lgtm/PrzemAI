@@ -19,6 +19,8 @@ class ChatService {
     async chat(userId, message, conversationId = null, { organizationId = null } = {}) {
 
         if (typeof userId !== "string" || !userId) throw new Error("Brak uwierzytelnionego użytkownika.");
+        if (typeof message !== "string" || !message.trim() || message.length > 12000)
+            throw new Error("Nieprawidłowa wiadomość.");
 
         const settings =
             await SettingsService.get(userId);

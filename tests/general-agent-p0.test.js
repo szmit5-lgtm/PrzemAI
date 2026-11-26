@@ -157,3 +157,35 @@ test("parallel reads of a queued plan claim the assignment only once", async () 
   assert.equal(calls, 1);
   assert.match((await service.readPlan(scope, "plan")).answer, /Raport/);
 });
+
+test("financial context reuses KSeF permissions and excludes authorization and raw invoice fields", async () => {
+  let permission = false;
+  let recordsRead = 0;
+  const db = {
+    organizationMembership: { findFirst: async ({ where }) => {
+      if (where.organizationId !== "company" || where.userId !== "member" ||
+          (where.financeAccess && !permission)) return null;
+      return { userId: "member", organizationId: "company", role: "MEMBER" };
+    } },
+    organizationFinanceLink: { findUnique: async ({ where }) => {
+      assert.equal(where.organizationId, "company");
+      return { ownerUserId: "owner", nip: "1234567890" };
+    } },
+    financialDocument: { findMany: async ({ where }) => {
+      recordsRead++;
+      assert.deepEqual(where, { userId: "owner", source: "KSEF",
+        OR: [{ buyerNip: "1234567890" }, { sellerNip: "1234567890" }] });
+      return [{ invoiceNumber: "FV/01", grossAmount: "100", currency: "PLN",
+        sellerNip: "1234567890", rawData: { token: "hidden" } }];
+    } }
+  };
+  const sources = new GeneralAgentSources(db);
+  const scope = { userId: "member", organizationId: "company", agentKey: "financial" };
+  assert.equal(await sources.load(scope, "Faktury"), null);
+  assert.equal(recordsRead, 0);
+  permission = true;
+  const result = await sources.load(scope, "Faktury");
+  assert.equal(recordsRead, 1);
+  assert.equal(result.invoices[0].gross, "100");
+  assert.doesNotMatch(JSON.stringify(result), /1234567890|hidden|ownerUserId/);
+});

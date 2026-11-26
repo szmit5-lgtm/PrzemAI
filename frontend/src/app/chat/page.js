@@ -232,6 +232,8 @@ export default function ChatPage(){
    try{
      const result=parseChatDetailResponse(await getConversation(id),id);
      setActiveConversationId(result.id);
+     const lastScope=result.messages.findLast(item=>item.role==="user")?.metadata?.organizationId;
+     setOrganizationId(organizations.some(org=>org.id===lastScope)?lastScope:"");
      setMessages(result.messages?.length?result.messages.map(m=>({
        id:m.id,role:m.role,content:m.content
      })):[welcomeMessage]);
@@ -425,7 +427,7 @@ export default function ChatPage(){
       {organizations.length>0&&<label className="flex items-center gap-2 text-xs text-slate-300">
        Zakres
        <select value={organizationId} onChange={event=>setOrganizationId(event.target.value)}
-        disabled={busy} className="max-w-48 rounded-xl border border-white/15 bg-[#18243f] px-2 py-2 text-slate-100">
+        disabled={busy||listening} className="max-w-48 rounded-xl border border-white/15 bg-[#18243f] px-2 py-2 text-slate-100">
         <option value="">Osobisty</option>
         {organizations.map(org=><option key={org.id} value={org.id}>{org.displayName||org.name}</option>)}
        </select>
