@@ -3,6 +3,9 @@ const express = require("express");
 const verifyToken = require("../middleware/verifyToken");
 const ChatController = require("../controllers/ChatController");
 const multer = require("multer");
+const chat = require("../services/ChatService");
+const { extractAttachment, MAX_FILE } = require("../services/ChatAttachmentService");
+const reports = require("../services/ChatReportService");
 const { VoiceTranscriptionService } = require("../services/VoiceTranscriptionService");
 const voiceTranscription = new VoiceTranscriptionService();
 const AUDIO_LIMIT = 2 * 1024 * 1024;
@@ -76,6 +79,58 @@ router.post("/transcribe", verifyToken, (req, res) => voiceUpload(req, res, asyn
     });
   }
 }));
+
+const attachmentUpload = multer({ storage: multer.memoryStorage(),
+  limits: { files: 1, fileSize: MAX_FILE, fields: 3, fieldSize: 12000 } }).single("file");
+
+router.post("/attachment", verifyToken, (req, res) => attachmentUpload(req, res, async error => {
+  if (error || !req.file) return res.status(400).json({ success: false, error: "Wybierz jeden plik do 4 MB." });
+  const { organizationId, conversationId, message } = req.body;
+  if ([organizationId, conversationId].some(id => id && !/^[a-zA-Z0-9_-]{1,128}$/.test(id)) ||
+      (message != null && (typeof message !== "string" || message.length > 12000)))
+    return res.status(400).json({ success: false, error: "Nieprawidłowe dane rozmowy." });
+  let attachment;
+  try { attachment = await extractAttachment(req.file); }
+  catch { return res.status(422).json({ success: false, error: "Nie udało się odczytać tekstu załącznika." }); }
+  try {
+    const result = await chat.chat(req.user.id, message?.trim() || "Przeanalizuj załącznik: " + attachment.name,
+      conversationId || null, { organizationId: organizationId || null, attachment });
+    res.set("Cache-Control", "private, no-store");
+    return res.json({ success: true, conversationId: result.conversationId, answer: result.answer, message: result.message });
+  } catch (err) {
+    return res.status(err?.status === 403 ? 403 : 502).json({ success: false, error: "Nie udało się przeanalizować załącznika." });
+  }
+}));
+
+router.get("/:id/report/:messageId", verifyToken, async (req, res, next) => {
+  try {
+    const report = await reports.reportFor(chat, req.user.id, req.params.id, req.params.messageId);
+    if (!report) return res.sendStatus(404);
+    res.set("Cache-Control", "private, no-store");
+    res.set("X-Content-Type-Options", "nosniff");
+    return res.attachment("raport-przemai.md").type("text/plain").send(report.text);
+  } catch (error) { next(error); }
+});
+
+router.post("/:id/telegram-report", verifyToken, async (req, res, next) => {
+  try {
+    const db = require("../../lib/prisma");
+    const data = await reports.prepare({ db, chat, userId: req.user.id,
+      conversationId: req.params.id, messageId: req.body?.messageId });
+    if (!data) return res.status(409).json({ success: false, error: "Wymagany prywatny raport i powiązane konto Telegram." });
+    return res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
+router.post("/:id/telegram-report/:approvalId", verifyToken, async (req, res, next) => {
+  try {
+    const sent = await reports.confirm({ db: require("../../lib/prisma"), chat, userId: req.user.id,
+      conversationId: req.params.id, id: req.params.approvalId,
+      send: require("../services/TelegramBridgeService").sendTelegramMessage });
+    if (!sent) return res.status(409).json({ success: false, error: "Zgoda wygasła albo raport się zmienił." });
+    return res.json({ success: true });
+  } catch (error) { next(error); }
+});
 
 router.get(
     "/:id",

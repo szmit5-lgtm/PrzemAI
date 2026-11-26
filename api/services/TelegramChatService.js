@@ -44,7 +44,8 @@ async function companyCommand({ db, organizations, userId, selectionKey, argumen
   return organizationId ? `Wybrano spółkę: ${argument}.` : "Wybrano zakres prywatny.";
 }
 
-async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked, chat }) {
+async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked, chat,
+  transcribe = (...args) => require("./TelegramVoiceService").transcribeTelegramVoice(...args) }) {
   if (!Number.isSafeInteger(msg.message_id) || msg.message_id <= 0)
     return "Nie można potwierdzić identyfikatora wiadomości.";
   if (text.length > 4096) return "Wiadomość jest zbyt długa.";
@@ -76,17 +77,36 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
   // Each account/scope gets its own shared-backend conversation. ChatService
   // keeps this channel inaccessible from web chat, even to the same user.
   const channel = "TELEGRAM";
-  const id = "telegram-" + createHash("sha256")
+  const shared = /^\/watek\s+([a-zA-Z0-9_-]{1,128})\s+([\s\S]+)$/.exec(text);
+  if (text.startsWith("/watek") && !shared) return "Użyj /watek <ID rozmowy WWW> <wiadomość>.";
+  const personalId = "telegram-" + createHash("sha256")
     .update(JSON.stringify([userId, telegramUserId, organizationId])).digest("hex");
-  await db.chatConversation.createMany({
-    data: { id, userId, channel, title: "Telegram" },
-    skipDuplicates: true
-  });
+  const id = shared ? shared[1] : personalId;
+  if (shared) {
+    const thread = await db.chatConversation.findFirst({
+      where: { id, userId, channel: "WEB", archivedAt: null },
+      select: { messages: { where: { role: "user" }, take: 1, orderBy: { createdAt: "desc" }, select: { metadata: true } } }
+    });
+    if (!thread || (thread.messages[0]?.metadata?.organizationId ?? null) !== organizationId)
+      return "Nie znaleziono rozmowy WWW w wybranym zakresie.";
+  } else {
+    await db.chatConversation.createMany({
+      data: { id, userId, channel, title: "Telegram" }, skipDuplicates: true
+    });
+  }
 
+  if (!text && msg.voice) {
+    if (!await isStillLinked()) return null;
+    try { text = await transcribe(msg.voice); }
+    catch { return "Nie udało się przetworzyć głosu. Wyślij krótkie nagranie OGG lub tekst."; }
+    if (!text.trim() || !await isStillLinked() || !await hasAccess(organizations, userId, organizationId))
+      return null;
+  }
   const requestId = `telegram-${telegramUserId}-${msg.message_id}`;
   let result;
   try {
-    result = await chat(userId, text, id, { organizationId, channel, requestId });
+    result = await chat(userId, shared ? shared[2] : text, id,
+      { organizationId, channel, requestId, ...(shared && { sharedWebThread: true }) });
   } catch (error) {
     console.error("[TelegramChat] Shared chat failed", error?.name || "Error");
     return CHAT_ERROR;

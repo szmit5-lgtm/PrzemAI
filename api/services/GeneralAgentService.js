@@ -12,12 +12,12 @@ const {
 const GeneralAgentSources = require("./GeneralAgentSources");
 
 const DOMAIN = {
-  financial: /\b(faktur\w*|ksef|finans\w*|vat|koszt\w*|przychod\w*|sald\w*|wplyw\w*|wydatk\w*|wyciag\w*)\b/,
+  financial: /\b(faktur\w*|ksef|finans\w*|vat|koszt\w*|przychod\w*|sald\w*|wplyw\w*|wydatk\w*|wyciag\w*|wydal\w*|wplaty|platnos\w*)\b/,
   document: /\b(dokument\w*|umow\w*|aneks\w*|zalacznik\w*)\b/,
-  investment: /\b(inwestyc\w*|rentownosc\w*|deweloper\w*|pum)\b/
+  investment: /\b(inwestyc\w*|rentownosc\w*|deweloper\w*|pum|budow\w*|postep prac)\b/
 };
 const STATUS = /^(?:agenci )?(?:status|wynik\w*|co z wynikami|pokaz wyniki)(?: |$)/;
-const CONTINUATION = /^(?:a |doprecyzuj\b|rozwin\b|kontynuuj\b|porownaj wyniki\b)/;
+const CONTINUATION = /^(?:a |doprecyzuj\b|rozwin\b|kontynuuj\b|porownaj wyniki\b|co z tym\b|co dalej\b|na podstawie poprzedni\w*\b)/;
 const STALE_MS = 90 * 1000;
 const MAX_OUTPUT_TOKENS = 1000;
 const LABEL = {
@@ -57,7 +57,7 @@ class GeneralAgentService {
     return this.sources.authorize({ ...scope, agentKey, investmentIds });
   }
 
-  async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true }) {
+  async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true, background = false }) {
     const scope = { userId, conversationId, organizationId };
     if (!GeneralAgentService.accepts(message, organizationId)) return null;
     const [existing] = await this.findTasks(scope, "planId", turnId);
@@ -81,9 +81,7 @@ class GeneralAgentService {
       }
     }
 
-    if (!keys.length) return organizationId
-      ? { answer: "W zakresie spółki mogę przeanalizować zapisane finanse, dokumenty lub inwestycje. Napisz, czego dotyczy sprawa." }
-      : null;
+    if (!keys.length) return null;
 
     const enabled = await this.db.agent.findMany({
       where: { userId, enabled: true, key: { in: keys } }, select: { key: true }
@@ -105,7 +103,7 @@ class GeneralAgentService {
       userId, db: this.db, general: { conversationId, planId: turnId, organizationId, parentPlanId },
       payload: { title: "Analiza General Agenta", assignments: selected.map(agentKey => ({ agentKey, instruction })) }
     });
-    const result = await this.readPlan(scope, turnId, { resume: true, historyEnabled });
+    const result = await this.readPlan(scope, turnId, { resume: !background, historyEnabled });
     return { ...result, answer: result.answer + note, note };
   }
 
@@ -195,17 +193,19 @@ class GeneralAgentService {
     const tasks = await this.findTasks(scope, "planId", planId);
     if (resume) await Promise.all(tasks.map(task => this.execute(task, scope, historyEnabled)));
     const current = resume ? await this.findTasks(scope, "planId", planId) : tasks;
+    let pending = false;
     const parts = await Promise.all(current.map(async task => {
       const agentKey = task.metadata.agentKey;
       const label = getAgentDefinition(agentKey)?.name || "Agent";
       if ((!scope.organizationId && !historyEnabled) ||
           !await this.canReadResult(task, scope)) return label + " — brak dostępu.";
+      if (["TODO", "IN_PROGRESS"].includes(task.status)) pending = true;
       const heading = label + " — " + (LABEL[task.status] || task.status);
       return task.status === "DONE" && task.metadata.result
         ? heading + "\n" + redactText(task.metadata.result, 3000)
         : heading;
     }));
-    return { planId, answer: parts.join("\n\n") || "Brak zleceń w wybranym zakresie." };
+    return { planId, pending, answer: parts.join("\n\n") || "Brak zleceń w wybranym zakresie." };
   }
 }
 
