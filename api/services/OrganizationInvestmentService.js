@@ -8,6 +8,12 @@ const SELECT = {
   status: true, progress: true, source: true, assignedUserIds: true, createdAt: true, updatedAt: true
 };
 
+function visibleInvestmentWhere(member, userId, organizationId) {
+  return ["OWNER", "ADMIN"].includes(member.role)
+    ? { organizationId }
+    : { organizationId, assignedUserIds: { has: userId } };
+}
+
 class OrganizationInvestmentService {
   constructor({ db = prisma, orgService = null } = {}) {
     this.db = db;
@@ -20,9 +26,7 @@ class OrganizationInvestmentService {
     const member = await this.orgService.membership(userId, organizationId);
     // Non-admin users can only see projects explicitly assigned to them.
     // An organization membership must never imply access to every investment.
-    const where = ["OWNER", "ADMIN"].includes(member.role)
-      ? { organizationId }
-      : { organizationId, assignedUserIds: { has: userId } };
+    const where = visibleInvestmentWhere(member, userId, organizationId);
     // Do not disclose other employees' identifiers to ordinary members.
     const select = ["OWNER", "ADMIN"].includes(member.role)
       ? SELECT : Object.fromEntries(Object.entries(SELECT).filter(([key]) => key !== "assignedUserIds"));
@@ -119,4 +123,4 @@ class OrganizationInvestmentService {
     });
   }
 }
-module.exports = { OrganizationInvestmentService };
+module.exports = { OrganizationInvestmentService, visibleInvestmentWhere };

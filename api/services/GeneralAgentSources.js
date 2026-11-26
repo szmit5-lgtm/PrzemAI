@@ -2,6 +2,7 @@
 
 const { OrganizationService } = require("./OrganizationService");
 const { OrganizationFinanceService } = require("./OrganizationFinanceService");
+const { visibleInvestmentWhere } = require("./OrganizationInvestmentService");
 const { normalize } = require("./InvestmentContextService");
 const { redactText, documentReport } = require("../../lib/aiContext");
 
@@ -21,12 +22,20 @@ class GeneralAgentSources {
     this.finance = new OrganizationFinanceService({ db, orgService: this.organizations });
   }
 
-  async authorize({ userId, organizationId, agentKey }) {
+  async authorize({ userId, organizationId, agentKey, investmentIds }) {
     if (!organizationId) return agentKey === "document";
     try {
       if (agentKey === "financial") await this.finance.accessible(userId, organizationId);
-      else await this.organizations.membership(userId, organizationId,
-        agentKey === "document" ? DOCUMENT_ROLES : undefined);
+      else {
+        const member = await this.organizations.membership(userId, organizationId,
+          agentKey === "document" ? DOCUMENT_ROLES : undefined);
+        if (agentKey === "investment" && investmentIds?.length) {
+          const visible = await this.db.organizationInvestment.count({
+            where: { ...visibleInvestmentWhere(member, userId, organizationId), id: { in: investmentIds } }
+          });
+          return visible === investmentIds.length;
+        }
+      }
       return true;
     } catch (error) {
       if ([403, 404].includes(error.status)) return false;
@@ -51,11 +60,12 @@ class GeneralAgentSources {
       };
     }
     if (agentKey === "investment") {
+      const member = await this.organizations.membership(userId, organizationId);
       const investments = await this.db.organizationInvestment.findMany({
-        where: { organizationId }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 30,
-        select: { name: true, status: true, progress: true, description: true }
+        where: visibleInvestmentWhere(member, userId, organizationId), orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 30,
+        select: { id: true, name: true, status: true, progress: true, description: true }
       });
-      return { investments: investments.map(row => ({
+      return { investmentIds: investments.map(row => row.id), investments: investments.map(row => ({
         name: redactText(row.name, 160), status: redactText(row.status, 40), progress: row.progress,
         description: redactText(row.description, 800)
       })) };

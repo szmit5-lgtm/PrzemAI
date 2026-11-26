@@ -2,6 +2,8 @@
 const prisma = require("../../lib/prisma");
 const { GENERAL_SOURCE, getAgentDefinition } = require("../../lib/agentCatalog");
 
+const GENERAL_TASKS_PER_MINUTE = 12;
+const GENERAL_WINDOW_MS = 60000;
 const GENERAL_AGENTS = Object.freeze(["financial", "document", "investment"]);
 
 function validateDispatch(body, general = false) {
@@ -29,6 +31,10 @@ function validateDispatch(body, general = false) {
   return { title, assignments };
 }
 
+async function lockGeneralUser(tx, userId) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 71914))::text`;
+}
+
 async function dispatchPlan({ userId, payload, db = prisma, general = null }) {
   if (typeof userId !== "string" || !userId)
     throw new Error("Brak uwierzytelnionego użytkownika.");
@@ -36,6 +42,24 @@ async function dispatchPlan({ userId, payload, db = prisma, general = null }) {
   // Transactional acceptance: either every agent gets a durable task, or none.
   // No model call, mail send, transfer, order, or external side effect here.
   const tasks = await db.$transaction(async tx => {
+    if (general) {
+      // The lock covers all conversations for this user, including concurrent retries.
+      await lockGeneralUser(tx, userId);
+      const existing = await tx.task.findMany({
+        where: { userId, source: GENERAL_SOURCE, metadata: { path: ["planId"], equals: general.planId } },
+        select: { id: true, status: true, metadata: true }
+      });
+      if (existing.length) return existing.map(task => ({
+        id: task.id, status: task.status, agentKey: task.metadata.agentKey
+      }));
+      const recent = await tx.task.count({
+        where: { userId, source: GENERAL_SOURCE, createdAt: { gte: new Date(Date.now() - GENERAL_WINDOW_MS) } }
+      });
+      if (recent + plan.assignments.length > GENERAL_TASKS_PER_MINUTE) {
+        throw Object.assign(new Error("Limit analiz General Agenta. Spróbuj ponownie za minutę."),
+          { code: "GENERAL_RATE_LIMIT" });
+      }
+    }
     const assigned = [];
     for (const { agentKey, instruction } of plan.assignments) {
       const agent = await tx.agent.findFirst({
@@ -68,4 +92,7 @@ async function dispatchPlan({ userId, payload, db = prisma, general = null }) {
   return { title: plan.title, assignments: tasks };
 }
 
-module.exports = { validateDispatch, dispatchPlan, GENERAL_SOURCE, GENERAL_AGENTS };
+module.exports = {
+  validateDispatch, dispatchPlan, lockGeneralUser,
+  GENERAL_SOURCE, GENERAL_AGENTS, GENERAL_TASKS_PER_MINUTE, GENERAL_WINDOW_MS
+};

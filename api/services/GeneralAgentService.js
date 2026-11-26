@@ -5,7 +5,10 @@ const AIEngine = require("../../core/ai/AIEngine");
 const { getAgentDefinition } = require("../../lib/agentCatalog");
 const { redactText } = require("../../lib/aiContext");
 const { normalize } = require("./InvestmentContextService");
-const { dispatchPlan, GENERAL_SOURCE, GENERAL_AGENTS } = require("./MultiAgentDispatchService");
+const {
+  dispatchPlan, lockGeneralUser, GENERAL_SOURCE, GENERAL_AGENTS,
+  GENERAL_TASKS_PER_MINUTE, GENERAL_WINDOW_MS
+} = require("./MultiAgentDispatchService");
 const GeneralAgentSources = require("./GeneralAgentSources");
 
 const DOMAIN = {
@@ -15,7 +18,8 @@ const DOMAIN = {
 };
 const STATUS = /^(?:agenci )?(?:status|wynik\w*|co z wynikami|pokaz wyniki)(?: |$)/;
 const CONTINUATION = /^(?:a |doprecyzuj\b|rozwin\b|kontynuuj\b|porownaj wyniki\b)/;
-const STALE_MS = 90 * 60 * 1000;
+const STALE_MS = 90 * 1000;
+const MAX_OUTPUT_TOKENS = 1000;
 const LABEL = {
   TODO: "w kolejce", IN_PROGRESS: "w toku", DONE: "gotowe", ERROR: "błąd"
 };
@@ -25,6 +29,12 @@ class GeneralAgentService {
     this.db = db;
     this.ai = ai;
     this.sources = sources;
+  }
+
+  static accepts(message, organizationId) {
+    const text = normalize(message);
+    return Boolean(organizationId || STATUS.test(text) || CONTINUATION.test(text) ||
+      GENERAL_AGENTS.some(key => DOMAIN[key].test(text)));
   }
 
   findTasks({ userId, conversationId, organizationId }, field, value) {
@@ -39,14 +49,24 @@ class GeneralAgentService {
     });
   }
 
+  canReadResult(task, scope) {
+    const { agentKey, investmentIds } = task.metadata;
+    // Earlier versions stored investment results without source provenance.
+    if (agentKey === "investment" && task.status === "DONE" && !Array.isArray(investmentIds))
+      return false;
+    return this.sources.authorize({ ...scope, agentKey, investmentIds });
+  }
+
   async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true }) {
     const scope = { userId, conversationId, organizationId };
+    if (!GeneralAgentService.accepts(message, organizationId)) return null;
+    const [existing] = await this.findTasks(scope, "planId", turnId);
+    if (existing) return this.readPlan(scope, turnId, { resume: true, historyEnabled });
     const text = normalize(message);
     const status = STATUS.test(text);
     const continuation = CONTINUATION.test(text);
     let parentPlanId = null;
     let keys = GENERAL_AGENTS.filter(key => DOMAIN[key].test(text));
-    if (!keys.length && !status && !continuation && !organizationId) return null;
 
     if (status || continuation) {
       const [latest] = await this.findTasks(scope);
@@ -102,15 +122,26 @@ class GeneralAgentService {
     }
     if (task.status !== "TODO") return;
 
-    const startedAt = new Date();
-    const claim = await this.db.task.updateMany({
-      where: { ...where, status: "TODO" },
-      data: { status: "IN_PROGRESS", startedAt,
-        metadata: { ...task.metadata, resultStatus: "RUNNING" } }
+    const startedAt = await this.db.$transaction(async tx => {
+      await lockGeneralUser(tx, scope.userId);
+      const now = new Date();
+      // Old queued plans still consume today's execution allowance when resumed.
+      const started = await tx.task.count({
+        where: { userId: scope.userId, source: GENERAL_SOURCE,
+          startedAt: { gte: new Date(now.getTime() - GENERAL_WINDOW_MS) } }
+      });
+      if (started >= GENERAL_TASKS_PER_MINUTE) return null;
+      const claim = await tx.task.updateMany({
+        where: { ...where, status: "TODO" },
+        data: { status: "IN_PROGRESS", startedAt: now,
+          metadata: { ...task.metadata, resultStatus: "RUNNING" } }
+      });
+      return claim.count === 1 ? now : null;
     });
-    if (claim.count !== 1) return;
+    if (!startedAt) return;
 
     let result;
+    let investmentIds = null;
     try {
       const agent = await this.db.agent.findFirst({
         where: { userId: scope.userId, key: agentKey, enabled: true }, select: { id: true }
@@ -121,8 +152,16 @@ class GeneralAgentService {
           .find(item => item.metadata.agentKey === agentKey)
         : null;
       const previousInstruction = redactText(previous?.description, 3000);
-      const data = await this.sources.load(access, previousInstruction + " " + task.description);
-      if (!data || !await this.sources.authorize(access)) throw new Error("Unavailable");
+      const loaded = await this.sources.load(access, previousInstruction + " " + task.description);
+      if (!loaded) throw new Error("Unavailable");
+      const { investmentIds: sourceIds, ...data } = loaded;
+      if (agentKey === "investment") investmentIds = sourceIds || [];
+      const previousResult = previous?.status === "DONE" && await this.canReadResult(previous, scope)
+        ? redactText(previous.metadata.result, 1800) : "";
+      // A continuation can cite earlier sources. Retain their provenance too.
+      if (previousResult && investmentIds)
+        investmentIds = [...new Set([...investmentIds, ...previous.metadata.investmentIds])];
+      if (!await this.sources.authorize({ ...access, investmentIds })) throw new Error("Unavailable");
       if (!Object.values(data).some(value => Array.isArray(value) && value.length)) {
         result = "Nie znaleziono zapisanych danych w tym zakresie.";
       } else {
@@ -133,9 +172,10 @@ class GeneralAgentService {
             "Podaj zakres danych i braki. Nie wykonujesz operacji zewnętrznych ani zmian danych.",
           user: JSON.stringify({
             instruction: task.description, previousInstruction,
-            previousResult: previous?.status === "DONE" ? redactText(previous.metadata.result, 1800) : "",
+            previousResult,
             records: data
           }),
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
           requestOptions: { timeout: 15000, maxRetries: 0 }
         }), 3000).trim();
         if (!result) throw new Error("Empty result");
@@ -147,7 +187,7 @@ class GeneralAgentService {
     await this.db.task.updateMany({
       where: { ...where, status: "IN_PROGRESS", startedAt },
       data: { status: result ? "DONE" : "ERROR", completedAt: new Date(),
-        metadata: { ...task.metadata, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
+        metadata: { ...task.metadata, investmentIds, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
     });
   }
 
@@ -159,7 +199,7 @@ class GeneralAgentService {
       const agentKey = task.metadata.agentKey;
       const label = getAgentDefinition(agentKey)?.name || "Agent";
       if ((!scope.organizationId && !historyEnabled) ||
-          !await this.sources.authorize({ ...scope, agentKey })) return label + " — brak dostępu.";
+          !await this.canReadResult(task, scope)) return label + " — brak dostępu.";
       const heading = label + " — " + (LABEL[task.status] || task.status);
       return task.status === "DONE" && task.metadata.result
         ? heading + "\n" + redactText(task.metadata.result, 3000)

@@ -1,3 +1,4 @@
+const { createHash } = require("node:crypto");
 const prisma = require("../../lib/prisma");
 const AIEngine = require("../../core/ai/AIEngine");
 
@@ -6,6 +7,11 @@ const MemoryService = require("./MemoryService");
 const SettingsService = require("./SettingsService");
 const GeneralAgentService = require("./GeneralAgentService");
 const { redactText, documentReport } = require("../../lib/aiContext");
+
+function requestIdentifier(userId, requestId, channel) {
+    const scope = channel === "WEB" ? [userId, requestId] : [userId, requestId, channel];
+    return createHash("sha256").update(JSON.stringify(scope)).digest("hex");
+}
 
 class ChatService {
 
@@ -16,7 +22,7 @@ class ChatService {
 
     }
 
-    async chat(userId, message, conversationId = null, { organizationId = null, channel = "WEB" } = {}) {
+    async chat(userId, message, conversationId = null, { organizationId = null, requestId = null, channel = "WEB" } = {}) {
 
         if (typeof userId !== "string" || !userId) throw new Error("Brak uwierzytelnionego użytkownika.");
         if (typeof message !== "string" || !message.trim() || message.length > 12000)
@@ -25,20 +31,36 @@ class ChatService {
         const settings =
             await SettingsService.get(userId);
 
-        const conversation =
-            await this.getOrCreateConversation(
-                userId,
-                conversationId,
-                organizationId ? "Rozmowa firmowa" : message,
-                channel
-            );
-
-        const turn = await this.createMessage(
-            conversation.id,
-            "user",
-            message,
-            organizationId ? { organizationId } : undefined
-        );
+        const requestKey = requestId && GeneralAgentService.accepts(message, organizationId)
+            ? requestIdentifier(userId, requestId, channel) : null;
+        const title = organizationId ? "Rozmowa firmowa" : message;
+        const newConversationId = requestKey && !conversationId ? "general-chat-" + requestKey : null;
+        if (newConversationId) {
+            await prisma.chatConversation.createMany({
+                data: { id: newConversationId, userId, channel, title: this.buildConversationTitle(title) },
+                skipDuplicates: true
+            });
+        }
+        const conversation = await this.getOrCreateConversation(userId, conversationId || newConversationId, title, channel);
+        const messageScope = organizationId ? { organizationId } : undefined;
+        const turnId = requestKey ? "general-turn-" + requestKey : null;
+        const turn = await this.createMessage(conversation.id, "user", message, messageScope, turnId);
+        if (turn.conversationId !== conversation.id || turn.content !== message ||
+            (turn.metadata?.organizationId || null) !== organizationId) {
+            throw Object.assign(new Error("Identyfikator żądania należy do innej wiadomości."),
+                { code: "CHAT_REQUEST_CONFLICT" });
+        }
+        const replyId = requestKey ? "general-reply-" + requestKey : null;
+        const savedReply = replyId ? await prisma.chatMessage.findUnique({ where: { id: replyId } }) : null;
+        if (savedReply) {
+            const planId = savedReply.metadata?.generalPlanId;
+            const plan = planId ? await this.general.readPlan(
+                { userId, conversationId: conversation.id, organizationId },
+                planId, { resume: true, historyEnabled: settings.historyEnabled }
+            ) : null;
+            const answer = plan ? plan.answer + (savedReply.metadata.note || "") : savedReply.content;
+            return { conversationId: conversation.id, answer, message: { ...savedReply, content: answer } };
+        }
 
         const delegated = await this.general.handleTurn({
             userId, conversationId: conversation.id, organizationId,
@@ -51,7 +73,7 @@ class ChatService {
             // Company results are loaded from protected tasks after authorization,
             // never copied into ordinary chat history or long-term memory.
             const reply = await this.createMessage(conversation.id, "assistant",
-                metadata ? "Wyniki zleceń General Agenta." : delegated.answer, metadata);
+                metadata ? "Wyniki zleceń General Agenta." : delegated.answer, metadata, replyId);
             await prisma.chatConversation.update({
                 where: { id: conversation.id }, data: { lastMessageAt: new Date() }
             });
@@ -402,26 +424,11 @@ ${redactText(message, 12000)}
 
     }
 
-    async createMessage(
-        conversationId,
-        role,
-        content,
-        metadata
-    ) {
-
-        return prisma.chatMessage.create({
-
-            data: {
-
-                conversationId,
-                role,
-                content,
-                ...(metadata && { metadata })
-
-            }
-
-        });
-
+    async createMessage(conversationId, role, content, metadata, id = null) {
+        const data = { conversationId, role, content, ...(metadata && { metadata }) };
+        if (!id) return prisma.chatMessage.create({ data });
+        await prisma.chatMessage.createMany({ data: { ...data, id }, skipDuplicates: true });
+        return prisma.chatMessage.findUnique({ where: { id } });
     }
 
     buildConversationTitle(message) {

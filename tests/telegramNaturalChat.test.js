@@ -88,7 +88,8 @@ test("natural text reaches shared chat only from the linked private Telegram ide
   assert.match((await send("Pytanie", { messageId: 0 })).text, /identyfikatora/);
   assert.deepEqual(await send(" Jak się masz? "), { chatId: 42, text: "Odpowiedź wspólnego czatu" });
   assert.deepEqual(calls.map(({ id, ...turn }) => turn), [{
-    userId: "linked", message: "Jak się masz?", organizationId: null, channel: "TELEGRAM"
+    userId: "linked", message: "Jak się masz?", organizationId: null, channel: "TELEGRAM",
+    requestId: "telegram-42-5"
   }]);
 });
 
@@ -182,11 +183,10 @@ test("shared ChatService saves a company turn and keeps specialist results behin
   });
   global.prisma.chatConversation.update = async () => {};
   global.prisma.userSettings = { upsert: async () => ({ historyEnabled: true }) };
-  global.prisma.chatMessage = { create: async ({ data }) => {
-    const message = { ...data, id: String(messages.length + 1) };
-    messages.push(message);
-    return message;
-  } };
+  global.prisma.chatMessage = {
+    createMany: async ({ data }) => { messages.push(data); },
+    findUnique: async ({ where }) => messages.find(message => message.id === where.id) ?? null
+  };
   t.after(() => {
     delete global.prisma.chatConversation.update;
     delete global.prisma.userSettings;

@@ -83,9 +83,10 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
     skipDuplicates: true
   });
 
+  const requestId = `telegram-${telegramUserId}-${msg.message_id}`;
   let result;
   try {
-    result = await chat(userId, text, id, { organizationId, channel });
+    result = await chat(userId, text, id, { organizationId, channel, requestId });
   } catch (error) {
     console.error("[TelegramChat] Shared chat failed", error?.name || "Error");
     return CHAT_ERROR;
