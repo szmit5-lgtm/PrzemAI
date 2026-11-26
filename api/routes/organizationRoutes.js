@@ -152,6 +152,8 @@ router.get("/:id/finance/bank-matches/:year",verifyToken,
   handler(req=>bankKsefMatches.review(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/documents",verifyToken,
   handler(req=>financeService.documents(req.user.id,req.params.id,req.query)));
+router.patch("/:id/finance/documents/:documentId/project",verifyToken,
+  handler(req=>financeService.assignProject(req.user.id,req.params.id,req.params.documentId,req.body?.projectId)));
 router.get("/:id/finance/projects",verifyToken,
   handler(req=>financeService.projects(req.user.id,req.params.id)));
 router.get("/:id/finance/members",verifyToken,
