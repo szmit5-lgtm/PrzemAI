@@ -8,6 +8,6 @@ CREATE INDEX "OrganizationDocument_investmentId_createdAt_idx"
     ON "OrganizationDocument"("investmentId", "createdAt");
 
 ALTER TABLE "Task" ADD CONSTRAINT "Task_investmentId_fkey"
-    FOREIGN KEY ("investmentId") REFERENCES "OrganizationInvestment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    FOREIGN KEY ("investmentId") REFERENCES "OrganizationInvestment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "OrganizationDocument" ADD CONSTRAINT "OrganizationDocument_investmentId_fkey"
-    FOREIGN KEY ("investmentId") REFERENCES "OrganizationInvestment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    FOREIGN KEY ("investmentId") REFERENCES "OrganizationInvestment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
