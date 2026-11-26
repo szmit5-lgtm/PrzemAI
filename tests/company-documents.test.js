@@ -48,7 +48,8 @@ function harness({ role = "OWNER", persisted = null, count = 0, totalSize = 0 } 
     "node:crypto": require("node:crypto"),
     "node:path": path,
     "../../lib/prisma": prisma,
-    "../services/OrganizationService": { OrganizationService, OrganizationError }
+    "../services/OrganizationService": { OrganizationService, OrganizationError },
+    "../services/OrganizationInvestmentService": { OrganizationInvestmentService: class {} }
   };
   const context = { module: { exports: {} }, require(name) {
     assert.ok(Object.hasOwn(dependencies, name), "unexpected require " + name);

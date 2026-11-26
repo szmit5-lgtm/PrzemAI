@@ -161,7 +161,7 @@ test("routes, API client and responsive report expose firm-scoped investment tot
  const home=fs.readFileSync(path.join(__dirname,"../frontend/src/app/company/[id]/finance/page.js"),"utf8");
  const page=fs.readFileSync(path.join(__dirname,"../frontend/src/app/company/[id]/finance/investments/page.js"),"utf8");
  assert.match(routes,/router\.get\("\/:id\/finance\/investments\/:year",verifyToken/);
- assert.match(routes,/investmentFinance\.report\(req\.user\.id,req\.params\.id,req\.params\.year\)/);
+ assert.match(routes,/investmentFinance\.report\(req\.user\.id,req\.params\.id,req\.params\.year,member\)/);
  assert.match(client,/getOrganizationInvestmentFinanceReport\(orgId,year\)/);
  assert.match(home,/finance\/investments"/);
  assert.match(page,/getOrganizationInvestmentFinanceReport\(id,year\)/);

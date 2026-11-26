@@ -142,7 +142,7 @@ export default function InvestmentFinancePage(){
     <section className="mt-5 grid gap-3 sm:grid-cols-3">
      {[{name:"Faktury przypisane do projektów",value:report.counts.matchedInvoices},
        {name:"Bez przypisanej inwestycji",value:report.counts.unassignedInvoices},
-       {name:"Wymagające weryfikacji katalogu",value:report.counts.otherProjectAssignments}].map(x=>
+       {name:"Wymagające weryfikacji katalogu",value:report.counts.otherProjectAssignments}].filter(x=>x.value!=null).map(x=>
       <article key={x.name} className="rounded-xl border border-white/10 bg-[#111c35] p-4">
        <p className="text-xs text-slate-300">{x.name}</p>
        <p className="mt-2 text-3xl font-black tabular-nums">{x.value}</p>

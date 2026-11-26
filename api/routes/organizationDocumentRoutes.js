@@ -6,6 +6,9 @@ const path = require("node:path");
 const prisma = require("../../lib/prisma");
 const { OrganizationService, OrganizationError } = require("../services/OrganizationService");
 
+const { OrganizationInvestmentService } = require("../services/OrganizationInvestmentService");
+const investments = new OrganizationInvestmentService();
+
 const router = express.Router({ mergeParams: true });
 const organizations = new OrganizationService();
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -19,6 +22,17 @@ const ALLOWED = {
 
 // Access is enforced at the backend, not inferred from a client-side company selector.
 // Only ACTIVE OWNER/ADMIN members can access this initial private document library.
+router.get("/investment/:investmentId/:documentId/download", async (req, res) => {
+  try {
+    await investments.requireInvestment(req.user.id, req.params.id, req.params.investmentId);
+    return download(req, res);
+  } catch (error) {
+    return res.status(error instanceof OrganizationError ? error.status : 500).json({
+      success: false, error: "Nie można pobrać dokumentu inwestycji."
+    });
+  }
+});
+
 router.use(async (req, res, next) => {
   try {
     await organizations.membership(req.user?.id, req.params.id, ["OWNER", "ADMIN"]);
@@ -58,7 +72,7 @@ function fileName(name) {
   if (!clean || clean.length > 255) return null;
   return clean;
 }
-const fileMeta = { id: true, name: true, contentType: true, size: true, createdAt: true, uploadedById: true };
+const fileMeta = { id: true, name: true, contentType: true, size: true, createdAt: true, uploadedById: true, investmentId: true, isInvestmentReport: true };
 
 router.get("/", async (req, res) => {
   try {
@@ -89,6 +103,12 @@ router.post("/", (req, res) => upload(req, res, async uploadError => {
   const sha256 = crypto.createHash("sha256").update(req.file.buffer).digest("hex");
   const ext = path.extname(name).toLowerCase();
   try {
+    let investmentId = null;
+    if (req.query?.investmentId !== undefined) {
+      const { investment } = await investments.requireInvestment(req.user.id, req.params.id, req.query.investmentId);
+      investmentId = investment.id;
+    }
+    const isInvestmentReport = Boolean(investmentId && req.query.report === "true");
     // Budget protection: bounded durable storage, without an external bucket fee.
     const [stats, existing] = await Promise.all([
       prisma.organizationDocument.aggregate({ where: { organizationId: req.params.id }, _count: { _all: true }, _sum: { size: true } }),
@@ -106,21 +126,25 @@ router.post("/", (req, res) => upload(req, res, async uploadError => {
         organizationId: req.params.id,
         uploadedById: req.user.id,
         name, contentType: ALLOWED[ext], size: req.file.size, sha256,
-        content: req.file.buffer
+        content: req.file.buffer, investmentId, isInvestmentReport
       },
       select: fileMeta
     });
     return res.status(201).json({ success: true, item: document });
   } catch (error) {
+    if (error instanceof OrganizationError) return res.status(error.status).json({ success: false, error: error.message });
     if (error?.code === "P2002") return res.status(409).json({ success: false, error: "Ten dokument jest już w bibliotece tej firmy." });
     return res.status(500).json({ success: false, error: "Nie udało się zapisać dokumentu firmowego." });
   }
 }));
 
-router.get("/:documentId/download", async (req, res) => {
+async function download(req, res) {
   try {
     const item = await prisma.organizationDocument.findFirst({
-      where: { id: req.params.documentId, organizationId: req.params.id },
+      where: {
+        id: req.params.documentId, organizationId: req.params.id,
+        ...(req.params.investmentId ? { investmentId: req.params.investmentId } : {})
+      },
       select: { name: true, content: true, size: true }
     });
     if (!item) return res.status(404).json({ success: false, error: "Nie znaleziono dokumentu w tej firmie." });
@@ -135,6 +159,8 @@ router.get("/:documentId/download", async (req, res) => {
   } catch {
     return res.status(500).json({ success: false, error: "Nie udało się pobrać dokumentu firmowego." });
   }
-});
+}
+
+router.get("/:documentId/download", download);
 
 module.exports = router;
