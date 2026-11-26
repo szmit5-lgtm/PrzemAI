@@ -54,7 +54,7 @@ for i in {1..50}; do
       grep -q '\[Worker\] Cycle' "$scratch/worker.log"; then break; fi
   sleep 0.3
 done
-if ! grep -q '\[Worker\] Cycle' "$scratch/worker.log" || grep -q '\[Worker\].*failed' "$scratch/worker.log"; then
+if ! grep -Eq '\[Worker\] Cycle .*"users":1,.*"failed":0,' "$scratch/worker.log"; then
   cat "$scratch/worker.log" "$scratch/api.log"
   exit 1
 fi
