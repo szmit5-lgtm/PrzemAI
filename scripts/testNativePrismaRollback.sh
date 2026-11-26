@@ -13,10 +13,12 @@ cleanup() {
   rm -rf "$scratch"
 }
 trap cleanup EXIT
+echo "Preparing previous P0 checkout"
 git archive 45b4fcd61a4a4794c04b061011549a1974a56ae1 | tar -x -C "$scratch"
 cp -a node_modules "$scratch/"
 (
   cd "$scratch"
+  echo "Generating previous P0 client and applying previous schema"
   ./node_modules/.bin/prisma generate
   ./node_modules/.bin/prisma migrate deploy
   node - <<'JS'
@@ -31,10 +33,12 @@ const db=new PrismaClient();
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>db.$disconnect());
 JS
 )
+echo "Generating candidate client and applying candidate migrations"
 ./node_modules/.bin/prisma generate
 ./node_modules/.bin/prisma migrate deploy
 ./node_modules/.bin/prisma migrate deploy
 ./node_modules/.bin/prisma migrate status
+echo "Starting previous P0 API and worker with AI disabled"
 (
   cd "$scratch"
   exec env -i PATH="$PATH" DATABASE_URL="$DATABASE_URL" PORT=3917 JWT_SECRET=local-rollback-only OPENAI_DAILY_REQUEST_LIMIT=0 node server.js
