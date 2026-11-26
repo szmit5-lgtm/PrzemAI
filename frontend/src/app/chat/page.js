@@ -14,7 +14,7 @@ import {
   parseChatSendResponse,parseChatArchiveResponse
 } from "@/lib/chatDashboardPayload";
 import {
-  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice,getOrganizations
+  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice,getOrganizations,getInvestmentPanel
 } from "@/lib/api";
 import {combineVoiceText,shouldSubmitVoiceTurn} from "@/lib/voiceInputPayload";
 
@@ -82,6 +82,21 @@ export default function ChatPage(){
      }
      window.speechSynthesis?.cancel();
    };
+ },[]);
+ useEffect(()=>{
+   const params=new URLSearchParams(window.location.search);
+   const organizationId=params.get("organizationId"),investmentId=params.get("investmentId");
+   if(!organizationId||!investmentId)return;
+   const controller=new AbortController();
+   getInvestmentPanel(organizationId,investmentId,controller.signal).then(({data})=>{
+     if(controller.signal.aborted)return;
+     const prompt=params.get("focus")==="finance"
+       ? "Przygotuj pytanie dla Financial Agenta o faktury i koszty inwestycji "
+       : "Pomóż mi podsumować stan prac inwestycji ";
+     setOrganizationId(organizationId);
+     setMessage(current=>current||prompt+JSON.stringify(data.investment.name)+".");
+   }).catch(error=>{if(!controller.signal.aborted)setError(error.message);});
+   return()=>controller.abort();
  },[]);
  useEffect(()=>{
    loadConversations();

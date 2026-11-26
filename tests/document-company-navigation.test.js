@@ -56,5 +56,5 @@ test("uploads display company attribution and API enforces company isolation", (
   assert.match(uploader, /Spółka: \{organizationName/);
   assert.match(api, /organizations\.membership\(req\.user\?\.id, req\.params\.id, \["OWNER", "ADMIN"\]\)/);
   assert.match(api, /where: \{ organizationId: req\.params\.id \}/);
-  assert.match(api, /where: \{ id: req\.params\.documentId, organizationId: req\.params\.id \}/);
+  assert.match(api, /where:\s*\{\s*id: req\.params\.documentId, organizationId: req\.params\.id,/);
 });

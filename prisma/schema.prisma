@@ -77,6 +77,10 @@ model Task {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  investmentId String?
+  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+
+  @@index([investmentId])
   @@index([userId])
   @@index([status])
   @@index([priority])
@@ -367,6 +371,11 @@ model OrganizationDocument {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
+  investmentId String?
+  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  isInvestmentReport Boolean @default(false)
+
+  @@index([investmentId, createdAt])
   @@unique([organizationId, sha256])
   @@index([organizationId, createdAt])
 }
@@ -388,6 +397,9 @@ model OrganizationInvestment {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  documents OrganizationDocument[]
+  tasks Task[]
 
   @@unique([organizationId, name])
   @@index([organizationId, status])

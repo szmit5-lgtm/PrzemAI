@@ -153,7 +153,7 @@ export default function CompanyInvestments() {
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           {items.map(item=><article key={item.id} className="min-w-0 rounded-2xl border border-white/10 bg-[#111c35] p-5">
             <div className="flex items-center gap-3"><span className="rounded-xl bg-cyan-500/15 p-3 text-cyan-300"><Building2 size={22}/></span>
-              <div className="min-w-0"><h2 className="break-words text-xl font-bold">{item.name}</h2><p className="mt-1 text-xs text-slate-400">Status: {statusLabels[item.status]||"Nie określono"}</p></div>
+              <div className="min-w-0"><h2 className="break-words text-xl font-bold"><Link className="hover:underline" href={"/company/"+encodeURIComponent(id)+"/investments/"+encodeURIComponent(item.id)}>{item.name}</Link></h2><p className="mt-1 text-xs text-slate-400">Status: {statusLabels[item.status]||"Nie określono"}</p></div>
             </div>
             {item.description&&<p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-300">{item.description}</p>}
             {item.progress!=null&&<div className="mt-4">
