@@ -12,7 +12,7 @@ const {
 const GeneralAgentSources = require("./GeneralAgentSources");
 
 const DOMAIN = {
-  financial: /\b(faktur\w*|ksef|finans\w*|vat|koszt\w*|przychod\w*|sald\w*|wplyw\w*|wydatk\w*|wyciag\w*)\b/,
+  financial: /\b(faktur\w*|ksef|finans\w*|vat|koszt\w*|przychod\w*|sald\w*|wplyw\w*|wydatk\w*|wyciag\w*|zobowiaz\w*|nalezn\w*|platnos\w*|marz\w*|prognoz\w*|rentownosc\w*)\b/,
   document: /\b(dokument\w*|umow\w*|aneks\w*|zalacznik\w*)\b/,
   investment: /\b(inwestyc\w*|rentownosc\w*|deweloper\w*|pum)\b/
 };
@@ -50,11 +50,11 @@ class GeneralAgentService {
   }
 
   canReadResult(task, scope) {
-    const { agentKey, investmentIds } = task.metadata;
+    const { agentKey, investmentIds, bankData } = task.metadata;
     // Earlier versions stored investment results without source provenance.
     if (agentKey === "investment" && task.status === "DONE" && !Array.isArray(investmentIds))
       return false;
-    return this.sources.authorize({ ...scope, agentKey, investmentIds });
+    return this.sources.authorize({ ...scope, agentKey, investmentIds, bankData });
   }
 
   async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true }) {
@@ -142,6 +142,7 @@ class GeneralAgentService {
 
     let result;
     let investmentIds = null;
+    let bankData = false;
     try {
       const agent = await this.db.agent.findFirst({
         where: { userId: scope.userId, key: agentKey, enabled: true }, select: { id: true }
@@ -154,14 +155,18 @@ class GeneralAgentService {
       const previousInstruction = redactText(previous?.description, 3000);
       const loaded = await this.sources.load(access, previousInstruction + " " + task.description);
       if (!loaded) throw new Error("Unavailable");
-      const { investmentIds: sourceIds, ...data } = loaded;
-      if (agentKey === "investment") investmentIds = sourceIds || [];
+      const { investmentIds: sourceIds, bankData: includesBankData, ...data } = loaded;
+      if (agentKey === "investment" || sourceIds?.length) investmentIds = sourceIds || [];
+      bankData = Boolean(includesBankData);
       const previousResult = previous?.status === "DONE" && await this.canReadResult(previous, scope)
         ? redactText(previous.metadata.result, 1800) : "";
       // A continuation can cite earlier sources. Retain their provenance too.
-      if (previousResult && investmentIds)
-        investmentIds = [...new Set([...investmentIds, ...previous.metadata.investmentIds])];
-      if (!await this.sources.authorize({ ...access, investmentIds })) throw new Error("Unavailable");
+      if (previousResult) {
+        if (previous.metadata.investmentIds?.length)
+          investmentIds = [...new Set([...(investmentIds || []), ...previous.metadata.investmentIds])];
+        bankData ||= Boolean(previous.metadata.bankData);
+      }
+      if (!await this.sources.authorize({ ...access, investmentIds, bankData })) throw new Error("Unavailable");
       if (!Object.values(data).some(value => Array.isArray(value) && value.length)) {
         result = "Nie znaleziono zapisanych danych w tym zakresie.";
       } else {
@@ -187,7 +192,7 @@ class GeneralAgentService {
     await this.db.task.updateMany({
       where: { ...where, status: "IN_PROGRESS", startedAt },
       data: { status: result ? "DONE" : "ERROR", completedAt: new Date(),
-        metadata: { ...task.metadata, investmentIds, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
+        metadata: { ...task.metadata, investmentIds, bankData, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
     });
   }
 

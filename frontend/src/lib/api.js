@@ -625,6 +625,20 @@ export async function getOrganizationInvestmentFinanceReport(orgId,year){
  return request("/api/organizations/"+encodeURIComponent(orgId)+
   "/finance/investments/"+encodeURIComponent(year));
 }
+export function getOrganizationSettlements(orgId,year){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/settlements/"+encodeURIComponent(year));
+}
+export function changeOrganizationSettlement(orgId,id,kind,value){
+ const base="/api/organizations/"+encodeURIComponent(orgId)+"/finance/settlements/";
+ if(kind==="undo"||kind==="undoCorrection")return request(base+
+  (kind==="undo"?"payments/":"corrections/")+encodeURIComponent(id),{method:"DELETE"});
+ return request(base+encodeURIComponent(id)+"/"+kind,{method:"POST",
+  headers:{"Content-Type":"application/json"},body:JSON.stringify(value)});
+}
+export function getOrganizationBankActivity(orgId,year,month,params){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/bank/activity/"+year+"/"+month+
+  "?"+new URLSearchParams(params));
+}
 export async function getOrganizationBankKsefMatches(orgId,year){
  return request("/api/organizations/"+encodeURIComponent(orgId)+
   "/finance/bank-matches/"+encodeURIComponent(year));

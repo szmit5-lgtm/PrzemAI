@@ -37,3 +37,18 @@ test("invoice XML never retries unauthorized access and refuses XML entities", a
   });
   await assert.rejects(malicious.getInvoiceXml(id), /Invalid/);
 });
+
+test("invalid XML diagnostics distinguish empty, malformed, oversized and corrupt UTF-8", async () => {
+  for (const [body, reason, headers] of [
+    ["", "EMPTY"],
+    ["<Faktura><x></Faktura>", "FORMAT"],
+    [Buffer.from([0xff]), "ENCODING"],
+    ["<Faktura/>", "SIZE", {"content-length":"2000001"}]
+  ]) {
+    const client = new KsefClient({
+      accessToken: "synthetic",
+      fetchImpl: async () => new Response(body, { headers })
+    });
+    await assert.rejects(client.getInvoiceXml(id), { code: "INVALID_XML", reason });
+  }
+});

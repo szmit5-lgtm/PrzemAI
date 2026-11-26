@@ -5,7 +5,7 @@ import {useParams} from "next/navigation";
 import {ArrowLeft,Landmark,RefreshCw,ShieldCheck,Wallet,FileSpreadsheet,Info} from "lucide-react";
 import Navbar from "../../../../components/Navbar";
 import UserMenu from "../../../../components/UserMenu";
-import {getOrganization,getOrganizationBankMonthlyReport} from "@/lib/api";
+import {getOrganization,getOrganizationBankMonthlyReport,getOrganizationBankActivity} from "@/lib/api";
 
 const MONTHS=["Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec",
  "Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"];
@@ -18,6 +18,60 @@ const money=(amount,currency="PLN")=>{
 };
 const balance=(value,currency)=>value==null?"—":money(value,currency);
 const accountType=type=>type==="VAT"?"Rachunek VAT":type==="CURRENT"?"Rachunek bieżący":"Inny rachunek";
+
+function CashflowChart({id,year,months}){
+ const [selection,setSelection]=useState(null);
+ const [result,setResult]=useState(null);
+ const [error,setError]=useState("");
+ const rows=months.map(({month,currencies})=>({month,values:currencies.find(row=>row.currency==="PLN")}));
+ const max=Math.max(1,...rows.flatMap(row=>["inflows","outflows"].map(key=>Number(row.values?.[key]||0))));
+ useEffect(()=>{
+  if(!selection)return;
+  let active=true;
+  getOrganizationBankActivity(id,year,selection.month,{direction:selection.direction,currency:"PLN",offset:selection.offset})
+   .then(response=>{if(active)setResult(response.data);})
+   .catch(error=>{if(active)setError(error.message);});
+  return()=>{active=false;};
+ },[id,year,selection]);
+ function select(month,direction,offset=0){
+  setResult(null);setError("");setSelection({month,direction,offset});
+ }
+ return <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4">
+  <h3 className="font-bold">Przepływy miesięczne · PLN</h3>
+  <p className="mt-1 text-sm text-slate-300">Wybierz wpływy lub wydatki w miesiącu, aby wyświetlić operacje.</p>
+  <div className="mt-4 grid grid-cols-6 gap-2 md:grid-cols-12">
+   {rows.map(({month,values})=><div key={month} className="text-center">
+    <div className="flex h-24 items-end justify-center gap-1">
+     {["inflows","outflows"].map(direction=>{
+      const label=(direction==="inflows"?"Wpływy":"Wydatki")+" · "+MONTHS[month-1];
+      const value=Number(values?.[direction]||0);
+      return <button key={direction} type="button" onClick={()=>select(month,direction)}
+       title={label+" · "+money(value)} aria-label={label+" · "+money(value)}
+       aria-pressed={selection?.month===month&&selection?.direction===direction}
+       className={"w-4 rounded-t border border-white/20 focus-visible:outline-2 aria-pressed:ring-2 "+(direction==="inflows"?"bg-emerald-500":"bg-rose-500")}
+       style={{height:Math.max(5,value/max*100)+"%"}}/>;
+     })}
+    </div>
+    <span className="text-xs text-slate-300">{MONTHS[month-1].slice(0,3)}</span>
+   </div>)}
+  </div>
+  {selection&&<div className="mt-4 border-t border-white/10 pt-3" aria-live="polite">
+   <h4 className="font-semibold">{selection.direction==="inflows"?"Wpływy":"Wydatki"} · {MONTHS[selection.month-1]}</h4>
+   {error?<p role="alert" className="text-rose-200">{error}</p>:!result?<p>Wczytywanie operacji…</p>:
+    result.items.length===0?<p>Brak operacji w tym okresie.</p>:
+    <ul className="mt-2 divide-y divide-white/10 text-sm">
+     {result.items.map(row=><li key={row.id} className="flex flex-wrap justify-between gap-2 py-2">
+      <span>{row.bookedAt.slice(0,10)} · {row.counterparty||row.description||"Operacja bankowa"}
+       {row.counterparty&&row.description&&<span className="block text-slate-400">{row.description}</span>}
+      </span>
+      <span>{money(row.amount)} · {accountType(row.accountType)}</span>
+     </li>)}
+    </ul>}
+   {selection.offset>0&&<button type="button" className="mr-4 underline" onClick={()=>select(selection.month,selection.direction,selection.offset-50)}>Wstecz</button>}
+   {result?.hasMore&&<button type="button" className="underline" onClick={()=>select(selection.month,selection.direction,selection.offset+50)}>Dalej</button>}
+  </div>}
+ </section>;
+}
 
 export default function CompanyBankMonthlyReports(){
  const {id}=useParams();
@@ -140,6 +194,7 @@ export default function CompanyBankMonthlyReports(){
       <p className="mt-2 text-xs text-slate-400">Suma obu rachunków, niekoniecznie dostępna gotówka</p>
      </article>
     </div>
+    <CashflowChart key={id+"-"+year} id={id} year={year} months={totals}/>
     <section className="mt-4 rounded-2xl border border-white/10 bg-[#111c35] p-5">
      <h3 className="text-base font-bold">Wpływy i wydatki · {periodLabel} {year}</h3>
      <div className="mt-4 grid gap-3 sm:grid-cols-3">

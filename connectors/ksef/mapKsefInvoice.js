@@ -46,6 +46,8 @@ function mapKsefInvoice(invoice, { direction } = {}) {
     ...(amount(invoice.grossAmount) !== undefined && { grossAmount: amount(invoice.grossAmount) }),
     ...(amount(invoice.vatAmount) !== undefined && { vatAmount: amount(invoice.vatAmount) }),
     ...(["INCOMING", "OUTGOING"].includes(direction) && { direction }),
+    ...(/^(?:Vat|Kor|Zal|Roz|Upr|KorZal|KorRoz|VatPef|VatPefSp|KorPef)$/i.test(invoice.invoiceType || "") &&
+      { invoiceType: invoice.invoiceType }),
     metadata: { importedFrom: "KSEF_METADATA" }
   };
 }

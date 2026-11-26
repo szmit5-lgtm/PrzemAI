@@ -16,6 +16,8 @@ const bankAccess=new OrganizationBankAccessService();
 const {OrganizationBankMonthlyService}=require("../services/OrganizationBankMonthlyService");
 const bankMonthly=new OrganizationBankMonthlyService();
 const {OrganizationBankKsefMatchService}=require("../services/OrganizationBankKsefMatchService");
+const {OrganizationSettlementService}=require("../services/OrganizationSettlementService");
+const settlements=new OrganizationSettlementService();
 const bankKsefMatches=new OrganizationBankKsefMatchService();
 
 const router = express.Router();
@@ -133,6 +135,18 @@ const handler=fn=>async(req,res)=>{
       ?"Nie udało się wykonać operacji firmowej.":error.message});
   }
 };
+router.get("/:id/bank/activity/:year/:month",verifyToken,
+ handler(req=>bankMonthly.activity(req.user.id,req.params.id,req.params.year,req.params.month,req.query)));
+router.get("/:id/finance/settlements/:year",verifyToken,
+ handler(req=>settlements.report(req.user.id,req.params.id,req.params.year)));
+router.post("/:id/finance/settlements/:invoiceId/payments",verifyToken,
+ handler(req=>settlements.confirm(req.user.id,req.params.id,req.params.invoiceId,req.body?.transactionId)));
+router.delete("/:id/finance/settlements/payments/:transactionId",verifyToken,
+ handler(req=>settlements.undo(req.user.id,req.params.id,req.params.transactionId)));
+router.post("/:id/finance/settlements/:invoiceId/corrections",verifyToken,
+ handler(req=>settlements.applyCorrection(req.user.id,req.params.id,req.params.invoiceId,req.body?.correctionId)));
+router.delete("/:id/finance/settlements/corrections/:correctionId",verifyToken,
+ handler(req=>settlements.undoCorrection(req.user.id,req.params.id,req.params.correctionId)));
 router.get("/:id/bank/monthly/:year",verifyToken,
  handler(req=>bankMonthly.report(req.user.id,req.params.id,req.params.year)));
 router.get("/invitations",verifyToken,handler(req=>service.pendingInvites(req.user.id)));

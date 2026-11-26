@@ -54,15 +54,21 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
  const candidates=[];
  const invoicesSorted=[...invoices].sort((a,b)=>String(a.id).localeCompare(String(b.id)));
  const transactions=operations.filter(t=>t.reviewStatus==="UNMATCHED"&&
-  t.bankAccount?.accountType!=="VAT"&&t.bankAccount?.currency);
+  t.bankAccount?.currency);
  counts.operationsExamined=transactions.length;
  // Index once by exact bank amount and currency to keep a large historical
  // report linear rather than comparing every invoice with every transaction.
  const byAmount=new Map();
+ const byReferenceDigits=new Map();
  for(const tx of transactions){
   const amount=amountCents(tx.amount);
   if(amount===null)continue;
   const key=tx.bankAccount.currency+"|"+amount.toString();
+  const narrative=normalizeText([tx.description,tx.reference].filter(Boolean).join(" "));
+  for(const token of new Set(narrative.match(/\d{2,}/g)||[])){
+   if(!byReferenceDigits.has(token))byReferenceDigits.set(token,[]);
+   byReferenceDigits.get(token).push(tx);
+  }
   if(!byAmount.has(key))byAmount.set(key,[]);
   byAmount.get(key).push(tx);
  }
@@ -80,15 +86,30 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
   counts.invoicesExamined++;
   const reference=invoiceNumberPattern(inv.invoiceNumber);
   const matching=[];
-  for(const tx of byAmount.get(inv.currency+"|"+(inv.direction==="INCOMING"?-cents:cents).toString())||[]){
+  const expected=inv.direction==="INCOMING"?-cents:cents;
+  const token=(normalizeText(inv.invoiceNumber).match(/\d{2,}/g)||[])
+   .sort((a,b)=>b.length-a.length)[0];
+  const candidatesForInvoice=new Set([
+   ...(byAmount.get(inv.currency+"|"+expected.toString())||[]),
+   ...(reference&&token?byReferenceDigits.get(token)||[]:[])
+  ]);
+  for(const tx of candidatesForInvoice){
    const booked=day(tx.bookedAt);
-   if(booked===null||booked<issued||booked>issued+180*DAY_MS)continue;
+   if(booked===null||booked<issued||booked>issued+180*DAY_MS||tx.bankAccount.currency!==inv.currency)continue;
+   const transactionAmount=amountCents(tx.amount);
+   if(!transactionAmount||(transactionAmount>0n)!==(expected>0n))continue;
+   const absolute=transactionAmount<0n?-transactionAmount:transactionAmount;
    const narrative=[tx.description,tx.reference].filter(Boolean).join(" ");
    const exact=reference&&reference.test(normalizeText(narrative));
-   const name=confidenceName(inv,tx);
-   if(!exact&&(cents<0n||!name))continue;
-   matching.push({invoice:inv,transaction:tx,reason:exact?"INVOICE_NUMBER_AMOUNT_DATE":"AMOUNT_DATE_COUNTERPARTY",
-    confidence:exact?"STRONG":"REVIEW"});
+   const vat=tx.bankAccount.accountType==="VAT";
+   const partial=transactionAmount!==expected||vat;
+   if(partial){
+    if(!exact||cents<=0n||absolute>cents||
+       (vat&&absolute>(amountCents(inv.vatAmount)??0n)))continue;
+   }else if(!exact&&(cents<0n||!confidenceName(inv,tx)))continue;
+   matching.push({invoice:inv,transaction:tx,partial,
+    reason:vat?"VAT_REFERENCE":partial?"PARTIAL_REFERENCE":exact?"INVOICE_NUMBER_AMOUNT_DATE":"AMOUNT_DATE_COUNTERPARTY",
+    confidence:exact&&!partial?"STRONG":"REVIEW"});
   }
   // Multiple bank transactions for the same invoice may indicate
   // instalments or a duplicate entry; never claim a unique match.
@@ -105,7 +126,7 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
    direction:c.invoice.direction,invoiceDate:new Date(c.invoice.issueDate).toISOString().slice(0,10),
    contractor:c.invoice.direction==="INCOMING"?c.invoice.sellerName:c.invoice.buyerName,
    currency:c.invoice.currency,grossAmount:displayMoney(amountCents(c.invoice.grossAmount)),
-   transactionId:c.transaction.id,bookedAt:new Date(c.transaction.bookedAt).toISOString().slice(0,10),
+   transactionId:c.transaction.id,accountType:c.transaction.bankAccount.accountType,bookedAt:new Date(c.transaction.bookedAt).toISOString().slice(0,10),
    accountSuffix:c.transaction.bankAccount.iban.slice(-4),
    transactionAmount:displayMoney(amountCents(c.transaction.amount)),
    description:String(c.transaction.description||"").slice(0,350),
@@ -117,7 +138,7 @@ function suggestMatches(invoices,operations,companyNip,{maxSuggestions=MAX_SUGGE
  }
  return {proposed,conflicts,
   totals:{...counts,uniqueProposals:proposed.length,conflictingCandidates:counts.ambiguous},
-  note:"Propozycje na podstawie danych KSeF i przelewów. System nie potwierdza zapłaty, nie zmienia statusu faktur i nie uwzględnia częściowych płatności ani split payment."};
+  note:"Propozycje na podstawie danych KSeF i przelewów. System nie potwierdza zapłaty, nie zmienia statusu faktur. Częściowe wpłaty i operacje VAT wymagają weryfikacji odniesienia do faktury."};
 }
 module.exports={amountCents,displayMoney,normalizeText,invoiceNumberPattern,suggestMatches,
  MAX_INVOICES,MAX_OPERATIONS};
