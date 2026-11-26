@@ -228,7 +228,7 @@ class OrganizationService{
   async workspace(userId,orgId){
     const company=await this.details(userId,orgId);
     const tasks=await this.db.task.findMany({
-      where:{source:"COMPANY",investmentId:null,metadata:{path:["organizationId"],equals:orgId}},
+      where:{source:"COMPANY",investmentId:null,investmentScoped:false,metadata:{path:["organizationId"],equals:orgId}},
       orderBy:[{status:"asc"},{createdAt:"desc"}],take:150,
       select:{id:true,title:true,description:true,status:true,priority:true,dueDate:true,
         createdAt:true,completedAt:true,metadata:true}
@@ -252,7 +252,7 @@ class OrganizationService{
       dueDate=new Date(input+"T12:00:00Z");
     }
     return this.db.task.create({
-      data:{userId,title,description,source:"COMPANY",priority,status:"TODO",dueDate,investmentId,
+      data:{userId,title,description,source:"COMPANY",priority,status:"TODO",dueDate,investmentId,investmentScoped:investmentId!==null,
         tags:["COMPANY"],metadata:{organizationId:orgId,createdBy:userId}},
       select:{id:true,title:true,description:true,status:true,priority:true,dueDate:true,createdAt:true}
     });
@@ -262,7 +262,7 @@ class OrganizationService{
     if(!["TODO","IN_PROGRESS","DONE"].includes(status))
       throw new OrganizationError("Nieprawidłowy status zadania.");
     const updated=await this.db.task.updateMany({
-      where:{id:taskId,source:"COMPANY",investmentId,
+      where:{id:taskId,source:"COMPANY",investmentId,investmentScoped:investmentId!==null,
         metadata:{path:["organizationId"],equals:orgId}},
       data:{status,completedAt:status==="DONE"?new Date():null}
     });

@@ -4,7 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createServer } = require("node:http");
 
-global.prisma = {};
+global.prisma = { $queryRaw: async () => [{ requests: 1 }] };
 const GeneralAgentService = require("../api/services/GeneralAgentService");
 const GeneralAgentSources = require("../api/services/GeneralAgentSources");
 const { redactText } = require("../lib/aiContext");

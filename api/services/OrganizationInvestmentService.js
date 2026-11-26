@@ -78,9 +78,9 @@ class OrganizationInvestmentService {
     }
     const result = kind === "task"
       ? await this.db.task.updateMany({
-        where: { id: recordId, investmentId: null, source: "COMPANY",
+        where: { id: recordId, investmentId: null, investmentScoped: false, source: "COMPANY",
           metadata: { path: ["organizationId"], equals: organizationId } },
-        data: { investmentId: investment.id }
+        data: { investmentId: investment.id, investmentScoped: true }
       })
       : await this.db.organizationDocument.updateMany({
         where: { id: recordId, organizationId, investmentId: null },

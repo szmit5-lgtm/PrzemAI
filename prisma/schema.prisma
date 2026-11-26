@@ -78,6 +78,7 @@ model Task {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   investmentId String?
+  investmentScoped Boolean @default(false)
   investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
 
   @@index([investmentId])
@@ -588,4 +589,9 @@ model TelegramChatReceipt {
 
   @@id([telegramUserId, messageId])
   @@index([userId])
+}
+
+model OpenAIRequestBudget {
+  day      DateTime @id @db.Date
+  requests Int
 }

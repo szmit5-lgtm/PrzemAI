@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { randomUUID } = require("node:crypto");
+const { randomInt, randomUUID } = require("node:crypto");
 const { once } = require("node:events");
 
 async function main() {
@@ -14,9 +14,12 @@ async function main() {
   const chat = require("../api/services/ChatService");
   const bridge = require("../api/services/TelegramBridgeService");
   const express = require("express");
+  const jwt = require("jsonwebtoken");
+  const telegramUserId = randomInt(100000, 2 ** 32);
   const replies = [];
   bridge.sendTelegramMessage = async reply => { replies.push(reply); };
   process.env.TELEGRAM_WEBHOOK_SECRET = randomUUID();
+  process.env.JWT_SECRET = randomUUID();
   const aiCalls = [];
   chat.ai.ask = async options => {
     aiCalls.push(options);
@@ -25,11 +28,13 @@ async function main() {
   chat.ai.extractMemories = async () => [];
 
   const app = express();
-  app.use(express.json(), require("../api/routes/telegramRoutes"));
+  app.use(express.json());
+  app.use("/api/telegram", require("../api/routes/telegramRoutes"));
+  app.use("/api/chat", require("../api/routes/chatRoutes"));
   const server = app.listen(0, "127.0.0.1");
   try {
     await once(server, "listening");
-    const endpoint = `http://127.0.0.1:${server.address().port}/webhook`;
+    const endpoint = `http://127.0.0.1:${server.address().port}/api/telegram/webhook`;
     const user = await db.user.create({ data: {
       email: randomUUID() + "@example.test", password: "unused",
       agents: { create: { key: "investment", name: "Investment", type: "INVESTMENT" } }
@@ -43,7 +48,7 @@ async function main() {
     })));
 
     async function update(messageId, text, secret = process.env.TELEGRAM_WEBHOOK_SECRET) {
-      const id = 42042;
+      const id = telegramUserId;
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json", "X-Telegram-Bot-Api-Secret-Token": secret },
@@ -73,7 +78,14 @@ async function main() {
     assert.match(alphaPrompt, /alpha investment/);
     assert.doesNotMatch(alphaPrompt, /beta investment/);
 
-    const web = await chat.chat(user.id, text, null, { organizationId: alpha.id, requestId: "telegram-42042-5" });
+    const auth = { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) };
+    const webUrl = "http://127.0.0.1:" + server.address().port + "/api/chat";
+    const webResponse = await fetch(webUrl, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ message: text, organizationId: alpha.id, requestId: "telegram-" + telegramUserId + "-5" })
+    });
+    assert.equal(webResponse.status, 200);
+    const web = await webResponse.json();
     assert.match(web.answer, /Odpowiedź z lokalnego mocka/);
     assert.equal(await update(6, "/spolka " + beta.slug), 200);
     assert.equal(await update(7, "Pokaż wyniki"), 200);
@@ -89,8 +101,10 @@ async function main() {
     assert.equal(telegram.length, 3);
     const company = telegram.find(row => row.messages.some(message => message.content === text));
     assert.equal(company.messages.length, 4);
-    assert.equal(await chat.getConversation(user.id, company.id), null);
-    assert.deepEqual((await chat.listConversations(user.id)).map(row => row.id), [web.conversationId]);
+    assert.equal((await fetch(webUrl + "/" + company.id, { headers: auth })).status, 404);
+    const listed = await fetch(webUrl, { headers: auth });
+    assert.equal(listed.status, 200);
+    assert.deepEqual((await listed.json()).conversations.map(row => row.id), [web.conversationId]);
     await db.organizationMembership.updateMany({
       where: { userId: user.id, organizationId: alpha.id }, data: { status: "REVOKED" }
     });
