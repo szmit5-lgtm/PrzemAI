@@ -8,8 +8,9 @@ const SettingsService = require("./SettingsService");
 const GeneralAgentService = require("./GeneralAgentService");
 const { redactText, documentReport } = require("../../lib/aiContext");
 
-function requestIdentifier(userId, requestId) {
-    return createHash("sha256").update(JSON.stringify([userId, requestId])).digest("hex");
+function requestIdentifier(userId, requestId, channel) {
+    const scope = channel === "WEB" ? [userId, requestId] : [userId, requestId, channel];
+    return createHash("sha256").update(JSON.stringify(scope)).digest("hex");
 }
 
 class ChatService {
@@ -21,7 +22,7 @@ class ChatService {
 
     }
 
-    async chat(userId, message, conversationId = null, { organizationId = null, requestId = null } = {}) {
+    async chat(userId, message, conversationId = null, { organizationId = null, requestId = null, channel = "WEB" } = {}) {
 
         if (typeof userId !== "string" || !userId) throw new Error("Brak uwierzytelnionego użytkownika.");
         if (typeof message !== "string" || !message.trim() || message.length > 12000)
@@ -31,16 +32,16 @@ class ChatService {
             await SettingsService.get(userId);
 
         const requestKey = requestId && GeneralAgentService.accepts(message, organizationId)
-            ? requestIdentifier(userId, requestId) : null;
+            ? requestIdentifier(userId, requestId, channel) : null;
         const title = organizationId ? "Rozmowa firmowa" : message;
         const newConversationId = requestKey && !conversationId ? "general-chat-" + requestKey : null;
         if (newConversationId) {
             await prisma.chatConversation.createMany({
-                data: { id: newConversationId, userId, title: this.buildConversationTitle(title) },
+                data: { id: newConversationId, userId, channel, title: this.buildConversationTitle(title) },
                 skipDuplicates: true
             });
         }
-        const conversation = await this.getOrCreateConversation(userId, conversationId || newConversationId, title);
+        const conversation = await this.getOrCreateConversation(userId, conversationId || newConversationId, title, channel);
         const messageScope = organizationId ? { organizationId } : undefined;
         const turnId = requestKey ? "general-turn-" + requestKey : null;
         const turn = await this.createMessage(conversation.id, "user", message, messageScope, turnId);
@@ -374,7 +375,8 @@ ${redactText(message, 12000)}
     async getOrCreateConversation(
         userId,
         conversationId,
-        firstMessage
+        firstMessage,
+        channel = "WEB"
     ) {
 
         if (conversationId) {
@@ -386,6 +388,7 @@ ${redactText(message, 12000)}
                         where: {
                             id: conversationId,
                             userId,
+                            channel,
                             archivedAt: null
                         }
 
@@ -412,6 +415,7 @@ ${redactText(message, 12000)}
                         firstMessage
                     ),
 
+                channel,
                 userId
 
             }
@@ -458,6 +462,7 @@ ${redactText(message, 12000)}
                 where: {
 
                     userId,
+                    channel: "WEB",
                     archivedAt: null
 
                 },
@@ -504,6 +509,7 @@ ${redactText(message, 12000)}
 
                     id: conversationId,
                     userId,
+                    channel: "WEB",
                     archivedAt: null
 
                 },
@@ -556,6 +562,7 @@ ${redactText(message, 12000)}
 
                         id: conversationId,
                         userId,
+                        channel: "WEB",
                         archivedAt: null
 
                     }

@@ -31,6 +31,8 @@ model User {
   createdOrganizationInvestments OrganizationInvestment[]
   uploadedBankImportFiles BankImportFile[]
   linkedOrganizationFinances OrganizationFinanceLink[]
+  telegramChatSelections TelegramChatSelection[]
+  telegramChatReceipts TelegramChatReceipt[]
 }
 
 model History {
@@ -85,6 +87,7 @@ model Task {
 model ChatConversation {
   id    String @id @default(cuid())
   title String @default("Nowa rozmowa")
+  channel String @default("WEB")
 
   archivedAt    DateTime?
   lastMessageAt DateTime  @default(now())
@@ -552,4 +555,25 @@ model WhatsAppMessage {
 
   @@index([organizationId, receivedAt])
   @@index([organizationId, contactWaId, receivedAt])
+}
+
+
+model TelegramChatSelection {
+  userId String
+  telegramUserId String
+  organizationId String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, telegramUserId])
+}
+
+model TelegramChatReceipt {
+  telegramUserId String
+  messageId String
+  userId String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([telegramUserId, messageId])
+  @@index([userId])
 }
