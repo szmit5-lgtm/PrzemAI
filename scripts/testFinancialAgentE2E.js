@@ -63,7 +63,7 @@ async function main() {
     assert.equal((await upload(owner,dekonica,"history.csv",csv)).body.alreadySaved,true);
     assert.equal((await upload(owner,dekonica,"overlap.csv",csv+"\n")).body.item.status,"REVIEW_REQUIRED");
 
-    browser = await chromium.launch({executablePath:process.env.PRZEMAI_CHROMIUM||"/usr/bin/chromium",
+    browser = await chromium.launch({executablePath:process.env.PRZEMAI_CHROMIUM,
       args:["--no-sandbox"],headless:true});
     const page = await browser.newPage();
     await page.setContent('<meta charset="utf-8"><pre>'+[
