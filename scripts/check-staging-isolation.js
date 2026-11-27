@@ -16,16 +16,21 @@ function check(env = process.env) {
   // Staging database's private Railway endpoint from its service config.
   if (!["postgresql:", "postgres:"].includes(db.protocol) ||
       db.hostname !== "postgres-vycl.railway.internal" ||
-      !db.username || !db.password || !db.pathname || db.pathname === "/") fail();
+      (db.port && db.port !== "5432") || !db.username || !db.password ||
+      db.pathname !== "/railway" || db.hash) fail();
+  const schema = db.searchParams.getAll("schema");
+  if ([...db.searchParams.keys()].some(key => key !== "schema") ||
+      schema.length > 1 || (schema.length === 1 && schema[0] !== "public")) fail();
 
   // No external/prod integration can run from the isolation test service.
   for (const key of ["KSEF_SYNC_ENABLED", "KSEF_DEHERUS_SYNC_ENABLED",
     "CLAUDE_DEV_ENABLED", "WHATSAPP_SEND_ENABLED"]) {
     if (env[key] !== "false") fail();
   }
-  if (env.WHATSAPP_APP_SECRET || env.WHATSAPP_ACCESS_TOKEN ||
-      env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY ||
-      env.DEKONICA_MAIL_PASSWORD) fail();
+  if (env.TELEGRAM_NOTIFICATIONS_ENABLED === "true" ||
+      ["TELEGRAM_TOKEN", "TELEGRAM_WEBHOOK_SECRET", "WHATSAPP_APP_SECRET",
+        "WHATSAPP_ACCESS_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
+        "DEKONICA_MAIL_PASSWORD"].some(key => env[key])) fail();
   return { ok: true, environment: "staging", databaseHost: "postgres-vycl.railway.internal" };
 }
 
