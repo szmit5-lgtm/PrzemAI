@@ -152,7 +152,7 @@ class OrganizationFinanceService{
      this.db.financialDocument.groupBy({
        by:["currency","direction"],where,
        _sum:{grossAmount:true,netAmount:true,vatAmount:true},
-       _count:{_all:true}
+       _count:{_all:true,grossAmount:true,netAmount:true,vatAmount:true}
      }),
      this.db.agent.findFirst({
        where:{userId:link.ownerUserId,key:"financial",type:"FINANCIAL"},
@@ -165,9 +165,9 @@ class OrganizationFinanceService{
        lastRunAt:ownerAgent?.lastRunAt||null},
      amounts:groups.map(r=>({
        currency:r.currency,direction:r.direction,count:r._count._all,
-       gross:r._sum.grossAmount?.toString()||null,
-       net:r._sum.netAmount?.toString()||null,
-       vat:r._sum.vatAmount?.toString()||null
+       gross:r._count.grossAmount===r._count._all ? r._sum.grossAmount?.toString()??null : null,
+       net:r._count.netAmount===r._count._all ? r._sum.netAmount?.toString()??null : null,
+       vat:r._count.vatAmount===r._count._all ? r._sum.vatAmount?.toString()??null : null
      }))
    };
  }
@@ -200,6 +200,51 @@ class OrganizationFinanceService{
     .map(({amounts,missing,...row})=>({...row,
      gross:money(amounts[0]),net:money(amounts[1]),vat:money(amounts[2]),
      missingGross:missing[0],missingNet:missing[1],missingVat:missing[2]}));
+ }
+ async dashboardInvoices(userId, yearInput, organizationId){
+   const year=Number(yearInput);
+   if(!/^20[2-9]\d$|^2100$/.test(String(yearInput)) ||
+      (organizationId!==undefined && (typeof organizationId!=="string" || !organizationId || organizationId.length>128)))
+     throw new OrganizationError("Nieprawidłowy zakres zestawienia.",400);
+
+   const companies=organizationId ? [{id:organizationId}] : await this.orgService.companies(userId);
+   const links=await Promise.all(companies.map(async ({id})=>{
+     try { return await this.accessible(userId,id); }
+     catch(error){
+       if(!organizationId && error instanceof OrganizationError && [403,404].includes(error.status))return null;
+       throw error;
+     }
+   }));
+   const allowed=links.filter(Boolean);
+   if(!allowed.length)return {year,organizationId:organizationId||null,included:0,excluded:companies.length,rows:[]};
+
+   const groups=await this.db.financialDocument.groupBy({
+     by:["issueDate","direction"],where:{
+       source:"KSEF",currency:"PLN",
+       issueDate:{gte:new Date(Date.UTC(year,0,1)),lt:new Date(Date.UTC(year+1,0,1))},
+       OR:allowed.flatMap(({ownerUserId,nip})=>[
+         {userId:ownerUserId,direction:"INCOMING",buyerNip:nip},
+         {userId:ownerUserId,direction:"OUTGOING",sellerNip:nip}
+       ])
+     },
+     _sum:{grossAmount:true,netAmount:true},
+     _count:{_all:true,grossAmount:true,netAmount:true}
+   });
+   const totals=new Map();
+   for(const group of groups){
+     const month=group.issueDate.getUTCMonth()+1;
+     const key=month+"|"+group.direction;
+     const row=totals.get(key)||{month,direction:group.direction,count:0,net:0n,gross:0n,missingNet:0,missingGross:0};
+     row.count+=group._count._all;
+     row.net+=toCents(group._sum.netAmount??0);
+     row.gross+=toCents(group._sum.grossAmount??0);
+     row.missingNet+=group._count._all-group._count.netAmount;
+     row.missingGross+=group._count._all-group._count.grossAmount;
+     totals.set(key,row);
+   }
+   return {year,organizationId:organizationId||null,included:allowed.length,excluded:companies.length-allowed.length,
+     rows:[...totals.values()].map(({net,gross,...row})=>({...row,
+       net:row.missingNet?null:money(net),gross:row.missingGross?null:money(gross)}))};
  }
  async annualReport(userId,organizationId,yearInput){
    const link=await this.accessible(userId,organizationId);

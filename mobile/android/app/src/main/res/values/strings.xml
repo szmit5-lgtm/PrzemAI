@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PrzemAI</string>
+    <string name="title_activity_main">PrzemAI</string>
+    <string name="package_name">com.dekonica.przemai</string>
+    <string name="custom_url_scheme">com.dekonica.przemai</string>
+</resources>

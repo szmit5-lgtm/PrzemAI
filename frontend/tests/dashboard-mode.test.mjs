@@ -32,17 +32,18 @@ test("company chooser links only to organizations returned for the account", () 
   assert.match(chooser, /onClick=\{\(\)=>selectPrimaryCompany\(o\.id\)\}/);
   assert.match(chooser, /href=\{"\/company\/"\+encodeURIComponent\(o\.id\)\}/);
   assert.match(page, /const allowed=organizations\.some\(o=>o\.id===primaryCompany\)/);
-  assert.match(page, /if\(!allowed\)\{setCompanyFinance\(null\);setCompanyReport\(null\)/);
+  assert.match(page, /if\(!allowed\)\{setCompanyFinance\(null\);setCompanyFinanceError/);
   assert.match(page, /selectedOrg&&companyFinanceState\?\.organizationId===primaryCompany/);
-  assert.match(page, /selectedOrg&&companyReportState\?\.organizationId===primaryCompany/);
+  assert.match(page, /report.organizationId!==\(primaryCompany\|\|null\)/);
   assert.match(page, /const projects=primaryCompany&&!selectedOrg\?\[\]/);
   assert.match(page, /Dostępne spółki/);
-  assert.match(page, /bez niezweryfikowanej konsolidacji/);
+  assert.match(page, /Spółki z dostępnymi danymi KSeF/);
 });
 
-test("company selector keeps aggregate view explicitly non-financial", () => {
+test("company selector uses organization invoice totals without a personal fallback", () => {
   assert.match(page, /Nie znaleziono spółek przypisanych do konta/);
-  assert.match(page, /nie sumuje danych osobistych ani nie ujawnia danych innych kont/);
+  assert.match(page, /getInvoiceDashboard\(invoiceYear,primaryCompany,controller.signal\)/);
+  assert.doesNotMatch(page, /getFinanceSummary/);
   assert.match(page, /getOrganizations\(\)/);
   assert.doesNotMatch(page, /organizations\.concat\(/);
 });

@@ -10,11 +10,14 @@ import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import CompanyBankSnapshot from "./components/CompanyBankSnapshot";
 import {
- getAgents,getExecutiveDashboard,getFinanceSummary,
- getOrganizations,getOrganizationInvestments,getOrganizationFinanceSummary,getOrganizationFinanceAnnualReport,getFinancePeriodReport
+ getAgents,getExecutiveDashboard,
+ getOrganizations,getOrganizationInvestments,getOrganizationFinanceSummary,getInvoiceDashboard
 } from "@/lib/api";
 
+import {formatInvoicePLN,invoicePeriodTotals} from "@/lib/invoiceDashboard.mjs";
+
 const EMPTY_ORGANIZATIONS=[];
+const EMPTY_INVOICE_ROWS=[];
 const months=["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"];
 const money=(value,currency="PLN")=>{
  if(value==null||value==="")return "—";
@@ -55,7 +58,7 @@ function SectionTitle({children,href,link="Pokaż wszystkie"}) {
   {href&&<Link href={href} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:text-violet-200">{link}<ArrowUpRight size={13}/></Link>}
  </div>;
 }
-function Metric({label,value,icon:Icon,foot,accent="blue"}) {
+function Metric({label,value,detail,icon:Icon,foot,accent="blue"}) {
  const theme={
   blue:"bg-blue-500/20 text-blue-200",green:"bg-emerald-500/20 text-emerald-200",
   purple:"bg-violet-500/20 text-violet-200",orange:"bg-amber-500/20 text-amber-200"
@@ -63,7 +66,7 @@ function Metric({label,value,icon:Icon,foot,accent="blue"}) {
  return <Panel className={"p-3 "+({blue:"border-blue-400/30 bg-gradient-to-br from-blue-950 to-[#101b31]",green:"border-emerald-400/30 bg-gradient-to-br from-emerald-950 to-[#101b31]",purple:"border-violet-400/30 bg-gradient-to-br from-violet-950 to-[#101b31]",orange:"border-amber-400/30 bg-gradient-to-br from-amber-950/80 to-[#101b31]"}[accent])}>
   <div className="flex min-w-0 items-center gap-3">
    <span className={"shrink-0 rounded-xl p-2.5 "+theme}><Icon size={23}/></span>
-   <div className="min-w-0"><p className="text-xs font-medium text-slate-200">{label}</p><p className="mt-1 break-words text-xl font-extrabold tracking-tight tabular-nums text-white xl:text-2xl">{value}</p></div>
+   <div className="min-w-0"><p className="text-xs font-medium text-slate-200">{label}</p><p className="mt-1 break-words text-xl font-extrabold tracking-tight tabular-nums text-white xl:text-2xl">{value}</p>{detail&&<p className="mt-1 break-words text-xs tabular-nums text-slate-300">{detail}</p>}</div>
   </div>
   <p className="mt-2 text-[11px] leading-4 text-slate-300">{foot}<span className="ml-1 text-[10px] text-slate-400">· DANE Z SYSTEMU</span></p>
  </Panel>;
@@ -89,7 +92,10 @@ export default function HomePage() {
  const [primaryCompany,setPrimaryCompany]=useState("");
  const [companyFinanceState,setCompanyFinance]=useState(null);
  const [companyFinanceError,setCompanyFinanceError]=useState("");
- const [companyReportState,setCompanyReport]=useState(null);
+ const currentYear=new Date().getFullYear();
+ const [invoiceYear,setInvoiceYear]=useState(currentYear);
+ const [invoicePeriod,setInvoicePeriod]=useState("year");
+ const [invoiceState,setInvoiceState]=useState(null);
  useEffect(()=>{try{setPrimaryCompany(window.localStorage.getItem("przemai-primary-organization")||"");}catch{}},[]);
  useEffect(()=>{try{setSimpleMode(window.localStorage.getItem("przemai-dashboard-mode")==="simple");}catch{}},[]);
  const switchMode=mode=>{setSimpleMode(mode);try{window.localStorage.setItem("przemai-dashboard-mode",mode?"simple":"full");}catch{}};
@@ -106,25 +112,21 @@ export default function HomePage() {
   let alive=true;
   setLoading(true);
   Promise.allSettled([
-   getExecutiveDashboard(),getAgents(),getFinanceSummary(),
-   getFinancePeriodReport(new Date().getFullYear())
+   getExecutiveDashboard(),getAgents()
   ]).then(results=>{
    if(!alive)return;
    setErrors(results.filter(r=>r.status==="rejected").length);
    setData({
     executive:readValue(results[0],"dashboard"),
-    agents:readValue(results[1],"data")||[],
-    finance:readValue(results[2],"data"),
-    report:readValue(results[3],"data")
+    agents:readValue(results[1],"data")||[]
    });
   }).finally(()=>{if(alive)setLoading(false);});
   return()=>{alive=false;};
  },[refresh]);
  useEffect(()=>{
   const allowed=organizations.some(o=>o.id===primaryCompany);
-  if(!allowed){setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");return;}
-  let active=true;setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");
-  getOrganizationFinanceAnnualReport(primaryCompany,new Date().getFullYear()).then(result=>{if(active)setCompanyReport({organizationId:primaryCompany,data:result?.data||null});}).catch(()=>{if(active)setCompanyReport(null);});
+  if(!allowed){setCompanyFinance(null);setCompanyFinanceError("");return;}
+  let active=true;setCompanyFinance(null);setCompanyFinanceError("");
   getOrganizationFinanceSummary(primaryCompany).then(result=>{
    if(active)setCompanyFinance({organizationId:primaryCompany,data:result?.data||null});
   }).catch(error=>{if(active)setCompanyFinanceError(error?.message||"Nie można pobrać KSeF.");});
@@ -138,7 +140,21 @@ export default function HomePage() {
  const agents=Array.isArray(data?.agents)?data.agents:[];
  const selectedOrg=organizations.find(o=>o.id===primaryCompany);
  const companyFinance=selectedOrg&&companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
- const companyReport=selectedOrg&&companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
+ const invoiceScope=JSON.stringify([primaryCompany,invoiceYear,refresh]);
+ useEffect(()=>{
+  if(!organizationRows|| (primaryCompany&&!selectedOrg))return;
+  const controller=new AbortController();
+  getInvoiceDashboard(invoiceYear,primaryCompany,controller.signal).then(({data:report})=>{
+   if(controller.signal.aborted)return;
+   if(report?.year!==invoiceYear||report.organizationId!==(primaryCompany||null)||!Array.isArray(report.rows))
+    throw Error("Nie udało się potwierdzić zakresu faktur.");
+   setInvoiceState({scope:invoiceScope,report});
+  }).catch(error=>{if(!controller.signal.aborted)setInvoiceState({scope:invoiceScope,error:error.message});});
+  return()=>controller.abort();
+ },[invoiceScope,organizationRows,selectedOrg]);
+ const invoiceResult=invoiceState?.scope===invoiceScope?invoiceState:null;
+ const invoiceReport=invoiceResult?.report;
+ const invoiceTotals=invoicePeriodTotals(invoiceReport,invoicePeriod);
  const projectScope=JSON.stringify([primaryCompany,organizations.map(o=>o.id)]);
  useEffect(()=>{
   if(!organizationRows)return;
@@ -156,21 +172,16 @@ export default function HomePage() {
  const investmentHref=selectedOrg?"/company/"+encodeURIComponent(selectedOrg.id)+"/investments":"/company/setup";
 
  const summary=data?.executive?.summary||{};
- const finance=data?.finance||{};
- const amounts=Array.isArray(finance.amounts)?finance.amounts:[];
- // Different currencies must never be added to PLN.
- const purchasePLN=amounts.find(a=>a.currency==="PLN"&&a.direction==="INCOMING");
- const salesPLN=amounts.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING");
  const enabled=agents.filter(a=>a.enabled).length;
- const reportRows=primaryCompany?(selectedOrg?(companyReport?.rows||[]):[]):(Array.isArray(data?.report?.rows)?data.report.rows:[]);
+ const reportRows=invoiceReport?.rows||EMPTY_INVOICE_ROWS;
  const chart=useMemo(()=>months.map((label,index)=>{
-   const rows=reportRows.filter(r=>r.currency==="PLN"&&(primaryCompany?r.month===index+1:r.period==="MONTH"&&r.number===index+1));
-   const total=group=>rows.filter(r=>primaryCompany?r.direction===group:r.group===group).reduce((s,r)=>s+Number(r.gross||0),0);
-   return {label,sales:total(primaryCompany?"OUTGOING":"INVOICED_SALES"),purchase:total(primaryCompany?"INCOMING":"INVOICED_PURCHASES")};
- }),[reportRows,primaryCompany]);
- const chartMax=Math.max(1,...chart.flatMap(r=>[r.sales,r.purchase]));
+   const rows=reportRows.filter(r=>r.month===index+1);
+   const total=direction=>rows.find(r=>r.direction===direction)?.gross;
+   return {label,sales:total("OUTGOING"),purchase:total("INCOMING")};
+ }),[reportRows]);
+ const chartMax=Math.max(1,...chart.flatMap(r=>[Math.abs(Number(r.sales||0)),Math.abs(Number(r.purchase||0))]));
  const nowMonth=new Date().getMonth();
- const shownMonths=chart.slice(0,Math.max(3,nowMonth+1));
+ const shownMonths=invoiceYear===currentYear?chart.slice(0,Math.max(3,nowMonth+1)):chart;
  const filteredCompanies=organizations.filter(o=>
   (o.displayName||o.name||"").toLocaleLowerCase("pl-PL").includes(companySearch.toLocaleLowerCase("pl-PL")));
  const ready=data!==null;
@@ -218,7 +229,7 @@ export default function HomePage() {
       <UserMenu/>
      </div>
     </header>
-    <div className="lg:hidden"><Navbar organizationId={["OWNER","ADMIN"].includes(selectedOrg?.role) ? selectedOrg.id : null}/></div>
+    <div className="lg:hidden"><Navbar organizationId={["OWNER","ADMIN"].includes(selectedOrg?.role) ? selectedOrg.id : null} investmentOrganizationId={selectedOrg?.id}/></div>
     <div className="relative mt-3 flex min-w-0 flex-wrap items-center justify-between gap-3 overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-r from-[#17132e] via-[#132947] to-[#173e60] p-3 sm:p-4" aria-busy={loading}>
      <svg aria-hidden="true" viewBox="0 0 420 100" className="pointer-events-none absolute right-0 bottom-0 hidden h-full w-[45%] opacity-35 md:block" fill="none" stroke="#a5b4fc" strokeWidth="1.3"><path d="M0 95h420M30 95V56h48v39M90 95V34h60v61M167 95V48h38v47M214 95V18h66v77M298 95V40h47v55M358 95V7h60v88M105 34v-15h25v15M230 18V4h35v14M195 95V12h-74M195 12l-22 9M140 12v30M320 40V4h-75M320 4l-20 8M260 4v27"/><path d="M38 66h32M38 76h32M100 46h40M100 58h40M100 70h40M224 30h46M224 42h46M224 54h46M224 66h46M224 78h46M367 20h42M367 32h42M367 44h42M367 56h42M367 68h42M367 80h42"/></svg>
      <div className="relative min-w-0 flex-1">
@@ -236,11 +247,11 @@ export default function HomePage() {
     <section aria-label="Wybór spółki" className="rounded-xl border border-white/10 bg-[#101a30] p-3">
      <div className="flex flex-wrap items-center gap-2">
       <span className="mr-1 text-sm font-bold text-violet-200">Spółka:</span>
-      <button type="button" aria-pressed={!primaryCompany} onClick={()=>selectPrimaryCompany("")} className={"min-h-11 rounded-xl px-3 text-xs font-semibold "+(!primaryCompany?"bg-violet-600 text-white":"bg-white/5 text-slate-300")}>Konto osobiste</button>
+      <button type="button" aria-pressed={!primaryCompany} onClick={()=>selectPrimaryCompany("")} className={"min-h-11 rounded-xl px-3 text-xs font-semibold "+(!primaryCompany?"bg-violet-600 text-white":"bg-white/5 text-slate-300")}>Wszystkie spółki</button>
       {organizations.map(o=><div key={o.id} className={"flex items-center rounded-xl border "+(o.id===primaryCompany?"border-violet-400 bg-violet-600 text-white":"border-white/10 bg-[#1b2745]")}><button type="button" aria-pressed={o.id===primaryCompany} onClick={()=>selectPrimaryCompany(o.id)} className="flex min-h-11 items-center gap-2 px-3 text-xs font-semibold"><Building2 size={16}/>{o.displayName||o.name}</button><Link href={"/company/"+encodeURIComponent(o.id)} aria-label={"Otwórz panel "+(o.displayName||o.name)} className="flex min-h-11 items-center border-l border-white/15 px-2"><ArrowUpRight size={14}/></Link></div>)}
       <Link href="/company/setup" className="ml-auto flex min-h-11 items-center gap-1 text-xs font-semibold text-violet-300"><Plus size={15}/> Spółki</Link>
      </div>
-     <p className="mt-2 text-[11px] text-slate-400">Dostępne spółki · bez niezweryfikowanej konsolidacji. Widok nie sumuje danych osobistych ani nie ujawnia danych innych kont.</p>
+     <p className="mt-2 text-[11px] text-slate-400">Dostępne spółki · zestawienie obejmuje spółki z dostępnymi danymi KSeF.</p>
      {!loading&&organizations.length===0&&<p className="mt-2 text-xs text-amber-200">Nie znaleziono spółek przypisanych do konta.</p>}
      {primaryCompany&&organizations.some(o=>o.id===primaryCompany)&&<details className="mt-3 rounded-xl border border-violet-400/20 bg-[#0a162d] p-3"><summary className="cursor-pointer text-sm font-semibold text-violet-200">Szczegóły synchronizacji KSeF</summary>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -251,13 +262,14 @@ export default function HomePage() {
        !companyFinance?<p className="mt-3 text-sm text-slate-400">Pobieranie danych finansowych…</p>:
        <div className="mt-3 grid gap-3 sm:grid-cols-3">
         {[
-         {label:"Sprzedaż KSeF (PLN, brutto)",direction:"OUTGOING"},
-         {label:"Zakupy KSeF (PLN, brutto)",direction:"INCOMING"}
-        ].map(item=><div key={item.direction} className="rounded-lg bg-white/5 p-3">
+         {label:"Sprzedaż KSeF (PLN)",key:"sales"},
+         {label:"Zakupy KSeF (PLN)",key:"purchase"}
+        ].map(item=><div key={item.key} className="rounded-lg bg-white/5 p-3">
          <p className="text-xs text-slate-400">{item.label}</p>
-         <p className="mt-1 text-xl font-bold">{(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction===item.direction)?.gross==null?"—":money(companyFinance.amounts.find(a=>a.currency==="PLN"&&a.direction===item.direction).gross))}</p>
+         <p className="mt-1 text-xl font-bold">{formatInvoicePLN(invoiceTotals?.[item.key]?.net)} netto</p>
+         <p className="mt-1 text-xs text-slate-400">{formatInvoicePLN(invoiceTotals?.[item.key]?.gross)} brutto</p>
         </div>)}
-        <div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-slate-400">Faktury KSeF</p><p className="mt-1 text-xl font-bold">{companyFinance.count??"—"}</p></div>
+        <div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-slate-400">Faktury KSeF w okresie (PLN)</p><p className="mt-1 text-xl font-bold">{invoiceTotals?.count??"—"}</p></div>
        </div>}
       <p className="mt-3 text-xs text-slate-400">Suma zaimportowanych faktur, nie przychód kasowy. Ostatnia aktywność agenta: {companyFinance?.sync?.lastRunAt?new Date(companyFinance.sync.lastRunAt).toLocaleString("pl-PL"):"brak danych"}.</p>
      </details>}
@@ -266,10 +278,26 @@ export default function HomePage() {
     {errors>0&&<div role="status" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-sm text-amber-200">
       <AlertCircle size={18} className="mt-0.5 shrink-0"/>Nie wszystkie moduły odpowiedziały. Brakujących wartości nie zastępujemy przykładowymi danymi.
      </div>}
-    <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-     <Metric label="Faktury z KSeF" value={ready?(primaryCompany?(selectedOrg?(companyFinance?.count??"—"):"—"):(finance.ksef??"—")):"…"} icon={FileText} accent="blue" foot="Dokumenty pobrane dla bieżącego konta"/>
-     <Metric label="Faktury zakupowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="INCOMING")?.gross):"—"):(data?.finance?money(purchasePLN?.gross):"—")):"…"} icon={Wallet} accent="orange" foot="Łączna wartość brutto faktur, nie płatności"/>
-     <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross):"—"):(data?.finance?money(salesPLN?.gross):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
+    <div className="mt-4 flex flex-wrap items-end gap-3" aria-label="Okres faktur">
+     <label className="text-sm">Rok faktur
+      <select aria-label="Rok faktur" value={invoiceYear} onChange={event=>setInvoiceYear(Number(event.target.value))} className="ml-2 min-h-10 rounded-lg bg-[#1b2745] px-2">
+       {Array.from({length:currentYear-2019},(_,index)=>currentYear-index).map(year=><option key={year}>{year}</option>)}
+      </select>
+     </label>
+     <label className="text-sm">Okres
+      <select aria-label="Okres" value={invoicePeriod} onChange={event=>setInvoicePeriod(event.target.value)} className="ml-2 min-h-10 rounded-lg bg-[#1b2745] px-2">
+       <option value="year">Cały rok</option>
+       {[1,2,3,4].map(quarter=><option key={quarter} value={"q"+quarter}>Kwartał {quarter}</option>)}
+       {months.map((month,index)=><option key={month} value={"m"+(index+1)}>{month}</option>)}
+      </select>
+     </label>
+    </div>
+    {invoiceResult?.error&&<p role="status" className="mt-2 text-sm text-amber-200">{invoiceResult.error}</p>}
+    {!primaryCompany&&invoiceReport?.excluded>0&&<p role="status" className="mt-2 text-sm text-amber-200">Spółki z dostępnymi danymi KSeF: {invoiceReport.included} z {invoiceReport.included+invoiceReport.excluded}.</p>}
+    <section aria-label="Faktury w wybranym okresie" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+     <Metric label="Faktury z KSeF (PLN)" value={invoiceTotals?.count??"—"} icon={FileText} accent="blue" foot="Według daty wystawienia"/>
+     <Metric label="Faktury zakupowe PLN" value={formatInvoicePLN(invoiceTotals?.purchase.net)+" netto"} detail={formatInvoicePLN(invoiceTotals?.purchase.gross)+" brutto"} icon={Wallet} accent="orange" foot="Faktury z korektami"/>
+     <Metric label="Faktury sprzedażowe PLN" value={formatInvoicePLN(invoiceTotals?.sales.net)+" netto"} detail={formatInvoicePLN(invoiceTotals?.sales.gross)+" brutto"} icon={BarChart3} accent="green" foot="Faktury z korektami"/>
      <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
     </section>
     <div className={"mt-3 grid min-w-0 gap-3 "+(simpleMode?"":"xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]")}>
@@ -292,16 +320,16 @@ export default function HomePage() {
       </div>
      </Panel>
      {!simpleMode&&<Panel className="p-4 sm:p-5">
-      <SectionTitle href="/finance/reports" link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
-      <p className="mt-1 text-xs text-slate-400">{new Date().getFullYear()} · miesiące · brutto · nie są to przepływy pieniężne</p>
-      {reportRows.length===0?<div className="mt-3 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{loading?"Pobieranie zestawienia…":(primaryCompany&&!companyReport?"Nie udało się pobrać zestawienia KSeF wybranej firmy lub brak uprawnień.":"Brak danych faktur do wykresu.")}</div>:
+      <SectionTitle href={selectedOrg ? "/company/"+encodeURIComponent(selectedOrg.id)+"/finance/reports" : undefined} link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
+      <p className="mt-1 text-xs text-slate-400">{invoiceYear} · miesiące · brutto · nie są to przepływy pieniężne</p>
+      {reportRows.length===0?<div className="mt-3 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{!invoiceResult?"Pobieranie zestawienia…":"Brak danych faktur do wykresu."}</div>:
       <div className="mt-3 min-w-0 overflow-x-auto">
        <div className="flex h-36 min-w-[250px] items-end gap-1.5 border-b border-white/15 pb-3 sm:gap-2">
         {shownMonths.map(v=><div key={v.label} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
          <div className="flex h-28 w-full items-end justify-center gap-1">
-          <div title={v.label+" sprzedaż "+money(v.sales)} style={{height:Math.max(0,v.sales/chartMax*100)+"%"}}
+          <div title={v.label+" sprzedaż "+money(v.sales)} style={{height:Math.abs(Number(v.sales||0))/chartMax*100+"%"}}
            className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-violet-500 sm:w-5"/>
-          <div title={v.label+" zakupy "+money(v.purchase)} style={{height:Math.max(0,v.purchase/chartMax*100)+"%"}}
+          <div title={v.label+" zakupy "+money(v.purchase)} style={{height:Math.abs(Number(v.purchase||0))/chartMax*100+"%"}}
            className="w-3 max-w-[22px] min-w-[5px] rounded-t bg-emerald-400 sm:w-5"/>
          </div><span className="text-[10px] font-semibold text-slate-400">{v.label}</span>
         </div>)}
@@ -365,7 +393,7 @@ export default function HomePage() {
        </Link>)}
        {filteredCompanies.length===0&&<p className="py-3 text-xs text-slate-400">Brak spółek odpowiadających filtrowi.</p>}
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Finanse dotyczą wybranego konta lub spółki — nie skonsolidowanej księgowości grupy.</p>
+      <p className="mt-4 text-xs leading-5 text-slate-500">Firmy mają własne zadania i członków zespołu. Wspólny widok faktur obejmuje dostępne spółki.</p>
      </Panel>
     </div>}
     {!simpleMode&&<div className="mt-4 flex flex-wrap gap-2">
@@ -388,7 +416,7 @@ export default function HomePage() {
     </aside>}
     </div>
     <footer className="mt-7 border-t border-white/10 pt-4 text-xs text-slate-500">
-     PrzemAI · Dane rzeczywiste dostępne dla zalogowanego użytkownika · Połączenia bankowe i konsolidacja grupy wymagają integracji.
+     PrzemAI · Dane rzeczywiste dostępne dla zalogowanego użytkownika.
     </footer>
    </div>
   </div>

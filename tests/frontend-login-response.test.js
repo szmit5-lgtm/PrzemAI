@@ -36,12 +36,11 @@ test("login rejects missing, empty or non-string tokens", async () => {
   }
 });
 
-test("login page validates server acknowledgement before storing the token", async () => {
+test("login page waits for the cookie session acknowledgement", async () => {
   const source = await fs.readFile(
     path.join(__dirname, "../frontend/src/app/login/page.js"), "utf8"
   );
-  assert.match(source, /import\s*\{\s*parseLoginResponse\s*\}\s*from\s*["']@\/lib\/loginPayload["']/);
-  assert.match(source, /const token = parseLoginResponse\(await login\(email\.trim\(\), password\)\);/);
-  assert.match(source, /localStorage\.setItem\("token", token\);/);
-  assert.ok(source.indexOf("parseLoginResponse(await login") < source.indexOf('localStorage.setItem("token", token)'));
+  assert.match(source, /await login\(email\.trim\(\), password\)/);
+  assert.match(source, /result\?\.success !== true/);
+  assert.doesNotMatch(source, /localStorage\.setItem/);
 });

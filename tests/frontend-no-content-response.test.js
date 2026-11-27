@@ -27,7 +27,8 @@ for (const status of [204, 205]) {
       global.fetch = async (url, options) => {
         assert.equal(url, "/api/agents/agent-1/enabled");
         assert.equal(options.method, "PATCH");
-        assert.equal(options.headers.Authorization, "Bearer active-token");
+        assert.equal(options.headers?.Authorization, undefined);
+        assert.equal(options.credentials, "same-origin");
         assert.deepEqual(JSON.parse(options.body), { enabled: true });
         return {
           status,

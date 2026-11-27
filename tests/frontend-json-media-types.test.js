@@ -33,7 +33,8 @@ test("application/problem+json preserves the API error detail and user session",
   await withSession(async removed => {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents/agent-1/run");
-      assert.equal(options.headers.Authorization, "Bearer active-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return {
         status: 422,
         ok: false,
@@ -56,7 +57,8 @@ test("vendor +json content type is accepted as a valid agent list response", asy
     const payload = { success: true, data: [{ id: "agent-1" }] };
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents");
-      assert.equal(options.headers.Authorization, "Bearer active-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return {
         status: 200,
         ok: true,

@@ -1,0 +1,22 @@
+{
+  "name": "przemai-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "sync": "npm run build && cap sync",
+    "test": "node --test *.test.cjs",
+    "build": "node build.cjs",
+    "prepare:store": "node prepare-store.cjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.3.6",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.3.6",
+    "@capacitor/ios": "8.3.6",
+    "@capacitor/local-notifications": "8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.3.6",
+    "esbuild": "0.27.4"
+  }
+}

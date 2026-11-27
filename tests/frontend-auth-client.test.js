@@ -51,7 +51,7 @@ test("invalid login reports the server's credentials error, not session expiry",
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/login");
-      assert.equal(options.headers.Authorization, undefined);
+      assert.equal(options.headers?.Authorization, undefined);
       return jsonResponse(401, { error: "Nieprawidłowy e-mail lub hasło." });
     };
     const api = await loadClient();
@@ -66,17 +66,18 @@ test("invalid login reports the server's credentials error, not session expiry",
   }
 });
 
-test("401 on a protected endpoint still clears the token and redirects", async () => {
+test("401 on a protected endpoint redirects to login", async () => {
   const browser = mockBrowser("/history");
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/history");
-      assert.equal(options.headers.Authorization, "Bearer old-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(401, { error: "Unauthorized" });
     };
     const api = await loadClient();
     await assert.rejects(api.getHistory(), { message: "Sesja wygasła." });
-    assert.deepEqual(browser.removed, ["token"]);
+    assert.deepEqual(browser.removed, []);
     assert.equal(global.window.location.href, "/login");
   } finally {
     browser.restore();
@@ -88,7 +89,7 @@ test("registration does not send a stale bearer token", async () => {
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/register");
-      assert.equal(options.headers.Authorization, undefined);
+      assert.equal(options.headers?.Authorization, undefined);
       return jsonResponse(201, { success: true });
     };
     const api = await loadClient();
@@ -98,22 +99,22 @@ test("registration does not send a stale bearer token", async () => {
   }
 });
 
-test("successful login returns a token without clearing the existing session", async () => {
+test("successful login acknowledges the cookie session without exposing a token", async () => {
   const browser = mockBrowser();
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/login");
       assert.equal(options.method, "POST");
-      assert.equal(options.headers.Authorization, undefined);
+      assert.equal(options.headers?.Authorization, undefined);
       assert.deepEqual(JSON.parse(options.body), {
         email: "test@example.com",
         password: "correct-password"
       });
-      return jsonResponse(200, { token: "new-token" });
+      return jsonResponse(200, { success: true });
     };
     const api = await loadClient();
     assert.deepEqual(await api.login("test@example.com", "correct-password"), {
-      token: "new-token"
+      success: true
     });
     assert.deepEqual(browser.removed, []);
     assert.equal(global.window.location.href, "/login");
@@ -127,7 +128,7 @@ test("login server errors preserve the session and show the server message", asy
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/login");
-      assert.equal(options.headers.Authorization, undefined);
+      assert.equal(options.headers?.Authorization, undefined);
       return jsonResponse(500, { error: "Serwer chwilowo niedostępny." });
     };
     const api = await loadClient();
@@ -142,12 +143,13 @@ test("login server errors preserve the session and show the server message", asy
   }
 });
 
-test("protected profile request includes the existing bearer token", async () => {
+test("protected profile request uses the same-origin session cookie", async () => {
   const browser = mockBrowser("/agents");
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/me");
-      assert.equal(options.headers.Authorization, "Bearer old-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(200, { id: 123, email: "test@example.com" });
     };
     const api = await loadClient();
@@ -159,17 +161,18 @@ test("protected profile request includes the existing bearer token", async () =>
   }
 });
 
-test("expired token on profile check clears the session and redirects to login", async () => {
+test("expired session on profile check redirects to login", async () => {
   const browser = mockBrowser("/agents");
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/me");
-      assert.equal(options.headers.Authorization, "Bearer old-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(401, { error: "Unauthorized" });
     };
     const api = await loadClient();
     await assert.rejects(api.getProfile(), { message: "Sesja wygasła.", status: 401 });
-    assert.deepEqual(browser.removed, ["token"]);
+    assert.deepEqual(browser.removed, []);
     assert.equal(global.window.location.href, "/login");
   } finally {
     browser.restore();
@@ -181,7 +184,8 @@ test("profile access denied with 403 does not invalidate a valid session", async
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/me");
-      assert.equal(options.headers.Authorization, "Bearer old-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(403, { error: "Brak uprawnień." });
     };
     const api = await loadClient();
@@ -199,7 +203,8 @@ test("temporary profile outage reports HTTP status without clearing the session"
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/me");
-      assert.equal(options.headers.Authorization, "Bearer old-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return jsonResponse(503, { error: "Serwis chwilowo niedostępny." });
     };
     const api = await loadClient();

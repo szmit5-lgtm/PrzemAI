@@ -17,7 +17,8 @@ test("problem+json title is shown when a rate-limit response has no detail", asy
     };
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/agents/agent-1/run");
-      assert.equal(options.headers.Authorization, "Bearer active-token");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return {
         status: 429,
         ok: false,
