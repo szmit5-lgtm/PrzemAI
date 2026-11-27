@@ -10,7 +10,8 @@ class ChatController {
                 message,
                 conversationId,
                 organizationId,
-                requestId
+                requestId,
+                background
             } = req.body || {};
 
             if (typeof message !== "string" || !message.trim()) {
@@ -55,7 +56,7 @@ class ChatController {
                 req.user.id,
                 message,
                 conversationId || null,
-                { organizationId: organizationId || null, requestId: requestId || null }
+                { organizationId: organizationId || null, requestId: requestId || null, ...(background === true && { background }) }
 
             );
 
@@ -68,7 +69,8 @@ class ChatController {
 
                 answer: result.answer,
 
-                message: result.message
+                message: result.message,
+                ...(result.pending && { pending: true })
 
             });
 
@@ -76,6 +78,7 @@ class ChatController {
         catch (err) {
 
             const status = { GENERAL_RATE_LIMIT: 429, CHAT_REQUEST_CONFLICT: 409 }[err?.code];
+            if (err?.status === 403) return res.status(403).json({ success: false, error: "Brak dostępu do spółki." });
             if (status) return res.status(status).json({ success: false, error: err.message });
             console.error("[ChatController]", err?.name || "Error");
 

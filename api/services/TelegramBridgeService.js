@@ -29,12 +29,12 @@ async function findBinding(db, telegramUserId) {
 async function handleCommand({ update, db = prisma, now = new Date(),
   chat = (...args) => require("./ChatService").chat(...args) }) {
   const msg = update?.message;
-  if (!msg || typeof msg.text !== "string" || msg.chat?.type !== "private" ||
+  if (!msg || (typeof msg.text !== "string" && !msg.voice) || msg.chat?.type !== "private" ||
       !Number.isSafeInteger(msg.from?.id) || msg.from.id <= 0 || msg.from.is_bot === true ||
       msg.chat?.id !== msg.from.id)
     return null;
-  const telegramUserId = String(msg.from.id), text = msg.text.trim();
-  if (!text) return null;
+  const telegramUserId = String(msg.from.id), text = typeof msg.text === "string" ? msg.text.trim() : "";
+  if (!text && !msg.voice) return null;
   if (text.startsWith("/start ")) {
     const match = /^\/start\s+([0-9a-f]{8}-[0-9a-f-]{27,})$/.exec(text);
     if (!match) return {chatId:msg.chat.id, text:"Nieprawidlowy kod laczenia."};
@@ -122,7 +122,7 @@ async function handleCommand({ update, db = prisma, now = new Date(),
       throw err;
     }
   }
-  if (text.startsWith("/") && !/^\/spolka(?:\s|$)/.test(text))
+  if (text.startsWith("/") && !/^\/(?:spolka|watek)(?:\s|$)/.test(text))
     return {chatId:msg.chat.id,text:BOT_COMMANDS};
   const answer = await handleChat({
     db, msg, text, userId: binding.userId, telegramUserId, chat,
@@ -142,6 +142,7 @@ async function sendTelegramMessage({chatId,text,token=process.env.TELEGRAM_TOKEN
     if (/[\uD800-\uDBFF]/.test(remaining[length - 1]) && length < remaining.length) length--;
     const response = await fetchFn("https://api.telegram.org/bot"+token+"/sendMessage", {
       method:"POST",headers:{"content-type":"application/json"},
+      signal:AbortSignal.timeout(10000),redirect:"error",
       body:JSON.stringify({chat_id:chatId,text:remaining.slice(0, length)})
     });
     if (!response.ok) throw Error("Telegram API HTTP "+response.status);

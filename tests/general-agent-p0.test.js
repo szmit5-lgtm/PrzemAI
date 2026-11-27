@@ -58,6 +58,7 @@ test("delegates to three scoped specialists, saves results and continues through
     for await (const chunk of req) chunks.push(chunk);
     const { input, max_output_tokens } = JSON.parse(Buffer.concat(chunks).toString());
     assert.equal(max_output_tokens, 1000);
+    assert.match(input[0].content[0].text, /Nie proś o ponowne przesłanie/);
     requests.push(JSON.parse(input[1].content[0].text));
     res.setHeader("Content-Type", "application/json");
     if (failProvider) {
@@ -97,13 +98,14 @@ test("delegates to three scoped specialists, saves results and continues through
   const scope = { userId: "user", organizationId: "company-a", conversationId: "chat-a" };
   const first = await general.handleTurn({
     ...scope, turnId: "turn-a",
-    message: "Porównaj faktury, dokumenty i inwestycje. OPENAI_API_KEY=sk-fakekey12345"
+    message: "Przygotuj raport sytuacji spółki. OPENAI_API_KEY=sk-fakekey12345"
   });
   assert.equal(first.planId, "turn-a");
   assert.equal(requests.length, 3);
   assert.equal(tasks.length, 3);
   assert.ok(tasks.every(task => task.status === "DONE" && task.metadata.resultStatus === "DRAFT_READY"));
   assert.doesNotMatch(JSON.stringify(requests), /sk-fakekey12345|investment-a/);
+  assert.match(first.answer, /Raport General Agenta — gotowe 3/);
   assert.match(first.answer, /Financial Agent — gotowe/);
   assert.match(first.answer, /Document Agent — gotowe/);
   assert.match(first.answer, /Investment Agent — gotowe/);
@@ -115,7 +117,7 @@ test("delegates to three scoped specialists, saves results and continues through
   assert.ok(tasks.slice(3).every(task => task.metadata.parentPlanId === "turn-a"));
 
   financeAccess = false;
-  const status = await general.handleTurn({ ...scope, turnId: "turn-c", message: "Wyniki" });
+  const status = await general.handleTurn({ ...scope, turnId: "turn-c", message: "Przygotuj raport z wyników" });
   assert.match(status.answer, /Financial Agent — brak dostępu/);
   assert.equal((status.answer.match(/Wynik z mocka/g) || []).length, 2);
   assert.equal(requests.length, 6);
@@ -237,4 +239,54 @@ test("old queued assignments respect the rolling execution budget after restart"
   const resumed = await new GeneralAgentService(dependencies).readPlan(scope, "backlog", { resume: true });
   assert.match(resumed.answer, /Raport/);
   assert.equal(calls, 1);
+});
+
+test("finance can use company banking without KSeF and a bank-derived result respects revocation", async () => {
+  const sources = new GeneralAgentSources({});
+  let bankAllowed = true;
+  sources.finance.accessible = async () => { throw Object.assign(new Error(), { status: 404 }); };
+  sources.finance.documents = async () => assert.fail("KSeF is unavailable");
+  sources.bankAccess.authorize = async () => {
+    if (!bankAllowed) throw Object.assign(new Error(), { status: 403 });
+    return { role: "OWNER" };
+  };
+  sources.bank.report = async (_userId, org, year) => {
+    assert.equal(org, "company-a");
+    assert.equal(year, 2026);
+    return { accounts: ["account"], months: [{ month: 1, currencies: { PLN: "100" } }], quarters: [] };
+  };
+  const scope = { userId: "user", organizationId: "company-a", agentKey: "financial" };
+  const loaded = await sources.load(scope, "Zestawienie banku za 2026");
+  assert.deepEqual(loaded.financialSources, { invoices: false, bank: true });
+  assert.equal(loaded.bankPeriods.length, 1);
+  assert.equal(await sources.authorize({ ...scope, financialSources: loaded.financialSources }), true);
+  bankAllowed = false;
+  assert.equal(await sources.authorize({ ...scope, financialSources: loaded.financialSources }), false);
+  assert.equal(await sources.load(scope, "Zestawienie banku za 2026"), null);
+  sources.finance.accessible = async () => ({ organizationId: scope.organizationId });
+  assert.equal(await sources.authorize(scope), true);
+  assert.equal(await sources.authorize({ ...scope, financialSources: loaded.financialSources }), false);
+});
+
+test("a lookup can use the document specialist when the financial source is unavailable", async () => {
+  const { db, tasks } = fixtures();
+  const calls = [];
+  const sources = {
+    authorize: async ({ agentKey }) => agentKey === "document",
+    load: async ({ agentKey }) => {
+      assert.equal(agentKey, "document");
+      return { documents: [{ title: "Faktura FV/01", text: "Zapisana kwota 100 PLN" }] };
+    }
+  };
+  const general = new GeneralAgentService({ db, sources, ai: {
+    ask: async request => { calls.push(request); return "Znaleziona kwota: 100 PLN"; }
+  } });
+  const response = await general.handleTurn({
+    userId: "user", organizationId: "company-a", conversationId: "chat-a",
+    turnId: "lookup", message: "Odszukaj fakturę FV/01"
+  });
+  assert.deepEqual(tasks.map(task => task.metadata.agentKey), ["document"]);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].user, /Zapisana kwota/);
+  assert.match(response.answer, /Znaleziona kwota: 100 PLN/);
 });

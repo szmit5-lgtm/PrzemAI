@@ -39,5 +39,5 @@ test("one tap enables spoken conversation and starts recognition in same user ge
  assert.match(ui,/function startVoiceMode\(\)/);
  assert.match(ui,/voiceModeRef\.current=true;[\s\S]*?toggleMicrophone\(\);/);
  assert.match(ui,/aria-pressed=\{voiceMode\} onClick=\{startVoiceMode\}/);
- assert.match(ui,/onClick=\{\(\)=>send\(\)\} disabled=\{busy\|\|listening\|\|!message\.trim\(\)\}/);
+ assert.match(ui,/onClick=\{\(\)=>send\(\)\} disabled=\{busy\|\|listening\|\|\(!message\.trim\(\)&&!attachment\)\}/);
 });

@@ -1,6 +1,23 @@
+const { createHash } = require("node:crypto");
 const prisma = require("../../lib/prisma");
 
 class MemoryService {
+
+    async rememberInstruction(userId, content) {
+        const id = "chat-memory-" + createHash("sha256")
+            .update(JSON.stringify([userId, content])).digest("hex");
+        const inserted = await prisma.memory.createMany({
+            data: { id, userId, type: "FACT", title: content.slice(0, 160),
+                content, source: "CHAT", importance: 4, tags: ["zapamiętane"] },
+            skipDuplicates: true
+        });
+        if (inserted.count === 0) {
+            await prisma.memory.updateMany({
+                where: { id, userId, archivedAt: { not: null } },
+                data: { archivedAt: null }
+            });
+        }
+    }
 
     normalizeImportance(value, fallback = 3) {
 
