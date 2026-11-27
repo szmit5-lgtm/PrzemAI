@@ -36,7 +36,7 @@ function CashflowChart({id,year,months}){
  function select(month,direction,offset=0){
   setResult(null);setError("");setSelection({month,direction,offset});
  }
- return <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4">
+ return <section id="cashflow" className="mt-5 scroll-mt-6 rounded-2xl border border-white/10 bg-[#111c35] p-4">
   <h3 className="font-bold">Przepływy miesięczne · PLN</h3>
   <p className="mt-1 text-sm text-slate-300">Wybierz wpływy lub wydatki w miesiącu, aby wyświetlić operacje.</p>
   <div className="mt-4 grid grid-cols-6 gap-2 md:grid-cols-12">

@@ -31,13 +31,31 @@ async function checkChart(company, token, api, year, month) {
     browser = await chromium.launch({executablePath:process.env.PRZEMAI_CHROMIUM||"/usr/bin/chromium",
       args:["--no-sandbox"],headless:true});
     const page = await browser.newPage();
+    page.on("pageerror", error => console.error("Browser error:", error.message));
     await page.addInitScript(value=>localStorage.setItem("token",value),token);
-    await page.goto(chart);
+    await page.goto(web);
+    const cards=page.getByRole("region",{name:"Faktury w wybranym okresie"});
+    const sales=cards.locator("section").filter({hasText:"Faktury sprzedażowe PLN"});
+    await sales.getByText(/7\s?547,41 zł netto/).waitFor();
+    await page.getByRole("button",{name:"Deherus",exact:true}).click();
+    await sales.getByText(/7\s?407,41 zł netto/).waitFor();
+    await page.getByRole("button",{name:"Dekonica",exact:true}).click();
+    await sales.getByText("140,00 zł netto").waitFor();
+    await sales.getByText("163,00 zł brutto").waitFor();
+    await page.getByLabel("Okres",{exact:true}).selectOption("m"+month);
+    await sales.getByText("140,00 zł netto").waitFor();
+    if(month!==1){
+      await page.getByLabel("Okres",{exact:true}).selectOption("m1");
+      await sales.getByText("0,00 zł netto").waitFor();
+    }
+    await page.getByRole("link",{name:"Wpływy i wydatki",exact:true}).click();
     const label = new Intl.DateTimeFormat("pl",{month:"long",timeZone:"UTC"})
       .format(new Date(Date.UTC(year,month-1,1)));
     await page.getByRole("button",{name:new RegExp("Wpływy · "+label+" ·","i")}).click();
     await page.getByRole("list").filter({hasText:"Syntetyczny odbiorca"}).waitFor();
     assert.match(await page.locator("[aria-live=polite]").innerText(),/Syntetyczny odbiorca/);
+    await page.getByRole("button",{name:new RegExp("Wydatki · "+label+" ·","i")}).click();
+    await page.getByText("Zwrot KOR/289/"+year,{exact:true}).waitFor();
   } finally {
     await browser?.close();
     child.kill();
@@ -103,8 +121,27 @@ async function main() {
           costAccounting:{source:"MANUAL",category:"RENT",type:"FIXED"},
           ksefXmlRetry:{code:"INVALID_XML",reason:"FORMAT",sensitive:"must-not-leak"}
         }}),
-      makeInvoice("2222222222","FOREIGN",{grossAmount:8000})
+      makeInvoice("2222222222","FOREIGN",{grossAmount:8000,netAmount:"7407.41",vatAmount:"592.59"})
     ]);
+    const dashboard=async (user,company)=>{
+      const url=endpoint+"/api/organizations/invoice-dashboard/"+year+
+        (company?"?organizationId="+company.id:"");
+      const response=await fetch(url,{headers:{Authorization:"Bearer "+jwt.sign({id:user.id},process.env.JWT_SECRET)}});
+      return {status:response.status,...await response.json()};
+    };
+    const sales = report => report.data.rows.find(row=>row.month===month&&row.direction==="OUTGOING");
+    const [dekInvoices,dehInvoices,allInvoices,limitedInvoices]=await Promise.all([
+      dashboard(owner,dek),dashboard(owner,deh),dashboard(owner),dashboard(employee)
+    ]);
+    assert.deepEqual([sales(dekInvoices).net,sales(dekInvoices).gross],["140.00","163.00"]);
+    assert.deepEqual([sales(dehInvoices).net,sales(dehInvoices).gross],["7407.41","8000.00"]);
+    assert.deepEqual([sales(allInvoices).net,sales(allInvoices).gross],["7547.41","8163.00"]);
+    const purchases=allInvoices.data.rows.find(row=>row.month===month&&row.direction==="INCOMING");
+    assert.deepEqual([purchases.net,purchases.gross],["20.00","20.00"]);
+    assert.equal(limitedInvoices.data.included,1);
+    assert.equal(limitedInvoices.data.excluded,1);
+    assert.deepEqual(sales(limitedInvoices),sales(dekInvoices));
+    assert.equal((await dashboard(employee,deh)).status,403);
     const project=await db.project.create({data:{userId:owner.id,name:"Syntetyczny P1",company:"Dekonica"}});
     await db.organizationInvestment.create({data:{organizationId:dek.id,name:project.name,assignedUserIds:[employee.id]}});
     await db.financialDocument.updateMany({where:{id:{in:[invoice.id,bill.id]}},data:{projectId:project.id}});
@@ -177,14 +214,16 @@ async function main() {
     assert.equal(item(await report(),invoice.id).status,"PARTIAL");
     assert.equal((await request(dek,owner,root+"/corrections/"+correction.id,"DELETE")).status,200);
     assert.equal(item(await report(),invoice.id).outstanding,"33.00");
-    if(process.env.PRZEMAI_P1_BROWSER==="true")await checkChart(dek,
-      jwt.sign({id:employee.id},process.env.JWT_SECRET),endpoint,year,month);
     const topup=await operation(dek,"CURRENT",10,"Dopłata "+n);
     assert.equal((await pay(owner,invoice.id,topup.id)).status,200);
     assert.equal((await pay(owner,invoice.id,vat.id)).status,200);
     assert.equal((await request(dek,owner,corrections,"POST",{correctionId:correction.id})).status,200);
     assert.equal(item(await report(),invoice.id).overpayment,"10.00");
     const refund=await operation(dek,"CURRENT",-10,"Zwrot KOR/289/"+year);
+    const expenses=await request(dek,employee,"/bank/activity/"+year+"/"+month+"?direction=outflows&currency=PLN");
+    assert.deepEqual(expenses.data.items.map(row=>[row.id,row.amount]),[[refund.id,"-10.00"]]);
+    if(process.env.PRZEMAI_P1_BROWSER==="true")await checkChart(dek,
+      jwt.sign({id:owner.id},process.env.JWT_SECRET),endpoint,year,month);
     const refundMatches=await request(dek,owner,"/finance/bank-matches/"+year);
     assert.equal(refundMatches.data.proposed.find(row=>row.transactionId===refund.id)?.refundInvoiceId,invoice.id);
     assert.equal((await pay(owner,invoice.id,refund.id)).status,200);

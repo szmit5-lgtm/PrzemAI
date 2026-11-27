@@ -643,6 +643,10 @@ export async function getOrganizationBankKsefMatches(orgId,year){
  return request("/api/organizations/"+encodeURIComponent(orgId)+
   "/finance/bank-matches/"+encodeURIComponent(year));
 }
+export function getInvoiceDashboard(year, organizationId, signal) {
+ return request("/api/organizations/invoice-dashboard/" + encodeURIComponent(year) +
+  (organizationId ? "?" + new URLSearchParams({organizationId}) : ""), {signal, cache:"no-store"});
+}
 export async function getOrganizationFinanceAnnualReport(orgId,year){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/report/"+encodeURIComponent(year));
 }

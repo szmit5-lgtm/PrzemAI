@@ -152,6 +152,8 @@ router.get("/:id/bank/monthly/:year",verifyToken,
 router.get("/invitations",verifyToken,handler(req=>service.pendingInvites(req.user.id)));
 router.post("/:id/invitations/accept",verifyToken,
   handler(req=>service.acceptInvite(req.user.id,req.params.id)));
+router.get("/invoice-dashboard/:year",verifyToken,handler(req=>
+  financeService.dashboardInvoices(req.user.id,req.params.year,req.query.organizationId)));
 router.get("/:id/finance/status",verifyToken,
   handler(req=>financeService.linkStatus(req.user.id,req.params.id)));
 router.post("/:id/finance/link",verifyToken,
