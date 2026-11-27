@@ -22,7 +22,7 @@ async function main() {
 
   function start(cwd, entry, extra) {
     const child = spawn(process.execPath, [path.join(cwd, entry)], {
-      cwd, env: {
+      cwd: path.dirname(process.argv[2]), env: {
         PATH: process.env.PATH, DATABASE_URL: database.href,
         JWT_SECRET: secret, PORT: String(port),
         OPENAI_DAILY_REQUEST_LIMIT: "0", OPENAI_MONTHLY_BUDGET_PLN: "0",
@@ -76,6 +76,15 @@ async function main() {
     const task = await new OrganizationService({ db }).createCompanyTask(owner, org.id, { title: "Private Zgorzelec task" }, zgorzelec.id);
     await db.chatConversation.create({ data: { id: "cutover-telegram", userId: owner, title: "Telegram fixture", channel: "TELEGRAM" } });
     const stale = new Date(Date.now() - 2 * 60 * 60000);
+    await db.agent.create({ data: { userId: owner, key: "financial", name: "Financial", type: "FINANCIAL", enabled: false } });
+    const scheduled = await db.agent.create({ data: {
+      userId: owner, key: "document", name: "Document", type: "DOCUMENT",
+      status: "RUNNING", updatedAt: stale, intervalMinutes: 30,
+      runs: { create: { status: "RUNNING", trigger: "SCHEDULE", startedAt: stale } }
+    } });
+    const scheduledRuns = async () => (await db.agentRun.findMany({
+      where: { agentId: scheduled.id }, orderBy: { startedAt: "asc" }, select: { status: true }
+    })).map(run => run.status);
     const [draft, queued, done] = await Promise.all([
       { title: "Interrupted draft", source: "AGENT", status: "IN_PROGRESS", startedAt: stale, updatedAt: stale, metadata: { agentKey: "document" } },
       { title: "Queued plan", source: "GENERAL_AGENT", status: "TODO" },
@@ -88,6 +97,7 @@ async function main() {
     const cycle = instance => /\[Worker\] Cycle .*"users":1,.*"failed":0,/.test(instance.log);
     await ready(oldWorker, () => cycle(oldWorker));
     assert.deepEqual(await statuses(), ["IN_PROGRESS", "TODO", "DONE"]);
+    assert.deepEqual(await scheduledRuns(), ["FAILED", "SUCCESS"]);
     assert.deepEqual(await stop(oldWorker), [0, null]);
     console.log("Production worker reads P0 schema and drains on SIGTERM, but leaves interrupted P0 drafts unhandled");
 
@@ -110,6 +120,7 @@ async function main() {
       const worker = start(candidate, "worker.js", { WORKER_OWNER_USER_ID: owner });
       await ready(worker, () => cycle(worker));
       assert.deepEqual(await statuses(), ["ERROR", "TODO", "DONE"]);
+      assert.deepEqual(await scheduledRuns(), ["FAILED", "SUCCESS"]);
       assert.deepEqual(await stop(worker), [0, null]);
     }
     const api = start(candidate, "server.js");
@@ -124,6 +135,16 @@ async function main() {
     assert.equal((await get("/api/chat/cutover-telegram", owner)).status, 404);
     assert.equal((await get("/api/chat/cutover-web", owner)).status, 200);
     await stop(api);
+    assert.equal((await db.task.findUniqueOrThrow({ where: { id: "cutover-legacy-queue" } })).status, "TODO");
+    const { checkBudget } = require("./check-ai-release-budget");
+    await checkBudget(db, {
+      OPENAI_API_KEY: "fixture",
+      OPENAI_DAILY_REQUEST_LIMIT: "12",
+      OPENAI_MONTHLY_BUDGET_PLN: "1",
+      OPENAI_PRICE_BOUNDS_JSON: JSON.stringify({
+        "gpt-5.5": { input: 1, output: 1, validUntil: new Date(Date.now() + 60000).toISOString() }
+      })
+    });
     console.log("P0 cutover preserves queued/completed work, quarantines interrupted drafts and enforces tenant/channel isolation");
   } finally {
     await Promise.all([...children].map(stop));

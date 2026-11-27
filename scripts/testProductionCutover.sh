@@ -38,6 +38,8 @@ export DATABASE_URL="$(db_url "$source_db")"
 const db = new (require("@prisma/client").PrismaClient)();
 (async () => {
   await db.user.create({ data: { id: "cutover-owner", email: "cutover@example.test", password: "fixture" } });
+  await db.task.create({ data: { id: "cutover-legacy-queue", userId: "cutover-owner",
+    title: "Legacy queue fixture", tags: [], status: "TODO" } });
   await db.chatConversation.create({ data: { id: "cutover-web", userId: "cutover-owner", title: "Backup fixture" } });
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => db.$disconnect());
 JS
@@ -47,6 +49,7 @@ pg pg_restore --exit-on-error --single-transaction --no-owner --no-privileges -d
 for db in "$source_db" "$restore_db"; do
   pg psql -X -At -v ON_ERROR_STOP=1 -d "$db" -c '
     SELECT id, title FROM "ChatConversation" WHERE id = '\''cutover-web'\'';
+    SELECT id, status FROM "Task" WHERE id = '\''cutover-legacy-queue'\'';
     SELECT migration_name, checksum FROM "_prisma_migrations" ORDER BY migration_name;
   ' > "$scratch/$db.txt"
 done
