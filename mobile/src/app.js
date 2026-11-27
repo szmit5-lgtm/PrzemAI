@@ -15,9 +15,15 @@ let view = "Pulpit";
 let sequence = 0;
 let idleTimer;
 let backgroundAt;
-let conversationId = null;
+let chat = newChat();
+let redrawChat;
+let notificationWork = Promise.resolve();
 let invoiceYear = new Date().getFullYear();
 let invoicePeriod = "year";
+
+function newChat() {
+  return { conversationId: null, turns: [], draft: "", pending: null, sending: false, error: "" };
+}
 
 function node(type, text, attrs = {}) {
   const element = document.createElement(type);
@@ -45,20 +51,48 @@ async function api(path, { method = "GET", data, dataType, session = token } = {
     connectTimeout: 10000, readTimeout: 25000,
     headers: {
       Accept: "application/json",
-      ...(data && { "Content-Type": dataType === "formData" ? "multipart/form-data" : "application/json" }),
+      ...(data && (native || dataType !== "formData") &&
+        { "Content-Type": dataType === "formData" ? "multipart/form-data" : "application/json" }),
       ...(session && { Authorization: "Bearer " + session })
     }
   };
   const response = native ? await CapacitorHttp.request(options) : await fetch(url.href, {
-    method, headers: options.headers, body: data ? JSON.stringify(data) : undefined,
+    method, headers: options.headers,
+    body: dataType === "formData" ? data : data ? JSON.stringify(data) : undefined,
     redirect: "error", credentials: "omit", cache: "no-store"
-  }).then(async reply => ({ status: reply.status, url: reply.url, data: await reply.json() }));
+  }).then(async reply => ({ status: reply.status, url: reply.url, data: await reply.json().catch(() => null) }));
   if (response.url && new URL(response.url).origin !== origin) throw Error("Nieoczekiwane przekierowanie.");
   if (response.status === 401 && session && session === token) endSession("Sesja wygasła. Zaloguj się ponownie.");
   if (response.status >= 300 || response.status < 200 || response.data?.success === false)
     throw Error(response.data?.error || "Nie udało się wykonać operacji (" + response.status + ").");
   if (response.data === null || typeof response.data !== "object") throw Error("Nieprawidłowa odpowiedź API.");
   return response.data;
+}
+
+function whileScheduling(action) {
+  const work = notificationWork.then(action);
+  notificationWork = work.catch(() => {});
+  return work;
+}
+
+async function multipart(file, fields = {}) {
+  if (!native) {
+    const data = new FormData();
+    data.append("file", file);
+    for (const [key, value] of Object.entries(fields)) data.append(key, value);
+    return data;
+  }
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(Error("Nie udało się odczytać pliku."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.readAsDataURL(file);
+  });
+  return [
+    { key: "file", type: "base64File", value: base64,
+      fileName: file.name.replace(/["\r\n\\/]/g, "_"), contentType: "application/octet-stream" },
+    ...Object.entries(fields).map(([key, value]) => ({ key, type: "string", value }))
+  ];
 }
 
 async function clearNotifications() {
@@ -72,10 +106,11 @@ function endSession(message = "") {
   token = null;
   scope = "";
   companies = [];
-  conversationId = null;
+  chat = newChat();
+  redrawChat = undefined;
   sequence++;
   clearTimeout(idleTimer);
-  void clearNotifications().catch(() => {});
+  void whileScheduling(clearNotifications).catch(() => {});
   loginView(message);
 }
 logout.addEventListener("click", () => endSession("Wylogowano."));
@@ -145,6 +180,7 @@ function card(title, text) {
 }
 function render() {
   const run = ++sequence;
+  redrawChat = undefined;
   const active = () => token && run === sequence;
   logout.hidden = false;
   root.replaceChildren(node("h1", view));
@@ -154,7 +190,7 @@ function render() {
   options.value = scope;
   options.addEventListener("change", () => {
     scope = options.value;
-    conversationId = null;
+    chat = newChat();
     render();
   });
   const navigation = node("nav", null, { "aria-label": "Moduły" });
@@ -213,7 +249,7 @@ function finance(target, active) {
   }).catch(error => { if (active()) status.textContent = error.message; });
 }
 
-async function remind(task, active) {
+async function remind(task, isCurrentScope) {
   const at = new Date(task.dueDate);
   if (!native || !Number.isFinite(at.getTime()) || at <= new Date())
     throw Error("Przypomnienie wymaga aplikacji natywnej i przyszłego terminu.");
@@ -221,13 +257,13 @@ async function remind(task, active) {
   if (permission.display === "prompt" || permission.display === "prompt-with-rationale")
     permission = await LocalNotifications.requestPermissions();
   if (permission.display !== "granted") throw Error("Powiadomienia są wyłączone.");
-  if (!active()) return;
+  if (!isCurrentScope()) return;
   const id = (Array.from(task.id).reduce((hash, char) => Math.imul(31, hash) + char.codePointAt(0), 0) & 0x7fffffff) || 1;
   await LocalNotifications.schedule({ notifications: [{
     id, title: "PrzemAI", body: "Sprawdź termin zadania w aplikacji.",
     schedule: { at, allowWhileIdle: false }
   }] });
-  if (!active()) await LocalNotifications.cancel({ notifications: [{ id }] });
+  if (!isCurrentScope()) await LocalNotifications.cancel({ notifications: [{ id }] });
 }
 
 const pages = {
@@ -241,39 +277,89 @@ const pages = {
       const box = card(task.title, task.dueDate ? new Date(task.dueDate).toLocaleDateString("pl-PL") : "");
       if (native && task.dueDate && new Date(task.dueDate) > new Date()) {
         box.append(button("Ustaw przypomnienie", async event => {
-          event.currentTarget.disabled = true;
-          try { await remind(task, active); if (active()) box.append(node("p", "Przypomnienie zapisane.")); }
-          catch (error) { if (active()) showError(box, error); }
+          const trigger = event.currentTarget;
+          const selectedChat = chat;
+          trigger.disabled = true;
+          try {
+            await whileScheduling(() => remind(task, () => chat === selectedChat));
+            if (active()) box.append(node("p", "Przypomnienie zapisane."));
+          } catch (error) {
+            if (active()) showError(box, error);
+            trigger.disabled = false;
+          }
         }));
       }
       return box;
     });
   },
   "General Agent"(target, active) {
+    const current = chat;
+    const organizationId = scope;
     const form = node("form");
-    const input = node("textarea", null, { rows: "4", required: "", maxlength: "12000" });
+    const input = node("textarea", null, { rows: "4", maxlength: "12000" });
+    input.value = current.draft;
+    const attachment = node("input", null, { type: "file", accept: ".pdf,.docx,.xlsx,.png,.jpg,.jpeg" });
     const submit = node("button", "Wyślij", { type: "submit" });
-    const result = node("div", null, { "aria-live": "polite" });
-    form.append(field("Wiadomość do General Agenta", input), submit);
+    const result = node("div", null, { "aria-live": "polite", "aria-label": "Historia rozmowy" });
+    input.addEventListener("input", () => { current.draft = input.value; });
+    form.append(field("Wiadomość do General Agenta", input), field("Załącznik do 4 MB", attachment), submit);
+    if (!organizationId) target.append(node("p", "Rozmowa osobista. Wybierz spółkę, aby pracować w jej zakresie."));
     target.append(form, result);
-    let pending;
+    redrawChat = () => {
+      if (!active()) return;
+      submit.disabled = current.sending;
+      input.disabled = current.sending;
+      attachment.disabled = current.sending;
+      input.value = current.draft;
+      result.replaceChildren(...current.turns.map(turn => card(turn.message, turn.answer)));
+      if (current.sending) result.append(node("p", "Oczekiwanie na odpowiedź…"));
+      if (current.error) showError(result, Error(current.error));
+    };
+    redrawChat();
     form.addEventListener("submit", async event => {
       event.preventDefault();
       const message = input.value.trim();
-      if (!message || !active()) return;
-      submit.disabled = true;
-      if (pending?.message !== message) pending = { message, requestId: crypto.randomUUID() };
+      const file = attachment.files?.[0];
+      if ((!message && !file) || current.sending || !active()) return;
+      if (file && (!file.size || file.size > 4 * 1024 * 1024)) {
+        current.error = "Wybierz plik do 4 MB.";
+        redrawChat();
+        return;
+      }
+      const session = token;
+      const isCurrent = () => chat === current;
+      const fields = {
+        ...(current.conversationId && { conversationId: current.conversationId }),
+        ...(organizationId && { organizationId })
+      };
+      current.draft = input.value;
+      current.error = "";
+      current.sending = true;
+      redrawChat();
       try {
-        const response = await api("/api/chat", { method: "POST", data: {
-          ...pending, conversationId, ...(scope && { organizationId: scope })
-        } });
-        if (!active()) return;
-        conversationId = response.conversationId;
-        result.append(card(message, response.answer));
-        input.value = "";
-        pending = null;
-      } catch (error) { if (active()) showError(result, error); }
-      finally { submit.disabled = false; }
+        let response;
+        if (file) {
+          const data = await multipart(file, { ...fields, ...(message && { message }) });
+          if (!isCurrent()) return;
+          response = await api("/api/chat/attachment", { method: "POST", session, dataType: "formData", data });
+        } else {
+          if (current.pending?.message !== message) current.pending = { message, requestId: crypto.randomUUID() };
+          response = await api("/api/chat", { method: "POST", session, data: { ...current.pending, ...fields } });
+        }
+        if (!isCurrent()) return;
+        if (typeof response.conversationId !== "string" || typeof response.answer !== "string")
+          throw Error("API nie potwierdziło odpowiedzi General Agenta.");
+        current.conversationId = response.conversationId;
+        current.turns.push({ message: message || file.name, answer: response.answer });
+        if (current.turns.length > 20) current.turns.shift();
+        current.draft = "";
+        current.pending = null;
+        attachment.value = "";
+      } catch (error) { if (isCurrent()) current.error = error.message; }
+      finally {
+        current.sending = false;
+        if (isCurrent()) redrawChat?.();
+      }
     });
   },
   Finanse: finance,
@@ -297,16 +383,9 @@ const pages = {
       if (!file || file.size > 8 * 1024 * 1024) return showError(form, Error("Plik nie może przekraczać 8 MB."));
       submit.disabled = true;
       try {
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = reject;
-          reader.onload = () => resolve(String(reader.result).split(",")[1]);
-          reader.readAsDataURL(file);
-        });
+        const data = await multipart(file);
         if (!active() || token !== session) return;
-        await api(companyPath("/documents", selectedScope), { method: "POST", session, dataType: "formData",
-          data: [{ key: "file", type: "base64File", value: base64, fileName: file.name.replace(/["\r\n\\/]/g, "_"),
-            contentType: "application/octet-stream" }] });
+        await api(companyPath("/documents", selectedScope), { method: "POST", session, dataType: "formData", data });
         if (active()) render();
       } catch (error) { if (active()) showError(form, error); }
       finally { submit.disabled = false; }

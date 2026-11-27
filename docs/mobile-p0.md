@@ -27,9 +27,9 @@ Katalog mobile zawiera lokalnie pakowany interfejs oraz projekty Capacitor z ide
 
 Zastąp przykładowy origin zatwierdzonym adresem API. Android wymaga JDK 21 i SDK API 36. iOS wymaga macOS i Xcode. Do aktualizacji zachowaj identyfikator i klucz podpisu oraz zwiększ numery kompilacji i wersje widoczne dla użytkownika. PWA pozwala odświeżyć aplikację po pobraniu nowej wersji service workera.
 
-Token aplikacji natywnej istnieje tylko w pamięci procesu. Ponowne uruchomienie i bezczynność wymagają ponownego logowania. Zmiana spółki rozpoczyna osobną rozmowę. Powiadomienia lokalne zapisuje użytkownik dla przyszłego terminu zadania. Mają ogólną treść, a wylogowanie usuwa oczekujące przypomnienia. Dostarczanie zależy od uprawnień systemowych i ograniczeń zasilania.
+Token aplikacji natywnej istnieje tylko w pamięci procesu. Ponowne uruchomienie i bezczynność wymagają ponownego logowania. Otwarcie innego modułu zachowuje do 20 ostatnich odpowiedzi i wersję roboczą bieżącej rozmowy w pamięci. Zmiana spółki rozpoczyna osobną rozmowę i czyści poprzedni kontekst z ekranu. Pliki wybrane do rozmowy nie są zapisywane na urządzeniu. Powiadomienia lokalne zapisuje użytkownik dla przyszłego terminu zadania. Mają ogólną treść, a wylogowanie usuwa oczekujące przypomnienia. Dostarczanie zależy od uprawnień systemowych i ograniczeń zasilania.
 
-Dokumenty natywne są widoczne na liście i można je przesyłać z systemowego selektora plików. Przed publikacją trzeba sprawdzić przesyłanie plików, wygaszanie sesji i powiadomienia na urządzeniach oraz przygotować podpisy i deklaracje prywatności. Zdalne FCM/APNs wymaga osobnej konfiguracji. Załączniki P1 i głos pozostają do rozbudowy klienta natywnego.
+Dokumenty natywne są widoczne na liście i można je przesyłać z systemowego selektora plików. Przed publikacją trzeba sprawdzić przesyłanie plików, wygaszanie sesji i powiadomienia na urządzeniach oraz przygotować podpisy i deklaracje prywatności. Zdalne FCM/APNs wymaga osobnej konfiguracji. General Agent przyjmuje pliki PDF, DOCX, XLSX, PNG i JPEG do 4 MB przez interfejs załączników P1. Nagrywanie głosu pozostaje do rozbudowy klienta natywnego.
 
 ## Zgodność modułów
 

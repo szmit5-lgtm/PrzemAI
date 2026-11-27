@@ -26,6 +26,12 @@ async function main() {
     });
     const page = await browser.newPage({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true });
     let chat;
+    let chatAttachment;
+    let releaseReply;
+    let startedReply;
+    const replyReady = new Promise(resolve => { startedReply = resolve; });
+    const release = new Promise(resolve => { releaseReply = resolve; });
+    const retries = [];
     let denyDocuments = false;
     await page.route(api + "/api/**", async route => {
       const request = route.request();
@@ -51,7 +57,21 @@ async function main() {
       } else if (url.pathname.endsWith("/workspace")) result = { data: { tasks: [] } };
       else if (url.pathname === "/api/chat") {
         chat = request.postDataJSON();
-        result = { conversationId: "demo-id", answer: "Wynik z lokalnej atrapy" };
+        if (chat.message === "Pokaż zadania") {
+          startedReply();
+          await release;
+        }
+        if (chat.message === "Spróbuj ponownie") retries.push(chat.requestId);
+        if (chat.message === "Spróbuj ponownie" && retries.length === 1) {
+          status = 503;
+          result = { success: false, error: "Błąd chwilowy testu" };
+        } else {
+          result = { conversationId: "demo-id",
+            answer: chat.message === "Pokaż zadania" ? "Wynik z lokalnej atrapy" : "Ponowienie zakończone" };
+        }
+      } else if (url.pathname === "/api/chat/attachment") {
+        chatAttachment = request.postData();
+        result = { conversationId: "demo-id", answer: "Treść załącznika odebrana" };
       } else if (url.pathname.endsWith("/investments")) result = { data: { items: [{ id: "m", name: "Mielno", progress: 25 }] } };
       else if (url.pathname.endsWith("/investments/m")) result = { data: {
         investment: { description: "Inwestycja syntetyczna" }, tasks: [], reports: [], documents: [{ name: "Protokół.pdf" }]
@@ -80,8 +100,36 @@ async function main() {
     await page.getByRole("button", { name: "General Agent" }).click();
     await page.getByLabel("Wiadomość do General Agenta").fill("Pokaż zadania");
     await page.getByRole("button", { name: "Wyślij" }).click();
+    await replyReady;
+    await page.getByRole("button", { name: "Finanse", exact: true }).click();
+    await page.getByRole("button", { name: "General Agent" }).click();
+    assert.equal(await page.getByRole("button", { name: "Wyślij" }).isDisabled(), true);
+    releaseReply();
     await page.getByText("Wynik z lokalnej atrapy").waitFor();
     assert.equal(chat.organizationId, "beta");
+    await page.getByLabel("Wiadomość do General Agenta").fill("Spróbuj ponownie");
+    await page.getByRole("button", { name: "Wyślij" }).click();
+    await page.getByText("Błąd chwilowy testu").waitFor();
+    await page.getByRole("button", { name: "Finanse", exact: true }).click();
+    await page.getByRole("button", { name: "General Agent" }).click();
+    assert.equal(await page.getByLabel("Wiadomość do General Agenta").inputValue(), "Spróbuj ponownie");
+    await page.getByRole("button", { name: "Wyślij" }).click();
+    await page.getByText("Ponowienie zakończone").waitFor();
+    assert.equal(retries.length, 2);
+    assert.equal(retries[0], retries[1]);
+    assert.equal(chat.conversationId, "demo-id");
+    await page.getByLabel("Załącznik do 4 MB").setInputFiles({
+      name: "synthetic.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-fixture")
+    });
+    await page.getByRole("button", { name: "Wyślij" }).click();
+    await page.getByText("Treść załącznika odebrana").waitFor();
+    assert.match(chatAttachment, /name="organizationId"\r\n\r\nbeta/);
+    assert.match(chatAttachment, /name="conversationId"\r\n\r\ndemo-id/);
+    assert.match(chatAttachment, /filename="synthetic.pdf"/);
+    await page.getByLabel("Spółka", { exact: true }).selectOption("alpha");
+    assert.equal(await page.getByText("Treść załącznika odebrana").count(), 0);
+    await page.getByLabel("Spółka", { exact: true }).selectOption("beta");
+    assert.equal(await page.getByText("Wynik z lokalnej atrapy").count(), 0);
     await page.getByRole("button", { name: "Inwestycje" }).click();
     await page.getByRole("button", { name: "Szczegóły" }).click();
     await page.getByText("Protokół.pdf").waitFor();
@@ -97,7 +145,7 @@ async function main() {
     await page.getByRole("button", { name: "Dokumenty", exact: true }).click();
     await page.getByText("Sesja wygasła. Zaloguj się ponownie.").waitFor();
     assert.equal(await page.getByText("Dokument spółki").count(), 0);
-    console.log("Mobile Chromium 360 px: login, volatile session, company scope, invoices, chat, investments, documents and 401 passed.");
+    console.log("Mobile Chromium 360 px: login, volatile session, company scope, invoices, chat navigation, retry, attachments, investments, documents and 401 passed.");
   } finally {
     await browser?.close();
     server.close();
