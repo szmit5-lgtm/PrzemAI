@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/agent-runtime-finance-mail
+      - integration/przemai-next
   pull_request:
   workflow_dispatch:
 
@@ -40,7 +41,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Prepare release browser tests
-        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration'
+        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next'
         run: |
           npm ci --prefix frontend
           mkdir -p "$RUNNER_TEMP/przemai-e2e"
@@ -51,7 +52,7 @@ jobs:
             echo "NODE_PATH=$RUNNER_TEMP/przemai-e2e/node_modules"
           } >> "$GITHUB_ENV"
       - name: Native Prisma upgrade, rollback and application rehearsal
-        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration'
+        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next'
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_ci
           PRZEMAI_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -64,7 +65,10 @@ jobs:
             node scripts/testReleaseIntegrationE2E.js &&
             node scripts/testGeneralAgentE2E.js &&
             node scripts/testTelegramChatE2E.js &&
-            node scripts/testFinancialAgentE2E.js
+            node scripts/testFinancialAgentE2E.js &&
+            if [[ "$GITHUB_REF" == "refs/heads/integration/przemai-next" ]]; then
+              PRZEMAI_P1_BROWSER=true node scripts/testFinancialIntelligenceE2E.js;
+            fi
           } 2>&1 | tee "$log"; then
             details=$(tail -25 "$log")
             details=${details//%/%25}
@@ -73,5 +77,13 @@ jobs:
             echo "::error title=Native Prisma rehearsal failed::$details"
             exit 1
           fi
+      - name: Mobile package and browser smoke test
+        if: github.ref == 'refs/heads/integration/przemai-next'
+        working-directory: mobile
+        run: |
+          npm ci
+          npm test
+          PRZEMAI_MOBILE_API_ORIGIN=https://api.example.test npm run prepare:store
+          node browser-smoke.cjs
       - name: Run Node tests
         run: npm test

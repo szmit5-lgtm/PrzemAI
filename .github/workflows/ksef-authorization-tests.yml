@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/agent-runtime-finance-mail
+      - integration/przemai-next
     paths:
       - 'lib/ksefOrganizationAccess.js'
       - 'tests/ksefOrganizationAccess.test.js'
