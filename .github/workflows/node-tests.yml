@@ -54,10 +54,12 @@ jobs:
         if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration'
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_ci
+          PRZEMAI_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           set -o pipefail
           log=$(mktemp)
           if ! {
+            bash scripts/testProductionCutover.sh &&
             bash scripts/testNativePrismaRollback.sh &&
             node scripts/testReleaseIntegrationE2E.js &&
             node scripts/testGeneralAgentE2E.js &&

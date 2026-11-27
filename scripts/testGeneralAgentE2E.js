@@ -134,10 +134,12 @@ async function browserFlow(browser, owner, companies) {
   await page.goto(web + "/login");
   await page.getByLabel("E-mail").fill(owner.email);
   await page.getByLabel("Hasło", { exact: true }).fill(password);
-  await Promise.all([
-    page.waitForURL(web + "/"),
+  const [loginResponse] = await Promise.all([
+    page.waitForResponse(response => response.url() === web + "/api/auth/login" && response.request().method() === "POST"),
     page.getByRole("button", { name: "Zaloguj się" }).click()
   ]);
+  assert.equal(loginResponse.status(), 200);
+  await page.waitForURL(web + "/");
   const ownerToken = (await context.cookies(web)).find(cookie => cookie.name === "przemai-session")?.value;
   assert.ok(ownerToken);
   const investment = companies.Dekonica.investment;

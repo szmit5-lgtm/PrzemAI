@@ -1,22 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Bot, LockKeyhole, ShieldCheck, Sparkles, MessageSquare, Workflow, FileText } from "lucide-react";
 import { login } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const registrationEnabled = process.env.NEXT_PUBLIC_REGISTRATION_ENABLED !== "false";
 
+  useEffect(() => setReady(true), []);
+
   async function handleSubmit(event) {
     event.preventDefault();
-    if (loading) return;
+    if (!ready || loading) return;
     setLoading(true);
     setError("");
     try {
@@ -42,11 +45,13 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-slate-400">Executive AI Workspace</p>
           <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200"><Sparkles size={13}/> Twoje centrum dowodzenia</span>
         </div>
-        <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+        <form method="post" onSubmit={handleSubmit} className="mt-9">
+          <fieldset disabled={!ready} className="min-w-0 space-y-5">
           <div><label htmlFor="email" className="mb-2 block text-sm font-semibold text-slate-200">E-mail</label><input id="email" name="email" type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="twoj@email.pl" className="w-full rounded-xl border border-white/15 bg-slate-950/50 px-4 py-3.5 text-white outline-none placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"/></div>
           <div><label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-200">Hasło</label><input id="password" name="password" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} className="w-full rounded-xl border border-white/15 bg-slate-950/50 px-4 py-3.5 text-white outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"/></div>
           {error && <p role="alert" className="rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</p>}
           <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-5 py-3.5 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-50">{loading ? "Logowanie…" : "Zaloguj się"}<ArrowRight size={17}/></button>
+          </fieldset>
         </form>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-4 text-sm text-slate-400">
           <Link href="/preview" className="inline-flex items-center gap-1 text-cyan-300 hover:text-cyan-200">Zobacz podgląd <ArrowRight size={14}/></Link>
