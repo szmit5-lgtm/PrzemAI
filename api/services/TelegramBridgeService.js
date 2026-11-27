@@ -122,7 +122,7 @@ async function handleCommand({ update, db = prisma, now = new Date(),
       throw err;
     }
   }
-  if (text.startsWith("/") && !/^\/spolka(?:\s|$)/.test(text))
+  if (text.startsWith("/") && !/^\/(?:spolka|watek)(?:\s|$)/.test(text))
     return {chatId:msg.chat.id,text:BOT_COMMANDS};
   const answer = await handleChat({
     db, msg, text, userId: binding.userId, telegramUserId, chat,

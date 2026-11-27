@@ -63,12 +63,17 @@ node - <<'JS'
 const assert=require("node:assert/strict");
 const jwt=require("jsonwebtoken");
 const endpoint="http://127.0.0.1:3917/api/chat";
+const {PrismaClient}=require("@prisma/client");
+const db=new PrismaClient();
 const headers={Authorization:"Bearer "+jwt.sign({id:"rollback-fixture"},"local-rollback-only")};
 (async()=>{
  const result=await fetch(endpoint,{headers});
  assert.equal(result.status,200);
  assert.deepEqual((await result.json()).conversations.map(row=>row.id),["rollback-web"]);
  assert.equal((await fetch(endpoint+"/rollback-telegram",{headers})).status,404);
+ const message=await db.whatsAppMessage.findUniqueOrThrow({where:{externalMessageId:"wamid.rollback-fixture"}});
+ assert.equal(message.text,"Existing WhatsApp message");
+ assert.equal(message.draftState,null);
  console.log("Native Prisma migration and previous P0 API/worker smoke passed");
-})().catch(e=>{console.error(e);process.exitCode=1});
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>db.$disconnect());
 JS

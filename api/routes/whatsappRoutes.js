@@ -179,7 +179,9 @@ router.post("/organizations/:organizationId/link-code", verifyToken, async (req,
 router.post("/organizations/:organizationId/draft-preview", verifyToken, async (req, res) => {
   const { organizationId } = req.params;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const contactWaId = req.body?.contactWaId;
+  const { contactWaId, conversationId } = req.body || {};
+  if (conversationId != null && (typeof conversationId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(conversationId)))
+    return res.sendStatus(400);
   if (typeof contactWaId !== "string" || !/^\d{6,20}$/.test(contactWaId))
     return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
   if (!phoneNumberId || organizationId !== process.env.WHATSAPP_ORGANIZATION_ID)
@@ -192,7 +194,7 @@ router.post("/organizations/:organizationId/draft-preview", verifyToken, async (
       orderBy: [{ receivedAt: "desc" }, { id: "desc" }]
     });
     if (!last?.text?.trim()) return res.sendStatus(404);
-    const draft = await prepareDraft(prisma, scope, req.user.id, last);
+    const draft = await prepareDraft(prisma, scope, req.user.id, last, conversationId);
     return res.json({ success: true, contactWaId, sourceMessageId: last.id,
       draft, requiresHumanApproval: true, sent: false,
       policy: evaluateOutbound({ text: draft, globalPaused: true }) });

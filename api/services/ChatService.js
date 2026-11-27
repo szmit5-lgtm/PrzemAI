@@ -5,6 +5,7 @@ const AIEngine = require("../../core/ai/AIEngine");
 const TaskService = require("./TaskService");
 const MemoryService = require("./MemoryService");
 const SettingsService = require("./SettingsService");
+const { OrganizationService } = require("./OrganizationService");
 const GeneralAgentService = require("./GeneralAgentService");
 const { redactText, documentReport } = require("../../lib/aiContext");
 
@@ -22,12 +23,14 @@ class ChatService {
 
     }
 
-    async chat(userId, message, conversationId = null, { organizationId = null, requestId = null, channel = "WEB" } = {}) {
+    async chat(userId, message, conversationId = null, { organizationId = null, requestId = null, channel = "WEB", sharedWebThread = false } = {}) {
 
         if (typeof userId !== "string" || !userId) throw new Error("Brak uwierzytelnionego użytkownika.");
         if (typeof message !== "string" || !message.trim() || message.length > 12000)
             throw new Error("Nieprawidłowa wiadomość.");
 
+        if (sharedWebThread) await this.assertSharedWebThread(userId, conversationId, organizationId);
+        const storageChannel = sharedWebThread ? "WEB" : channel;
         const settings = await SettingsService.get(userId);
         const scopedChannel = Boolean(organizationId && channel !== "WEB");
 
@@ -41,8 +44,9 @@ class ChatService {
                 skipDuplicates: true
             });
         }
-        const conversation = await this.getOrCreateConversation(userId, conversationId || newConversationId, title, channel);
-        const messageScope = organizationId ? { organizationId } : undefined;
+        const conversation = await this.getOrCreateConversation(userId, conversationId || newConversationId, title, storageChannel);
+        const messageScope = organizationId || sharedWebThread
+            ? { organizationId, ...(sharedWebThread && { sharedChannel: channel }) } : undefined;
         const turnId = requestKey ? "general-turn-" + requestKey : null;
         const turn = await this.createMessage(conversation.id, "user", message, messageScope, turnId);
         if (turn.conversationId !== conversation.id || turn.content !== message ||
@@ -69,12 +73,12 @@ class ChatService {
         });
         if (delegated) {
             const metadata = delegated.planId
-                ? { generalPlanId: delegated.planId, organizationId, note: delegated.note || "" }
-                : undefined;
+                ? { ...messageScope, generalPlanId: delegated.planId, organizationId, note: delegated.note || "" }
+                : sharedWebThread ? messageScope : undefined;
             // Company results are loaded from protected tasks after authorization,
             // never copied into ordinary chat history or long-term memory.
             const reply = await this.createMessage(conversation.id, "assistant",
-                metadata ? "Wyniki zleceń General Agenta." : delegated.answer, metadata, replyId);
+                delegated.planId ? "Wyniki zleceń General Agenta." : delegated.answer, metadata, replyId);
             await prisma.chatConversation.update({
                 where: { id: conversation.id }, data: { lastMessageAt: new Date() }
             });
@@ -295,7 +299,7 @@ ${redactText(message, 12000)}
                 conversation.id,
                 "assistant",
                 answer,
-                scopedChannel ? messageScope : undefined,
+                scopedChannel || sharedWebThread ? messageScope : undefined,
                 replyId
             );
 
@@ -380,6 +384,18 @@ ${redactText(message, 12000)}
 
         };
 
+    }
+
+    async assertSharedWebThread(userId, conversationId, organizationId) {
+        if (organizationId) await new OrganizationService().membership(userId, organizationId);
+        const conversation = conversationId && await prisma.chatConversation.findFirst({
+            where: { id: conversationId, userId, channel: "WEB", archivedAt: null },
+            select: { messages: { where: { role: "user" }, select: { metadata: true } } }
+        });
+        if (!conversation?.messages.length || conversation.messages.some(message =>
+            (message.metadata?.organizationId ?? null) !== organizationId)) {
+            throw Object.assign(new Error("Rozmowa WWW nie jest dostępna w tym zakresie."), { status: 403 });
+        }
     }
 
     async getOrCreateConversation(
@@ -542,6 +558,24 @@ ${redactText(message, 12000)}
             });
 
         if (!conversation) return null;
+        const permissions = new Map();
+        for (const message of conversation.messages) {
+            const org = message.metadata?.organizationId;
+            if (!org || !message.metadata?.sharedChannel) continue;
+            if (!permissions.has(org)) {
+                try {
+                    await new OrganizationService().membership(userId, org);
+                    permissions.set(org, true);
+                } catch (error) {
+                    if (error.status !== 403) throw error;
+                    permissions.set(org, false);
+                }
+            }
+            if (!permissions.get(org)) {
+                message.content = "Brak dostępu do wiadomości w tej spółce.";
+                message.metadata = { restricted: true };
+            }
+        }
         if (!conversation.messages.some(message => message.metadata?.generalPlanId)) return conversation;
         const { historyEnabled } = await SettingsService.get(userId);
         const plans = new Map();

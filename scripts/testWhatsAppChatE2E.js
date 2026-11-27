@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { randomUUID, createHmac } = require("node:crypto");
+const { randomUUID, randomInt, createHmac } = require("node:crypto");
 const { once } = require("node:events");
 
 async function main() {
@@ -17,7 +17,7 @@ async function main() {
   const contact = "48123456789";
   const prompts = [];
   chat.ai.ask = async ({ user }) => {
-    prompts.push(JSON.parse(user));
+    try { prompts.push(JSON.parse(user)); } catch { prompts.push(user); }
     return "Odpowiedź z mocka";
   };
   chat.ai.extractMemories = async () => { throw new Error("Company chat must not extract personal memories"); };
@@ -27,6 +27,12 @@ async function main() {
   const app = express();
   app.use(express.json({ verify: (req, _res, raw) => { req.rawBody = raw; } }));
   app.use(require("../api/routes/whatsappRoutes"));
+  app.use("/api/chat", require("../api/routes/chatRoutes"));
+  const telegram = require("../api/services/TelegramBridgeService");
+  const telegramReplies = [];
+  telegram.sendTelegramMessage = async answer => { telegramReplies.push(answer); };
+  process.env.TELEGRAM_WEBHOOK_SECRET = randomUUID();
+  app.use("/api/telegram", require("../api/routes/telegramRoutes"));
   const server = app.listen(0, "127.0.0.1");
 
   try {
@@ -124,7 +130,47 @@ async function main() {
     });
     assert.equal((await draft()).status, 403);
     assert.equal(prompts.length, 3);
-    console.log("WhatsApp signed webhook, binding, replay, authorization and conversation E2E passed");
+    await db.organizationMembership.updateMany({
+      where: { userId: owner.id, organizationId: org.id }, data: { status: "ACTIVE" }
+    });
+    const webAuth = { authorization: "Bearer " + jwt.sign({ id: owner.id }, process.env.JWT_SECRET) };
+    const web = await post("/api/chat", JSON.stringify({
+      organizationId: org.id, message: "Rozpoczęcie wspólnego wątku WWW", requestId: randomUUID()
+    }), webAuth);
+    assert.equal(web.status, 200);
+    const { conversationId } = await web.json();
+    const telegramId = randomInt(100000, 2 ** 32);
+    async function telegramUpdate(message_id, text) {
+      return post("/api/telegram/webhook", JSON.stringify({ update_id: message_id, message: {
+        message_id, text, from: { id: telegramId }, chat: { id: telegramId, type: "private" }
+      } }), { "X-Telegram-Bot-Api-Secret-Token": process.env.TELEGRAM_WEBHOOK_SECRET });
+    }
+    const pairCode = await telegram.createLink({ userId: owner.id });
+    assert.equal((await telegramUpdate(1, "/start " + pairCode.code)).status, 200);
+    assert.equal((await telegramUpdate(2, `/watek ${conversationId} Dane bez zakresu`)).status, 200);
+    assert.match(telegramReplies.at(-1).text, /Nie znaleziono/);
+    assert.equal((await telegramUpdate(3, "/spolka " + org.slug)).status, 200);
+    assert.equal((await telegramUpdate(4, `/watek ${conversationId} Kontynuacja Telegram`)).status, 200);
+    assert.equal(telegramReplies.at(-1).text, "Odpowiedź z mocka");
+
+    assert.equal((await webhook({ messages: [message("Kontynuacja WhatsApp")] })).status, 200);
+    assert.equal((await authenticated("/draft-preview", other, { contactWaId: contact, conversationId })).status, 403);
+    assert.equal((await authenticated("/draft-preview", owner, { contactWaId: contact, conversationId: "unknown" })).status, 403);
+    const shared = await authenticated("/draft-preview", owner, { contactWaId: contact, conversationId });
+    assert.equal(shared.status, 200);
+    assert.equal((await shared.json()).sent, false);
+    assert.match(JSON.stringify(prompts.at(-1)), /Kontynuacja Telegram/);
+
+    const stored = await fetch(base + "/api/chat/" + conversationId, { headers: webAuth });
+    const turns = (await stored.json()).conversation.messages.filter(row => row.role === "user");
+    assert.deepEqual(turns.map(row => row.metadata?.sharedChannel || "WEB"), ["WEB", "TELEGRAM", "WHATSAPP"]);
+    await db.organizationMembership.updateMany({
+      where: { userId: owner.id, organizationId: org.id }, data: { status: "REVOKED" }
+    });
+    const revokedThread = await fetch(base + "/api/chat/" + conversationId, { headers: webAuth });
+    assert.doesNotMatch(JSON.stringify(await revokedThread.json()), /Kontynuacja (Telegram|WhatsApp)/);
+
+    console.log("WhatsApp webhook and shared WWW–Telegram–WhatsApp thread E2E passed");
   } finally {
     server.close();
     await db.$disconnect();

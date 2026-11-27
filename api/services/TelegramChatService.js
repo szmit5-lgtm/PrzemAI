@@ -76,9 +76,11 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
   // Each account/scope gets its own shared-backend conversation. ChatService
   // keeps this channel inaccessible from web chat, even to the same user.
   const channel = "TELEGRAM";
-  const id = "telegram-" + createHash("sha256")
+  const shared = /^\/watek\s+([a-zA-Z0-9_-]{1,128})\s+([\s\S]+)$/.exec(text);
+  if (/^\/watek(?:\s|$)/.test(text) && !shared) return "Użyj /watek <ID rozmowy WWW> <wiadomość>.";
+  const id = shared?.[1] || "telegram-" + createHash("sha256")
     .update(JSON.stringify([userId, telegramUserId, organizationId])).digest("hex");
-  await db.chatConversation.createMany({
+  if (!shared) await db.chatConversation.createMany({
     data: { id, userId, channel, title: "Telegram" },
     skipDuplicates: true
   });
@@ -86,8 +88,11 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
   const requestId = `telegram-${telegramUserId}-${msg.message_id}`;
   let result;
   try {
-    result = await chat(userId, text, id, { organizationId, channel, requestId });
+    result = await chat(userId, shared?.[2] || text, id, {
+      organizationId, channel, requestId, ...(shared && { sharedWebThread: true })
+    });
   } catch (error) {
+    if (shared && error.status === 403) return "Nie znaleziono rozmowy WWW w wybranym zakresie.";
     console.error("[TelegramChat] Shared chat failed", error?.name || "Error");
     return CHAT_ERROR;
   }

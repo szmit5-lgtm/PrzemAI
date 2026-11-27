@@ -52,3 +52,7 @@ Obsługa uprawnionych konwersacji WhatsApp indywidualnych z zachowaniem obecnego
 3. Kolejne zwykłe wiadomości trafiają do skrzynki. `POST /api/whatsapp/organizations/{organizationId}/draft-preview` z `contactWaId` przygotowuje szkic dla najnowszej wiadomości tekstowej za pomocą wspólnego czatu PrzemAI. Szkic jest dostępny dla powiązanego użytkownika z aktywnym członkostwem, wymaga zatwierdzenia i nie jest wysyłany przez to API.
 
 WhatsApp i Telegram utrzymują osobne trwałe rozmowy dla każdego konta i zakresu. W zakresie spółki General Agent stosuje dotychczasowe uprawnienia do źródeł. Zwykła rozmowa w tym zakresie korzysta z wcześniejszych tur tej rozmowy, bez dostępu do prywatnej pamięci lub historii użytkownika.
+
+### Kontynuacja wątku WWW
+
+Po powiązaniu konta Telegram użyj `/watek <ID rozmowy WWW> <wiadomość>` w wybranym zakresie. W WhatsApp podaj ten sam `conversationId` wraz z `contactWaId` w żądaniu przygotowania szkicu. Wątek musi należeć do powiązanego użytkownika, być aktywny i zawierać wyłącznie wiadomości użytkownika z tego samego zakresu. W przeciwnym razie szkic lub odpowiedź nie powstanie. Zwykłe wiadomości bez wyboru wątku nadal trafiają do historii odpowiedniego kanału. Istniejące rozmowy i szkice nie są przenoszone.

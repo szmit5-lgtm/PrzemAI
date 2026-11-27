@@ -55,7 +55,7 @@ async function redeemLink(tx, scope, code) {
   }, skipDuplicates: true });
 }
 
-async function prepareDraft(db, scope, userId, message, chat = require("./ChatService")) {
+async function prepareDraft(db, scope, userId, message, sharedId = null, chat = require("./ChatService")) {
   const { organizationId, phoneNumberId, contactWaId } = scope;
   const organizations = new OrganizationService({ db });
   async function authorize() {
@@ -65,21 +65,23 @@ async function prepareDraft(db, scope, userId, message, chat = require("./ChatSe
     }
   }
   await authorize();
-  const conversationId = scopedId("whatsapp-", userId, organizationId, phoneNumberId, contactWaId);
+  const defaultId = scopedId("whatsapp-", userId, organizationId, phoneNumberId, contactWaId);
+  if (sharedId) await chat.assertSharedWebThread(userId, sharedId, organizationId);
+  const conversationId = sharedId || defaultId;
   const claim = await db.whatsAppMessage.updateMany({
     where: { id: message.id, organizationId, draftState: null }, data: { draftState: "PROCESSING" }
   });
   if (claim.count) {
     try {
-      await db.chatConversation.createMany({ data: {
+      if (!sharedId) await db.chatConversation.createMany({ data: {
         id: conversationId, userId, channel: CHANNEL, title: "WhatsApp"
       }, skipDuplicates: true });
       const reply = await chat.chat(userId, message.text.slice(0, 12000), conversationId, {
-        organizationId, channel: CHANNEL, requestId: scopedId("wa-", message.externalMessageId)
+        organizationId, channel: CHANNEL, requestId: scopedId("wa-", message.externalMessageId), ...(sharedId && { sharedWebThread: true })
       });
       await authorize();
       await db.whatsAppMessage.update({ where: { id: message.id }, data: {
-        draftState: "READY", metadata: { ...message.metadata, chatReplyId: reply.message.id }
+        draftState: "READY", metadata: { ...message.metadata, chatReplyId: reply.message.id, ...(sharedId && { sharedId }) }
       } });
     } catch (error) {
       await db.whatsAppMessage.update({ where: { id: message.id }, data: { draftState: "FAILED" } });
@@ -89,7 +91,11 @@ async function prepareDraft(db, scope, userId, message, chat = require("./ChatSe
   const source = await db.whatsAppMessage.findUnique({ where: { id: message.id } });
   if (source.draftState === "PROCESSING") throw Object.assign(new Error("Draft running"), { status: 409 });
   if (source.draftState !== "READY") throw new Error("Draft unavailable");
-  const conversation = await chat.getConversation(userId, conversationId, CHANNEL);
+  const storedSharedId = source.metadata?.sharedId;
+  if (sharedId && sharedId !== storedSharedId)
+    throw Object.assign(new Error("Draft already belongs to another thread"), { status: 409 });
+  if (storedSharedId) await chat.assertSharedWebThread(userId, storedSharedId, organizationId);
+  const conversation = await chat.getConversation(userId, storedSharedId || defaultId, storedSharedId ? "WEB" : CHANNEL);
   const reply = conversation?.messages.find(row => row.id === source.metadata?.chatReplyId && row.role === "assistant");
   await authorize();
   if (!reply) throw new Error("Draft missing");
