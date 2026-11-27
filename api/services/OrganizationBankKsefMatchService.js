@@ -29,8 +29,8 @@ class OrganizationBankKsefMatchService{
      {issueDate:{gte:from,lt:next}},{grossAmount:{not:null}}]},
     select:{id:true,source:true,direction:true,invoiceNumber:true,
      issueDate:true,
-     grossAmount:true,currency:true,sellerName:true,buyerName:true,
-     sellerNip:true,buyerNip:true},
+     grossAmount:true,vatAmount:true,currency:true,sellerName:true,buyerName:true,
+     sellerNip:true,buyerNip:true,correctionLink:{select:{organizationId:true,invoiceId:true}}},
     orderBy:[{issueDate:"asc"},{id:"asc"}],take:MAX_INVOICES+1
    }),
    this.db.bankTransaction.findMany({
@@ -45,6 +45,12 @@ class OrganizationBankKsefMatchService{
   if(invoices.length>MAX_INVOICES||operations.length>MAX_OPERATIONS)
    throw new OrganizationError("Za dużo danych w raporcie. Import i rozliczenie wymagają podziału na mniejsze partie.",413);
   const result=suggestMatches(invoices,operations,link.nip);
+  const linked=new Map(invoices.filter(row=>row.correctionLink?.organizationId===organizationId)
+   .map(row=>[row.id,row.correctionLink.invoiceId]));
+  for(const row of [...result.proposed,...result.conflicts]){
+   const original=linked.get(row.invoiceId);
+   if(original&&Number(row.grossAmount)<0)row.refundInvoiceId=original;
+  }
   return {organizationId,year,source:"KSEF_BANK_SUGGESTIONS",...result};
  }
 }

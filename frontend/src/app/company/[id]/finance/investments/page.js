@@ -53,6 +53,10 @@ function ProjectCard({item}){
     {(x.missingNet||x.missingVat||x.missingGross)?<p className="mt-2 text-xs text-amber-200">Część kwot nie została rozpoznana. Nie podano niepełnej sumy jako całości.</p>:null}
    </div>)}
   </div>}
+  {item.profitability?.map(row=><p key={row.currency} className="mt-3 text-sm">
+   Wynik z przypisanych faktur netto · {fmt(row.netResult,row.currency)}
+   {row.marginPercent!==null?" · marża "+row.marginPercent+"%":""}
+  </p>)}
   {linked&&!empty&&<div className="mt-4">
    <button type="button" onClick={()=>setExpanded(x=>!x)}
     className="min-h-10 rounded-lg border border-violet-300/25 bg-violet-400/10 px-3 text-xs font-semibold text-violet-200">

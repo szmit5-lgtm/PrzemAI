@@ -76,6 +76,10 @@ export default function CompanyBankSnapshot({company,refreshKey=0}){
      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-cyan-500/15 px-3 text-xs font-semibold text-cyan-100">
      Zestawienia <ArrowUpRight size={15}/>
     </Link>
+    <Link href={"/company/"+encodeURIComponent(id)+"/bank/reports#cashflow"}
+     className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-cyan-500/15 px-3 text-xs font-semibold text-cyan-100">
+     Wpływy i wydatki <ArrowUpRight size={15}/>
+    </Link>
    </div>
   </div>
   {loading?<p role="status" className="mt-4 text-sm text-slate-300">Pobieram salda spółki…</p>:

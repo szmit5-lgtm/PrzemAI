@@ -94,6 +94,25 @@ function totalsForCurrency(accountRows){
 
 class OrganizationBankMonthlyService{
  constructor({db=prisma,access=ACCESS}={}){this.db=db;this.access=access;}
+ async activity(userId,organizationId,yearInput,monthInput,options={}){
+  await this.access.authorize(userId,organizationId);
+  const year=Number(yearInput),month=Number(monthInput),offset=Number(options.offset??0);
+  const {direction,currency}=options;
+  if(!Number.isInteger(year)||year<2020||year>2100||!Number.isInteger(month)||month<1||month>12||
+     !Number.isInteger(offset)||offset<0||offset>MAX_TRANSACTIONS||
+     !["inflows","outflows"].includes(direction)||typeof currency!=="string"||!/^[A-Z]{3}$/.test(currency))
+   throw new OrganizationError("Nieprawidłowy zakres operacji.",400);
+  const rows=await this.db.bankTransaction.findMany({
+   where:{organizationId,bankAccount:{organizationId,currency},
+    bookedAt:{gte:startOfMonth(year,month),lt:nextMonth(year,month)},
+    amount:direction==="inflows"?{gt:0}:{lt:0}},
+   orderBy:[{bookedAt:"desc"},{id:"desc"}],skip:offset,take:51,
+   select:{id:true,bookedAt:true,amount:true,description:true,counterparty:true,
+    bankAccount:{select:{accountType:true}}}
+  });
+  return {items:rows.slice(0,50).map(({bankAccount,...row})=>({...row,amount:money(toCents(row.amount)),
+   accountType:bankAccount.accountType})),hasMore:rows.length>50};
+ }
  async report(userId,organizationId,yearInput){
   await this.access.authorize(userId,organizationId);
   const year=Number(yearInput);

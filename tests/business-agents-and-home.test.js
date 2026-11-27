@@ -85,8 +85,8 @@ test("failed AI call is recorded without fabricated success",async()=>{
 });
 test("home dashboard no longer lists static planned agents or invented bank balances",()=>{
  const file=fs.readFileSync(path.join(__dirname,"../frontend/src/app/page.js"),"utf8");
- for(const key of ["getAgents","getFinanceSummary","getOrganizationInvestments","getOrganizations",
-   "getFinancePeriodReport"])assert.match(file,new RegExp(key));
+ for(const key of ["getAgents","getOrganizationFinanceSummary","getOrganizationInvestments","getOrganizations",
+   "getInvoiceDashboard"])assert.match(file,new RegExp(key));
  assert.equal(file.includes("3 120 000 PLN"),false);
  assert.equal(file.includes("const agents = ["),false);
  assert.match(file,/CompanyBankSnapshot/);

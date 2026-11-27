@@ -285,6 +285,7 @@ model FinancialDocument {
   direction String?
   status    String @default("NEW")
 
+  invoiceType String?
   invoiceNumber String?
   ksefNumber    String?
 
@@ -314,6 +315,10 @@ model FinancialDocument {
 
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  verifiedPayments InvoicePayment[]
+  appliedCorrections InvoiceCorrection[] @relation("CorrectedInvoice")
+  correctionLink InvoiceCorrection? @relation("CorrectionDocument")
 
   @@unique([userId, source, externalId])
   @@index([userId])
@@ -347,6 +352,8 @@ model Organization {
   financeLink OrganizationFinanceLink?
   bankAccounts BankAccount[]
   bankStatements BankStatement[]
+  invoicePayments InvoicePayment[]
+  invoiceCorrections InvoiceCorrection[]
   bankTransactions BankTransaction[]
   bankImportFiles BankImportFile[]
   whatsappMessages WhatsAppMessage[]
@@ -548,6 +555,8 @@ model BankTransaction {
   bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   bankStatement BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
 
+  invoicePayment InvoicePayment?
+
   @@unique([organizationId, bankStatementId, fingerprint])
   @@index([organizationId, bookedAt])
   @@index([organizationId, bankAccountId, bookedAt])
@@ -594,6 +603,35 @@ model TelegramChatReceipt {
 model OpenAIRequestBudget {
   day      DateTime @id @db.Date
   requests Int
+}
+
+model InvoicePayment {
+  id String @id @default(cuid())
+  organizationId String
+  invoiceId String
+  bankTransactionId String @unique
+  confirmedById String
+  confirmedAt DateTime @default(now())
+
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  invoice FinancialDocument @relation(fields:[invoiceId], references:[id], onDelete:NoAction)
+  bankTransaction BankTransaction @relation(fields:[bankTransactionId], references:[id], onDelete:NoAction)
+
+  @@index([organizationId, invoiceId])
+}
+
+model InvoiceCorrection {
+  organizationId String
+  invoiceId String
+  correctionId String @id
+  confirmedById String
+  confirmedAt DateTime @default(now())
+
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  invoice FinancialDocument @relation("CorrectedInvoice", fields:[invoiceId], references:[id], onDelete:NoAction)
+  correction FinancialDocument @relation("CorrectionDocument", fields:[correctionId], references:[id], onDelete:NoAction)
+
+  @@index([organizationId, invoiceId])
 }
 
 model OpenAIMonthlyBudget {
