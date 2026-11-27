@@ -30,6 +30,9 @@ const db=new PrismaClient();
   {id:"rollback-web",userId:user.id,title:"Browser fixture",channel:"WEB"},
   {id:"rollback-telegram",userId:user.id,title:"Telegram fixture",channel:"TELEGRAM"}
  ]});
+ const org=await db.organization.create({data:{name:"Rollback fixture",slug:"rollback-whatsapp-fixture"}});
+ await db.whatsAppMessage.create({data:{organizationId:org.id,externalMessageId:"wamid.rollback-fixture",
+  phoneNumberId:"fixture",contactWaId:"48123456789",messageType:"text",text:"Existing WhatsApp message"}});
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>db.$disconnect());
 JS
 )
