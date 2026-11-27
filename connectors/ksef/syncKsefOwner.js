@@ -72,7 +72,7 @@ async function syncKsefOwner({
     const status = /KSeF invoice XML HTTP ([0-9]{3})/.exec(message);
     if (status) return "HTTP_" + status[1];
     if (/identifier/.test(message)) return "INVALID_IDENTIFIER";
-    if (/Invalid or oversized/.test(message)) return "INVALID_XML";
+    if (error?.code === "INVALID_XML" || /Invalid or oversized|exceeds size limit/.test(message)) return "INVALID_XML";
     if (/network|stream/.test(message)) return "NETWORK";
     return "OTHER";
   }
@@ -157,13 +157,16 @@ async function syncKsefOwner({
     attempted += 1;
     try {
       const xml = await client.getInvoiceXml(item.ksefNumber);
+      const metadata = item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata)
+        ? { ...item.metadata } : {};
+      delete metadata.ksefXmlRetry;
       await prisma.financialDocument.updateMany({
         where: { id: item.id, ...documentScope },
-        data: { rawData: {
+        data: { ...(state && { metadata }), rawData: {
           xml, origin: "KSEF_OFFICIAL_XML", downloadedAt: new Date().toISOString()
         } }
       });
-      fetchedDocuments.push({ ...item, rawData: { xml } });
+      fetchedDocuments.push({ ...item, metadata, rawData: { xml } });
       xmlFetched += 1;
     } catch (error) {
       xmlFailed += 1;
@@ -177,7 +180,9 @@ async function syncKsefOwner({
       await prisma.financialDocument.updateMany({
         where: { id: item.id, ...documentScope },
         data: { metadata: { ...metadata, ksefXmlRetry: {
-          attempts, nextRetryAt: new Date(nowMs + xmlRetryDelay(attempts, error)).toISOString()
+          attempts, code,
+          ...(code === "INVALID_XML" && ["SIZE","EMPTY","FORMAT","ENCODING"].includes(error.reason) && {reason:error.reason}),
+          nextRetryAt: new Date(nowMs + xmlRetryDelay(attempts, error)).toISOString()
         } } }
       });
       // Respect throttling: never hammer KSeF after the first 429.

@@ -1,5 +1,7 @@
 "use strict";
 
+const { DOMParser } = require("@xmldom/xmldom");
+
 // Read-only KSeF 2.0 metadata client. Authentication is separate.
 // Official API: https://api-test.ksef.mf.gov.pl/docs/v2/index.html
 const BASE_URLS = Object.freeze({
@@ -13,6 +15,25 @@ const MAX_RANGE_MS = 100 * 24 * 60 * 60 * 1000;
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
 const MAX_RETRY_DELAY_MS = 2000;
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function invalidXml(reason) {
+  return Object.assign(new Error("Invalid or oversized KSeF invoice XML."), {
+    code: "INVALID_XML", reason
+  });
+}
+
+async function readInvoiceXml(response) {
+  if (!response.body) return response.text();
+  const parts = [];
+  let length = 0;
+  for await (const bytes of response.body) {
+    length += bytes.byteLength;
+    if (length > 2_000_000) throw invalidXml("SIZE");
+    parts.push(bytes);
+  }
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(parts)); }
+  catch { throw invalidXml("ENCODING"); }
+}
 
 class KsefClient {
   constructor({
@@ -74,18 +95,29 @@ class KsefClient {
       }
       const contentLength = Number(response.headers?.get?.("content-length"));
       if (Number.isFinite(contentLength) && contentLength > 2_000_000) {
-        throw new Error("KSeF invoice XML exceeds size limit.");
+        throw invalidXml("SIZE");
       }
       let xml;
       try {
-        xml = await response.text();
-      } catch {
+        xml = await readInvoiceXml(response);
+      } catch (error) {
+        if (error?.code === "INVALID_XML") throw error;
         throw new Error("KSeF invoice XML stream failed.");
       }
-      if (xml.length > 2_000_000 ||
-          !/^\s*(?:<\?xml[^>]*>\s*)?<(?:(?:[A-Za-z0-9_]+):)?Faktura\b/.test(xml) ||
-          /<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
-        throw new Error("Invalid or oversized KSeF invoice XML.");
+      if (Buffer.byteLength(xml) > 2_000_000) throw invalidXml("SIZE");
+      if (!xml.trim()) throw invalidXml("EMPTY");
+      if (xml.includes("\uFFFD") || xml.includes("\u0000")) throw invalidXml("ENCODING");
+      if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) throw invalidXml("FORMAT");
+      const root = /^\s*(?:<\?xml[^>]*>\s*)?<((?:[A-Za-z0-9_]+:)?Faktura)(?=[\s/>])/.exec(xml);
+      if (!root || (!xml.trimEnd().endsWith("</"+root[1]+">") &&
+          !/^\s*(?:<\?xml[^>]*>\s*)?<[^>]+\/>\s*$/.test(xml))) throw invalidXml("FORMAT");
+      try {
+        const reject = () => { throw invalidXml("FORMAT"); };
+        const parsed = new DOMParser({ errorHandler: { warning: reject, error: reject, fatalError: reject } })
+          .parseFromString(xml, "application/xml");
+        if (parsed.documentElement?.localName !== "Faktura") throw invalidXml("FORMAT");
+      } catch {
+        throw invalidXml("FORMAT");
       }
       return xml;
     }

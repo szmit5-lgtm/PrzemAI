@@ -9,6 +9,9 @@ const { redactText, documentReport } = require("../../lib/aiContext");
 const { OrganizationBankMonthlyService } = require("./OrganizationBankMonthlyService");
 const { OrganizationBankAccessService } = require("./OrganizationBankAccessService");
 
+const { OrganizationSettlementService } = require("./OrganizationSettlementService");
+const { OrganizationInvestmentFinanceService } = require("./OrganizationInvestmentFinanceService");
+
 const DOCUMENT_ROLES = ["OWNER", "ADMIN"];
 
 function rankDocuments(rows, instruction, name) {
@@ -23,19 +26,24 @@ class GeneralAgentSources {
     this.db = db;
     this.organizations = new OrganizationService({ db });
     this.finance = new OrganizationFinanceService({ db, orgService: this.organizations });
-    this.bank = new OrganizationBankMonthlyService({
-      db, access: new OrganizationBankAccessService({ db, organizationService: this.organizations })
-    });
+    const bankAccess = new OrganizationBankAccessService({ db, organizationService: this.organizations });
+    this.bankAccess = bankAccess;
+    this.bank = new OrganizationBankMonthlyService({ db, access: bankAccess });
+    this.settlements = new OrganizationSettlementService({ db, finance: this.finance, bankAccess });
+    this.investmentFinance = new OrganizationInvestmentFinanceService({ db, finance: this.finance });
   }
 
-  async authorize({ userId, organizationId, agentKey, investmentIds }) {
+  async authorize({ userId, organizationId, agentKey, investmentIds, bankData }) {
     if (!organizationId) return agentKey === "document";
     try {
-      if (agentKey === "financial") await this.finance.accessible(userId, organizationId);
-      else {
+      if (agentKey === "financial") {
+        await this.finance.accessible(userId, organizationId);
+        if (bankData) await this.bankAccess.authorize(userId, organizationId);
+      }
+      if (agentKey !== "financial" || investmentIds?.length) {
         const member = await this.organizations.membership(userId, organizationId,
           agentKey === "document" ? DOCUMENT_ROLES : undefined);
-        if (agentKey === "investment" && investmentIds?.length) {
+        if (investmentIds?.length) {
           const visible = await this.db.organizationInvestment.count({
             where: { ...visibleInvestmentWhere(member, userId, organizationId), id: { in: investmentIds } }
           });
@@ -76,19 +84,55 @@ class GeneralAgentSources {
       } catch (error) {
         if (![403, 404, 413].includes(error.status)) throw error;
       }
+      const financialReports = [];
+      if (/\b(sald\w*|rozlicz\w*|platnos\w*|zaplac\w*|niezaplac\w*|prognoz\w*|nalezn\w*|zobowiaz\w*|przetermin\w*|stal\w*|invalid xml)\b/.test(normalize(text))) {
+        try {
+          const report = await this.settlements.report(userId, organizationId, year || new Date().getUTCFullYear());
+          financialReports.push({ year: report.year, asOf: report.asOf, summary: report.summary,
+            balances: report.balances, forecast: report.forecast, invalidXml: report.diagnostics });
+          const statuses = new Map(report.items.map(item => [item.id, item]));
+          for (const row of page.items) {
+            const detail = statuses.get(row.id);
+            if (detail) row.settlement = { status: detail.status, overdue: detail.overdue,
+              paid: detail.paid, outstanding: detail.outstanding };
+          }
+        } catch (error) {
+          if (![403, 404, 413].includes(error.status)) throw error;
+        }
+      }
+      let investmentProfitability = [];
+      let investmentIds = [];
+      if (/\b(rentownosc\w*|marz\w*|zysk\w*)\b/.test(normalize(text))) {
+        try {
+          const member = await this.organizations.membership(userId, organizationId);
+          const report = await this.investmentFinance.report(userId, organizationId, year || new Date().getUTCFullYear(), member);
+          const visible = report.investments.filter(row => row.profitability.length);
+          investmentIds = visible.map(row => row.id);
+          investmentProfitability = visible.map(row => ({
+            investment: redactText(row.name, 160), year: report.year, profitability: row.profitability
+          }));
+        } catch (error) {
+          if (![403, 404, 413].includes(error.status)) throw error;
+        }
+      }
       return {
         coverage: "Sumy obejmują wszystkie zapisane faktury KSeF w podanym zakresie, według daty wystawienia. " +
           "Kwoty zawierają korekty ze znakiem z KSeF. Pola missing wskazują kwoty nieznane. " +
           "Szczegóły faktur to maksymalnie 25 pozycji. Raport bankowy obejmuje wyłącznie zaimportowane operacje i potwierdzone salda. " +
-          "Dane bankowe dotyczą lat jawnie wskazanych w pytaniu (maksymalnie pięciu) lub bieżącego roku. Brak okresu bankowego oznacza brak danych w kontekście.",
+          "Dane bankowe dotyczą lat jawnie wskazanych w pytaniu (maksymalnie pięciu) lub bieżącego roku. Brak okresu bankowego oznacza brak danych w kontekście. " +
+          "Prognoza to scenariusz oparty na importach i terminach płatności. Rentowność obejmuje przypisane faktury netto.",
+        investmentIds,
+        bankData: bankPeriods.length > 0 || financialReports.length > 0,
         invoiceTotals,
         bankPeriods,
+        financialReports,
+        investmentProfitability,
         hasMore: page.hasMore,
         invoices: page.items.map(row => ({
           invoice: redactText(row.invoiceNumber, 100),
           issued: row.issueDate, due: row.dueDate, direction: redactText(row.direction, 24),
           currency: redactText(row.currency, 8), gross: row.grossAmount,
-          net: row.netAmount, vat: row.vatAmount
+          net: row.netAmount, vat: row.vatAmount, settlement: row.settlement
         }))
       };
     }

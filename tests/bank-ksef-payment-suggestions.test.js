@@ -118,7 +118,7 @@ test("missing KSeF access blocks bank queries and bank denial blocks invoice que
  await assert.rejects(withFin.review("user","dekonica",2026),/Brak banku/);
  assert.deepEqual(calls,[]);
 });
-test("read-only API and company finance screen never update payment status",()=>{
+test("suggestions remain read-only and confirmation uses a separate authenticated endpoint",()=>{
  const routes=fs.readFileSync(path.join(__dirname,"../api/routes/organizationRoutes.js"),"utf8");
  const ui=fs.readFileSync(path.join(__dirname,"../frontend/src/app/company/[id]/finance/bank-matches/page.js"),"utf8");
  const main=fs.readFileSync(path.join(__dirname,"../frontend/src/app/company/[id]/finance/page.js"),"utf8");
@@ -126,7 +126,9 @@ test("read-only API and company finance screen never update payment status",()=>
  const svc=fs.readFileSync(path.join(__dirname,"../api/services/OrganizationBankKsefMatchService.js"),"utf8");
  assert.match(routes,/router.get\("\/:id\/finance\/bank-matches\/:year"/);
  assert.match(ui,/getOrganizationBankKsefMatches\(id,year\)/);
- assert.match(ui,/Nie zmienia statusu faktur/);
+ assert.match(routes,/router.post\("\/:id\/finance\/settlements\/:invoiceId\/payments",verifyToken/);
+ assert.match(ui,/window.confirm\(/);
+ assert.match(ui,/changeOrganizationSettlement\(/);
  assert.match(main,/finan[c]?e\/bank-matches/);
  assert.match(client,/getOrganizationBankKsefMatches\(orgId,year\)/);
  assert.doesNotMatch(svc,/\.updateMany\(|\.create\(|\.deleteMany\(/);

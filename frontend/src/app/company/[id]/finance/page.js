@@ -14,6 +14,7 @@ import {
  getOrganizationFinanceProjects,assignOrganizationFinanceProject
 } from "@/lib/api";
 const AMOUNT=(value,currency)=> {
+ if(value==null||value==="")return "—";
  const n=Number(value);
  if(value==null||!Number.isFinite(n))return "—";
  try{return new Intl.NumberFormat("pl-PL",{style:"currency",currency:currency||"PLN"}).format(n);}
@@ -179,8 +180,9 @@ export default function CompanyFinancePage(){
       {amounts.map((a,i)=><div key={a.currency+"-"+a.direction+"-"+i}
        className="min-w-0 rounded-xl border border-white/10 bg-[#182742] p-4">
        <p className="text-xs text-slate-400">{SOURCE[a.direction]||"Inny kierunek"} · {a.currency}</p>
-       <p className="mt-2 break-words text-lg font-bold tabular-nums">{AMOUNT(a.gross,a.currency)}</p>
-       <p className="mt-1 text-xs text-slate-400">{a.count} dokumentów · brutto</p>
+       <p className="mt-2 break-words text-lg font-bold tabular-nums">{AMOUNT(a.net,a.currency)} netto</p>
+       <p className="mt-1 text-xs text-slate-300">{AMOUNT(a.gross,a.currency)} brutto</p>
+       <p className="mt-1 text-xs text-slate-400">{a.count} dokumentów</p>
       </div>)}
       {amounts.length===0&&<p className="text-sm text-slate-400">Brak faktur z NIP tej spółki.</p>}
      </div>

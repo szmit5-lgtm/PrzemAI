@@ -59,11 +59,14 @@ test("financial totals and documents use only the exact matching project and the
       async findMany({ where, select }) {
         assert.equal(where.userId, "owner");
         assert.equal(where.source, "KSEF");
-        assert.equal(where.projectId, "legacy-mielno");
+        assert.deepEqual(where.AND[0].OR, [
+          { projectId: "legacy-mielno" },
+          { correctionLink: { organizationId: "company", invoice: { projectId: "legacy-mielno" } } }
+        ]);
         assert.equal(where.issueDate.gte.toISOString(), "2026-01-01T00:00:00.000Z");
         assert.equal(select.rawData, undefined);
         return [{
-          id: "invoice", invoiceNumber: "FV-1", projectId: where.projectId, issueDate: new Date("2026-04-01"),
+          id: "invoice", invoiceNumber: "FV-1", projectId: where.AND[0].OR[0].projectId, issueDate: new Date("2026-04-01"),
           buyerNip: nip, sellerNip: "2222222222", direction: "INCOMING",
           currency: "PLN", grossAmount: "123.45", netAmount: "100.37", vatAmount: "23.08"
         }];

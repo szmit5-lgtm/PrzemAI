@@ -58,6 +58,14 @@ function assignedCompanyDirection(document,nip){
  return (buyer&&document.direction==="INCOMING")||
   (seller&&document.direction==="OUTGOING");
 }
+function correctionProject(organizationId){
+ return {select:{organizationId:true,invoice:{select:{projectId:true}}},
+  where:{organizationId}};
+}
+function effectiveProject({correctionLink,...document},organizationId){
+ return {...document,projectId:correctionLink?.organizationId===organizationId
+  ? correctionLink.invoice.projectId : document.projectId};
+}
 function reportForProjects({investments,projects,documents,nip,year,organizationId}){
  const normalized=new Map();
  for(const project of projects){
@@ -123,6 +131,15 @@ function reportForProjects({investments,projects,documents,nip,year,organization
    a.currency.localeCompare(b.currency)||a.direction.localeCompare(b.direction));
   entry.months=[...(entry._months?.values()||[])].map(publishBucket).sort((a,b)=>
    a.month-b.month||a.currency.localeCompare(b.currency)||a.direction.localeCompare(b.direction));
+  entry.profitability=[...new Set(entry.totals.map(row=>row.currency))].map(currency=>{
+   const revenue=entry.totals.find(row=>row.currency===currency&&row.direction==="OUTGOING");
+   const cost=entry.totals.find(row=>row.currency===currency&&row.direction==="INCOMING");
+   const complete=(!revenue||revenue.net!==null)&&(!cost||cost.net!==null);
+   const sales=amountToCents(revenue?.net)||0n,expenses=amountToCents(cost?.net)||0n;
+   return {currency,netSales:revenue?revenue.net:"0.00",netCosts:cost?cost.net:"0.00",
+    netResult:complete?toMoney(sales-expenses):null,
+    marginPercent:complete&&sales>0n?toMoney((sales-expenses)*10000n/sales):null};
+  });
   delete entry._totals;delete entry._months;
  }
  return {organizationId,year,source:"KSEF_PROJECT_ASSIGNMENTS",
@@ -170,26 +187,30 @@ class OrganizationInvestmentFinanceService{
   const documents=await this.db.financialDocument.findMany({
    where:{
     ...ksefDocPredicate(link.ownerUserId,link.nip),
-    projectId:mapping.legacyProjectId,
     issueDate:{gte:new Date(Date.UTC(year,0,1)),lt:new Date(Date.UTC(year+1,0))},
     AND:[{OR:[
+     {projectId:mapping.legacyProjectId},
+     {correctionLink:{organizationId,invoice:{projectId:mapping.legacyProjectId}}}
+    ]},{OR:[
      {direction:"INCOMING",buyerNip:link.nip,OR:[{sellerNip:null},{sellerNip:{not:link.nip}}]},
      {direction:"OUTGOING",sellerNip:link.nip,OR:[{buyerNip:null},{buyerNip:{not:link.nip}}]}
     ]}]
    },
    select:{id:true,invoiceNumber:true,projectId:true,issueDate:true,direction:true,
+    correctionLink:correctionProject(organizationId),
     sellerNip:true,buyerNip:true,currency:true,netAmount:true,vatAmount:true,grossAmount:true},
    orderBy:[{issueDate:"desc"},{id:"desc"}],take:MAX_DOCUMENTS+1
   });
   if(documents.length>MAX_DOCUMENTS)
    throw new OrganizationError("Za dużo faktur w wybranym roku.",413);
 
-  const eligible=documents.filter(doc=>assignedCompanyDirection(doc,link.nip)&&/^[A-Z]{3}$/.test(doc.currency.toUpperCase()));
+  const eligible=documents.map(doc=>effectiveProject(doc,organizationId)).filter(doc=>
+   doc.projectId===mapping.legacyProjectId&&assignedCompanyDirection(doc,link.nip)&&/^[A-Z]{3}$/.test(doc.currency.toUpperCase()));
   const row=reportForProjects({...reportInput,documents:eligible}).investments.find(item=>item.id===investment.id);
   const invoices=eligible.slice(offset,offset+50).map(({id,invoiceNumber,issueDate,direction,currency,grossAmount})=>({
    id,invoiceNumber,issueDate,direction,currency:currency.toUpperCase(),grossAmount
   }));
-  return {year,mapping:row.accountMapping,totals:row.totals,months:row.months,invoices,
+  return {year,mapping:row.accountMapping,totals:row.totals,months:row.months,profitability:row.profitability,invoices,
    nextOffset:offset+50<eligible.length?offset+50:null};
  }
  async report(userId,organizationId,yearInput,member=null){
@@ -214,12 +235,14 @@ class OrganizationInvestmentFinanceService{
     {issueDate:{gte:new Date(Date.UTC(year,0,1)),lt:new Date(Date.UTC(year+1,0))}}],
     direction:{in:["INCOMING","OUTGOING"]}},
    select:{id:true,source:true,userId:true,projectId:true,issueDate:true,direction:true,
+    correctionLink:correctionProject(organizationId),
     sellerNip:true,buyerNip:true,currency:true,netAmount:true,vatAmount:true,grossAmount:true},
    orderBy:[{issueDate:"asc"},{id:"asc"}],take:MAX_DOCUMENTS+1
   });
   if(documents.length>MAX_DOCUMENTS)
    throw new OrganizationError("Za dużo faktur do jednego raportu. Zawęź zakres roku.",413);
-  const report=reportForProjects({organizationId,year,investments,projects,documents,nip:link.nip});
+  const report=reportForProjects({organizationId,year,investments,projects,
+   documents:documents.map(doc=>effectiveProject(doc,organizationId)),nip:link.nip});
   if(!member||["OWNER","ADMIN"].includes(member.role))return report;
   const assigned=new Set(investments.filter(item=>item.assignedUserIds.includes(userId)).map(item=>item.id));
   const visible=report.investments.filter(item=>assigned.has(item.id));
