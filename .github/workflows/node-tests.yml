@@ -83,6 +83,7 @@ jobs:
         run: |
           npm ci
           npm test
+          npm audit --omit=dev --audit-level=high
           PRZEMAI_MOBILE_API_ORIGIN=https://api.example.test npm run prepare:store
           node browser-smoke.cjs
       - name: Run Node tests
