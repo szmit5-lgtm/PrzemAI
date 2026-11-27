@@ -4,7 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createServer } = require("node:http");
 
-global.prisma = { $queryRaw: async () => [{ requests: 1 }] };
+global.prisma = { $transaction: run => run({ $queryRaw: async () => [1] }) };
 const GeneralAgentService = require("../api/services/GeneralAgentService");
 const GeneralAgentSources = require("../api/services/GeneralAgentSources");
 const { redactText } = require("../lib/aiContext");
@@ -74,10 +74,12 @@ test("delegates to three scoped specialists, saves results and continues through
   t.after(() => server.close());
   const oldKey = process.env.OPENAI_API_KEY;
   const oldUrl = process.env.OPENAI_BASE_URL;
+  const oldBounds = process.env.OPENAI_PRICE_BOUNDS_JSON;
+  process.env.OPENAI_PRICE_BOUNDS_JSON = JSON.stringify({ "gpt-5.5": { input: 1, output: 1, validUntil: new Date(Date.now() + 3600000).toISOString() } });
   process.env.OPENAI_API_KEY = "local-mock-only";
   process.env.OPENAI_BASE_URL = "http://127.0.0.1:" + server.address().port + "/v1";
   t.after(() => {
-    for (const [key, value] of Object.entries({ OPENAI_API_KEY: oldKey, OPENAI_BASE_URL: oldUrl })) {
+    for (const [key, value] of Object.entries({ OPENAI_API_KEY: oldKey, OPENAI_BASE_URL: oldUrl, OPENAI_PRICE_BOUNDS_JSON: oldBounds })) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }

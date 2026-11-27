@@ -203,6 +203,7 @@ async function main() {
       ...(process.env.PRZEMAI_E2E_PRISMA_TOOLS && { PRZEMAI_E2E_PRISMA_TOOLS: process.env.PRZEMAI_E2E_PRISMA_TOOLS }),
       JWT_SECRET: jwtSecret, PORT: "3031", FRONTEND_URL: web,
       OPENAI_API_KEY: "local-mock-only",
+      OPENAI_PRICE_BOUNDS_JSON: JSON.stringify({ "gpt-5.5": { input: 1, output: 1, validUntil: new Date(Date.now() + 3600000).toISOString() } }),
       OPENAI_BASE_URL: "http://127.0.0.1:" + mock.address().port + "/v1",
       TELEGRAM_NOTIFICATIONS_ENABLED: "false"
     };
