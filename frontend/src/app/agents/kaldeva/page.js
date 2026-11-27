@@ -4,11 +4,9 @@ import Link from "next/link";
 
 const API = "/api/agents/kaldeva";
 async function call(path, options = {}) {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("Zaloguj się, aby zlecić wyszukiwanie.");
   const response = await fetch(API + path, {
     ...options,
-    headers: { Authorization: "Bearer " + token, ...(options.headers || {}) },
+    credentials: "same-origin",
     cache: "no-store"
   });
   const data = await response.json().catch(() => null);

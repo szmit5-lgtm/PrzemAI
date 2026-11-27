@@ -49,12 +49,13 @@ test("malformed JSON on 401 still expires the session", async () => {
   try {
     global.fetch = async (url, options) => {
       assert.equal(url, "/api/auth/me");
-      assert.equal(options.headers.Authorization, "Bearer valid-until-rejected");
+      assert.equal(options.headers?.Authorization, undefined);
+      assert.equal(options.credentials, "same-origin");
       return malformedJsonResponse(401);
     };
     const api = await loadClient();
     await assert.rejects(api.getProfile(), { message: "Sesja wygasła." });
-    assert.deepEqual(browser.removed, ["token"]);
+    assert.deepEqual(browser.removed, []);
     assert.equal(global.window.location.href, "/login");
   } finally {
     browser.restore();

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, UserCircle2, CheckSquare, Building2 } from "lucide-react";
-import { getProfile, getTasks, getOrganizations } from "@/lib/api";
+import { getProfile, getTasks, getOrganizations, logout } from "@/lib/api";
 
 const frontendBuild = process.env.NEXT_PUBLIC_PRZEMAI_BUILD || "lokalna";
 
@@ -12,6 +12,8 @@ export default function UserMenu() {
   const [user, setUser] = useState(null);
   const [taskCount, setTaskCount] = useState(null);
   const [companies,setCompanies]=useState([]);
+  const [logoutError, setLogoutError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
   const pathname=usePathname();
   const dark=pathname==="/" || ["/finance","/agents","/tasks","/chat","/document","/meeting","/history","/memory","/settings","/company"].some(prefix=>pathname===prefix||pathname.startsWith(prefix+"/"));
 
@@ -24,10 +26,17 @@ export default function UserMenu() {
     return () => { active = false; };
   }, []);
 
-  function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("przemai-active-organization");
-    window.location.assign("/login");
+  async function signOut() {
+    setSigningOut(true);
+    setLogoutError("");
+    try {
+      await logout();
+      localStorage.removeItem("przemai-active-organization");
+      window.location.replace("/login");
+    } catch (error) {
+      setLogoutError(error.message);
+      setSigningOut(false);
+    }
   }
 
   const companyRoute=pathname.match(/^\/company\/([^/]+)$/);
@@ -45,6 +54,7 @@ export default function UserMenu() {
 
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-2 text-sm ${dark ? "text-slate-200" : "text-slate-700"}`}>
+      {logoutError && <span role="alert" className="text-rose-300">{logoutError}</span>}
       {user && <span className="inline-flex min-w-0 items-center gap-2" title={user.email}>
         <UserCircle2 size={20} className={dark ? "text-violet-300" : "text-blue-600"} />
         <span className="max-w-40 truncate sm:max-w-56">{user.email}</span>
@@ -61,7 +71,7 @@ export default function UserMenu() {
        </label>}
       {taskCount !== null && <Link href="/tasks" aria-label={`Zadania: ${taskCount}`} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 ${dark ? "bg-white/10" : "bg-slate-100"}`}><CheckSquare size={15}/>{taskCount}</Link>}
       <span title="Wersja interfejsu, nie backendu" className="text-xs opacity-70">UI {frontendBuild}</span>
-      <button type="button" onClick={logout} className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 transition ${dark ? "border-white/15 hover:bg-white/10" : "border-slate-200 hover:bg-slate-100"}`}><LogOut size={15}/>Wyloguj</button>
+      <button type="button" onClick={signOut} disabled={signingOut} className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 transition ${dark ? "border-white/15 hover:bg-white/10" : "border-slate-200 hover:bg-slate-100"}`}><LogOut size={15}/>Wyloguj</button>
     </div>
   );
 }
