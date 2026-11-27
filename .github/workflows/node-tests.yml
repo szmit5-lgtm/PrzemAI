@@ -43,9 +43,13 @@ jobs:
         if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration'
         run: |
           npm ci --prefix frontend
+          mkdir -p "$RUNNER_TEMP/przemai-e2e"
           npm install --prefix "$RUNNER_TEMP/przemai-e2e" --no-save --no-package-lock playwright@1.58.2
-          "$RUNNER_TEMP/przemai-e2e/node_modules/.bin/playwright" install --with-deps chromium
-          echo "NODE_PATH=$RUNNER_TEMP/przemai-e2e/node_modules" >> "$GITHUB_ENV"
+          chrome=$(command -v google-chrome || command -v chromium)
+          {
+            echo "PRZEMAI_CHROMIUM=$chrome"
+            echo "NODE_PATH=$RUNNER_TEMP/przemai-e2e/node_modules"
+          } >> "$GITHUB_ENV"
       - name: Native Prisma upgrade, rollback and application rehearsal
         if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration'
         env:
