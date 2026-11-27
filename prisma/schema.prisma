@@ -633,3 +633,8 @@ model InvoiceCorrection {
 
   @@index([organizationId, invoiceId])
 }
+
+model OpenAIMonthlyBudget {
+  month            DateTime @id @db.Date
+  reservedMicroPln BigInt
+}

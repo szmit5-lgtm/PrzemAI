@@ -13,7 +13,7 @@ async function main() {
   assert.equal(url.hostname, "127.0.0.1");
   assert.match(url.pathname, /^\/przemai_p0_e2e_[a-z0-9_]+$/);
   const db = require("../lib/prisma");
-  const { openAIRequestPolicy } = require("../lib/openAIRequestPolicy");
+  const { estimateRequest, openAIRequestPolicy } = require("../lib/openAIRequestPolicy");
   const { OrganizationService } = require("../api/services/OrganizationService");
   const { OrganizationInvestmentService } = require("../api/services/OrganizationInvestmentService");
   const temp = await mkdtemp(path.join(tmpdir(), "przem-release-e2e-"));
@@ -101,16 +101,26 @@ async function main() {
       orderBy: { startedAt: "asc" }, select: { status: true } })).map(run => run.status), ["FAILED", "SUCCESS"]);
     assert.equal((await db.task.findUniqueOrThrow({ where: { id: draft.id } })).status, "ERROR");
 
-    const rows = await db.$queryRaw`SELECT "requests" FROM "OpenAIRequestBudget"
-      WHERE "day" = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date`;
-    const limit = () => (rows[0]?.requests || 0) + 2;
+    const rows = await db.$queryRaw`SELECT "reservedMicroPln" FROM "OpenAIMonthlyBudget"
+      WHERE "month" = date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date`;
+    const alreadyReserved = rows[0]?.reservedMicroPln || 0n;
+    const url = "http://127.0.0.1/v1/responses";
+    const init = { method: "POST", body: JSON.stringify({
+      model: "gpt-5.5", max_output_tokens: 1000,
+      input: [{ role: "user", content: [{ type: "input_text", text: "Test budżetu" }] }]
+    }) };
+    const priceBounds = JSON.stringify({ "gpt-5.5": { input: 1, output: 1, validUntil: new Date(Date.now() + 3600000).toISOString() } });
+    const cost = estimateRequest(url, init, priceBounds);
+    const monthly = () => alreadyReserved + 2n * cost;
     let providerCalls = 0;
-    const options = { db, limit, fetchRequest: async () => { providerCalls++; return new Response(); } };
-    const requests = Array.from({ length: 10 }, () => openAIRequestPolicy(options).fetch("http://127.0.0.1"));
+    const options = { db, limit: () => 10000, monthly, priceBounds,
+      fetchRequest: async () => { providerCalls++; return new Response(); } };
+    const requests = Array.from({ length: 10 }, () => openAIRequestPolicy(options).fetch(url, init));
     const results = await Promise.allSettled(requests);
     assert.equal(results.filter(result => result.status === "fulfilled").length, 2);
+    assert.ok(results.filter(result => result.status === "rejected").every(result => result.reason.code === "AI_MONTHLY_BUDGET_LIMIT"));
     assert.equal(providerCalls, 2);
-    await assert.rejects(openAIRequestPolicy(options).fetch("http://127.0.0.1"), { code: "AI_DAILY_REQUEST_LIMIT" });
+    await assert.rejects(openAIRequestPolicy(options).fetch(url, init), { code: "AI_MONTHLY_BUDGET_LIMIT" });
     console.log("Release E2E: access and SET NULL, concurrent worker recovery/restart, shared atomic AI limit passed");
   } finally {
     for (const child of workers.keys()) child.kill("SIGTERM");
