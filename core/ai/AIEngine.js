@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const OpenAI = require("openai");
+const { openAIRequestPolicy } = require("../../lib/openAIRequestPolicy");
 
 class AIEngine {
 
@@ -15,7 +16,7 @@ class AIEngine {
             if (!apiKey) {
                 throw new Error("OPENAI_API_KEY is required to execute AI requests.");
             }
-            this._client = new OpenAI({ apiKey });
+            this._client = new OpenAI({ apiKey, ...openAIRequestPolicy() });
         }
         return this._client;
     }
@@ -39,13 +40,20 @@ class AIEngine {
 
             model = "gpt-5.5",
 
-            json = false
+            json = false,
+
+            requestOptions,
+            maxOutputTokens = 4096
 
         } = options;
 
+        if (Buffer.byteLength(system) + Buffer.byteLength(user) > 240000) {
+            throw new Error("Kontekst AI przekracza 240 kB.");
+        }
         const response = await this.client.responses.create({
 
             model,
+            ...(maxOutputTokens && { max_output_tokens: maxOutputTokens }),
 
             text: json
                 ? {
@@ -79,7 +87,7 @@ class AIEngine {
 
             ]
 
-        });
+        }, requestOptions);
 
         const output = response.output_text;
 

@@ -7,6 +7,7 @@ const ffmpeg = require("fluent-ffmpeg");
 const ffmpegPath = require("ffmpeg-static");
 
 const OpenAI = require("openai");
+const { openAIRequestPolicy } = require("../../lib/openAIRequestPolicy");
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -15,7 +16,8 @@ class SpeechToText {
     constructor() {
 
         this.client = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
+            apiKey: process.env.OPENAI_API_KEY,
+            ...openAIRequestPolicy()
         });
 
     }

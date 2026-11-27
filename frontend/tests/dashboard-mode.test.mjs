@@ -31,7 +31,7 @@ test("company chooser links only to organizations returned for the account", () 
   assert.match(chooser, /organizations\.map\(o=><div key=\{o\.id\}/);
   assert.match(chooser, /onClick=\{\(\)=>selectPrimaryCompany\(o\.id\)\}/);
   assert.match(chooser, /href=\{"\/company\/"\+encodeURIComponent\(o\.id\)\}/);
-  assert.match(page, /const allowed=\(data\?\.organizations\|\|\[\]\)\.some\(o=>o\.id===primaryCompany\)/);
+  assert.match(page, /const allowed=organizations\.some\(o=>o\.id===primaryCompany\)/);
   assert.match(page, /if\(!allowed\)\{setCompanyFinance\(null\);setCompanyReport\(null\)/);
   assert.match(page, /selectedOrg&&companyFinanceState\?\.organizationId===primaryCompany/);
   assert.match(page, /selectedOrg&&companyReportState\?\.organizationId===primaryCompany/);

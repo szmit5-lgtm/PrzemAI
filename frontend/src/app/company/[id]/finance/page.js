@@ -10,11 +10,12 @@ import {
  getOrganizationFinanceStatus,linkOrganizationKsef,getOrganizationFinanceSummary,
  getOrganizationWorkspace,
  getOrganizationFinanceDocuments,getOrganizationInvestmentFinanceReport,
- getOrganizationFinanceMembers,changeOrganizationFinancePermission
+ getOrganizationFinanceMembers,changeOrganizationFinancePermission,
+ getOrganizationFinanceProjects,assignOrganizationFinanceProject
 } from "@/lib/api";
 const AMOUNT=(value,currency)=> {
  const n=Number(value);
- if(!Number.isFinite(n))return "—";
+ if(value==null||!Number.isFinite(n))return "—";
  try{return new Intl.NumberFormat("pl-PL",{style:"currency",currency:currency||"PLN"}).format(n);}
  catch{return String(value)+" "+currency;}
 };
@@ -29,6 +30,7 @@ export default function CompanyFinancePage(){
  const [summary,setSummary]=useState(null);
  const [documents,setDocuments]=useState([]);
  const [projects,setProjects]=useState([]);
+ const [accountingProjects,setAccountingProjects]=useState([]);
  const [members,setMembers]=useState([]);
  const [hasMore,setHasMore]=useState(false);
  const [page,setPage]=useState(0);
@@ -49,14 +51,15 @@ export default function CompanyFinancePage(){
    const value=result?.data||{};
    setStatus(value);
    if(!value.linked||!value.canView){
-    setSummary(null);setDocuments([]);setProjects([]);setMembers([]);
+    setSummary(null);setDocuments([]);setProjects([]);setMembers([]);setAccountingProjects([]);
     return;
    }
    const queries=[
     getOrganizationFinanceSummary(id),
     getOrganizationFinanceDocuments(id,{offset:page*PAGE_SIZE,limit:PAGE_SIZE}),
     getOrganizationInvestmentFinanceReport(id,new Date().getFullYear()),
-    value.canManage?getOrganizationFinanceMembers(id):Promise.resolve({data:[]})
+    value.canManage?getOrganizationFinanceMembers(id):Promise.resolve({data:[]}),
+    value.canManage?getOrganizationFinanceProjects(id):Promise.resolve({data:{items:[]}})
    ];
    const results=await Promise.all(queries);
    if(!active)return;
@@ -65,6 +68,7 @@ export default function CompanyFinancePage(){
    setHasMore(Boolean(results[1]?.data?.hasMore));
    setProjects(Array.isArray(results[2]?.data?.investments)?results[2].data.investments:[]);
    setMembers(Array.isArray(results[3]?.data)?results[3].data:[]);
+   setAccountingProjects(Array.isArray(results[4]?.data?.items)?results[4].data.items:[]);
   }).catch(e=>{if(active){setError(e.message||"Nie udało się pobrać finansów.");setSummary(null);}})
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
@@ -199,7 +203,19 @@ export default function CompanyFinancePage(){
         <td className="max-w-32 break-words px-3 py-3">{d.invoiceNumber||"—"}</td>
         <td className="max-w-52 break-words px-3 py-3 text-slate-300">{d.direction==="OUTGOING"?d.buyerName||"—":d.sellerName||"—"}</td>
         <td className="px-3 py-3">{SOURCE[d.direction]||"—"}</td>
-        <td className="max-w-40 break-words px-3 py-3 text-slate-300">{d.project?.name||"Nieprzypisana"}</td>
+        <td className="max-w-48 break-words px-3 py-3 text-slate-300">
+         {status.canManage?<select aria-label={"Inwestycja dla "+(d.invoiceNumber||d.id)}
+          disabled={busy||loading} value={d.project?.id||""}
+          onChange={event=>{
+           const projectId=event.target.value||null;
+           doAction(()=>assignOrganizationFinanceProject(id,d.id,projectId),"Zapisano przypisanie faktury.");
+          }} className="max-w-full rounded-lg border border-white/20 bg-[#0c1930] p-2">
+          <option value="">Nieprzypisana</option>
+          {d.project&&!accountingProjects.some(project=>project.id===d.project.id)&&
+           <option value={d.project.id} disabled>{d.project.name}</option>}
+          {accountingProjects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}
+         </select>:d.project?.name||"Nieprzypisana"}
+        </td>
         <td className="whitespace-nowrap px-3 py-3 text-right font-bold tabular-nums">{AMOUNT(d.grossAmount,d.currency)}</td>
        </tr>)}</tbody>
       </table>

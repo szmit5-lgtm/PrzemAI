@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { spawn } = require("child_process");
 
 const OpenAI = require("openai");
+const { openAIRequestPolicy } = require("../../lib/openAIRequestPolicy");
 const ffmpegPath = require("ffmpeg-static");
 
 class SpeechToText {
@@ -94,7 +95,7 @@ class SpeechToText {
             if (!process.env.OPENAI_API_KEY) {
                 throw new Error("OPENAI_API_KEY is required for transcription");
             }
-            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, ...openAIRequestPolicy() });
         }
         return this.client;
     }

@@ -10,10 +10,11 @@ import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import CompanyBankSnapshot from "./components/CompanyBankSnapshot";
 import {
- getAgents,getExecutiveDashboard,getFinanceSummary,getFinanceProjects,
+ getAgents,getExecutiveDashboard,getFinanceSummary,
  getOrganizations,getOrganizationInvestments,getOrganizationFinanceSummary,getOrganizationFinanceAnnualReport,getFinancePeriodReport
 } from "@/lib/api";
 
+const EMPTY_ORGANIZATIONS=[];
 const months=["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"];
 const money=(value,currency="PLN")=>{
  if(value==null||value==="")return "—";
@@ -76,6 +77,9 @@ function SmallLink({href,title,icon:Icon}) {
 }
 export default function HomePage() {
  const [data,setData]=useState(null);
+ const [organizationRows,setOrganizations]=useState(null);
+ const [organizationsError,setOrganizationsError]=useState(false);
+ const organizations=organizationRows||EMPTY_ORGANIZATIONS;
  const [orgProjects,setOrgProjects]=useState(null);
  const [loading,setLoading]=useState(true);
  const [errors,setErrors]=useState(0);
@@ -90,11 +94,20 @@ export default function HomePage() {
  useEffect(()=>{try{setSimpleMode(window.localStorage.getItem("przemai-dashboard-mode")==="simple");}catch{}},[]);
  const switchMode=mode=>{setSimpleMode(mode);try{window.localStorage.setItem("przemai-dashboard-mode",mode?"simple":"full");}catch{}};
  useEffect(()=>{
+  let active=true;
+  setOrganizationsError(false);
+  getOrganizations().then(result=>{
+   if(!Array.isArray(result?.data))throw Error("Nieprawidłowa lista firm");
+   if(active)setOrganizations(result.data);
+  }).catch(()=>{if(active){setOrganizations([]);setOrganizationsError(true);}});
+  return()=>{active=false;};
+ },[refresh]);
+ useEffect(()=>{
   let alive=true;
   setLoading(true);
   Promise.allSettled([
    getExecutiveDashboard(),getAgents(),getFinanceSummary(),
-   getFinanceProjects(),getOrganizations(),getFinancePeriodReport(new Date().getFullYear())
+   getFinancePeriodReport(new Date().getFullYear())
   ]).then(results=>{
    if(!alive)return;
    setErrors(results.filter(r=>r.status==="rejected").length);
@@ -102,15 +115,13 @@ export default function HomePage() {
     executive:readValue(results[0],"dashboard"),
     agents:readValue(results[1],"data")||[],
     finance:readValue(results[2],"data"),
-    projects:readValue(results[3],"items")||[],
-    organizations:readValue(results[4],"data")||[],
-    report:readValue(results[5],"data")
+    report:readValue(results[3],"data")
    });
   }).finally(()=>{if(alive)setLoading(false);});
   return()=>{alive=false;};
  },[refresh]);
  useEffect(()=>{
-  const allowed=(data?.organizations||[]).some(o=>o.id===primaryCompany);
+  const allowed=organizations.some(o=>o.id===primaryCompany);
   if(!allowed){setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");return;}
   let active=true;setCompanyFinance(null);setCompanyReport(null);setCompanyFinanceError("");
   getOrganizationFinanceAnnualReport(primaryCompany,new Date().getFullYear()).then(result=>{if(active)setCompanyReport({organizationId:primaryCompany,data:result?.data||null});}).catch(()=>{if(active)setCompanyReport(null);});
@@ -118,32 +129,32 @@ export default function HomePage() {
    if(active)setCompanyFinance({organizationId:primaryCompany,data:result?.data||null});
   }).catch(error=>{if(active)setCompanyFinanceError(error?.message||"Nie można pobrać KSeF.");});
   return()=>{active=false;};
- },[primaryCompany,data?.organizations]);
+ },[primaryCompany,organizations]);
  const selectPrimaryCompany=id=>{
   setPrimaryCompany(id);
   try{if(id)window.localStorage.setItem("przemai-primary-organization",id);
    else window.localStorage.removeItem("przemai-primary-organization");}catch{}
  };
  const agents=Array.isArray(data?.agents)?data.agents:[];
- const selectedOrg=(data?.organizations||[]).find(o=>o.id===primaryCompany);
+ const selectedOrg=organizations.find(o=>o.id===primaryCompany);
  const companyFinance=selectedOrg&&companyFinanceState?.organizationId===primaryCompany?companyFinanceState.data:null;
  const companyReport=selectedOrg&&companyReportState?.organizationId===primaryCompany?companyReportState.data:null;
- const projectScope=JSON.stringify([primaryCompany,(data?.organizations||[]).map(o=>o.id)]);
+ const projectScope=JSON.stringify([primaryCompany,organizations.map(o=>o.id)]);
  useEffect(()=>{
-  if(!data)return;
+  if(!organizationRows)return;
   let active=true;
-  const orgs=(data.organizations||[]).filter(o=>!primaryCompany||o.id===primaryCompany);
+  const orgs=organizations.filter(o=>!primaryCompany||o.id===primaryCompany);
   Promise.allSettled(orgs.map(async o=>{
    const r=await getOrganizationInvestments(o.id);
    if(!Array.isArray(r?.data?.items))throw Error("Nieprawidłowa lista inwestycji");
    return r.data.items.map(p=>({...p,company:o.displayName||o.name,organizationId:o.id}));
   })).then(results=>{if(active)setOrgProjects({scope:projectScope,items:results.flatMap(r=>r.status==="fulfilled"?r.value:[]),error:results.some(r=>r.status==="rejected")});});
   return()=>{active=false;};
- },[projectScope,data,refresh]);
+ },[projectScope,organizationRows]);
  const currentProjects=orgProjects?.scope===projectScope?orgProjects:null;
  const projects=primaryCompany&&!selectedOrg?[]:currentProjects?.items||[];
  const investmentHref=selectedOrg?"/company/"+encodeURIComponent(selectedOrg.id)+"/investments":"/company/setup";
- const organizations=Array.isArray(data?.organizations)?data.organizations:[];
+
  const summary=data?.executive?.summary||{};
  const finance=data?.finance||{};
  const amounts=Array.isArray(finance.amounts)?finance.amounts:[];
@@ -261,20 +272,26 @@ export default function HomePage() {
      <Metric label="Faktury sprzedażowe PLN" value={ready?(primaryCompany?(selectedOrg&&companyFinance?money(companyFinance.amounts?.find(a=>a.currency==="PLN"&&a.direction==="OUTGOING")?.gross):"—"):(data?.finance?money(salesPLN?.gross):"—")):"…"} icon={BarChart3} accent="green" foot="Łączna wartość brutto faktur, nie wpływy bankowe"/>
      <Metric label="Włączeni agenci" value={ready?enabled+" / "+agents.length:"…"} icon={Bot} accent="purple" foot="Financial Agent i agenci zleceń"/>
     </section>
-    {!simpleMode&&<><div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <div className={"mt-3 grid min-w-0 gap-3 "+(simpleMode?"":"xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]")}>
      <Panel className="p-4 sm:p-5">
       <SectionTitle href={investmentHref} link="Zarządzaj inwestycjami">Kluczowe inwestycje</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">Projekty dostępne na koncie</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
-       {projects.map(p=><div key={p.organizationId+":"+p.id} className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-blue-400/20 bg-[#121b32] p-2">
-        <span aria-hidden="true" className="flex h-16 items-center justify-center rounded-lg bg-gradient-to-br from-[#234562] to-[#172540] text-blue-200"><Building2 size={32}/></span>
-        <div className="min-w-0 flex-1"><strong className="block break-words text-sm">{p.name}</strong><p className="truncate text-xs text-slate-400">{p.company||"Brak określonej spółki"}</p></div>
-        <Link href={"/company/"+encodeURIComponent(p.organizationId)+"/investments"} aria-label={"Zobacz "+p.name} className="flex min-h-9 items-center justify-between text-xs text-violet-300">Szczegóły <ChevronRight size={16}/></Link>
-       </div>)}
-       {projects.length===0&&<p className="py-5 text-sm text-slate-400">{loading||!currentProjects?"Pobieranie projektów…":currentProjects.error?"Nie udało się pobrać inwestycji.":"Brak dostępnych inwestycji."}</p>}
+       {projects.map(p=><Link key={p.organizationId+":"+p.id}
+        href={"/company/"+encodeURIComponent(p.organizationId)+"/investments/"+encodeURIComponent(p.id)}
+        prefetch={false}
+        className="flex min-h-24 min-w-0 items-center gap-3 rounded-xl border border-blue-400/20 bg-[#121b32] p-3 hover:border-violet-400/70 focus-visible:outline-2 focus-visible:outline-violet-300">
+        <Building2 aria-hidden="true" size={24} className="shrink-0 text-blue-200"/>
+        <div className="min-w-0 flex-1"><strong className="block break-words text-sm">{p.name}</strong><p className="break-words text-xs text-slate-400">{p.company}</p>
+         {p.progress!=null&&<p className="mt-1 text-xs text-slate-300">Postęp {p.progress}%</p>}
+        </div>
+        <ChevronRight aria-hidden="true" size={16} className="shrink-0 text-violet-300"/>
+       </Link>)}
+       {projects.length===0&&<p className="py-3 text-sm text-slate-400">{organizationsError||currentProjects?.error?"Nie udało się pobrać inwestycji.":!currentProjects?"Pobieranie projektów…":"Brak dostępnych inwestycji."}</p>}
+       {projects.length>0&&currentProjects?.error&&<p role="status" className="text-sm text-amber-200">Nie udało się pobrać inwestycji ze wszystkich firm.</p>}
       </div>
      </Panel>
-     <Panel className="p-4 sm:p-5">
+     {!simpleMode&&<Panel className="p-4 sm:p-5">
       <SectionTitle href="/finance/reports" link="Pełne raporty">Sprzedaż i zakupy z faktur · PLN</SectionTitle>
       <p className="mt-1 text-xs text-slate-400">{new Date().getFullYear()} · miesiące · brutto · nie są to przepływy pieniężne</p>
       {reportRows.length===0?<div className="mt-3 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-slate-400">{loading?"Pobieranie zestawienia…":(primaryCompany&&!companyReport?"Nie udało się pobrać zestawienia KSeF wybranej firmy lub brak uprawnień.":"Brak danych faktur do wykresu.")}</div>:
@@ -294,8 +311,9 @@ export default function HomePage() {
         <span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400"/>Faktury zakupowe</span>
        </div>
       </div>}
-     </Panel>
+     </Panel>}
     </div>
+    {!simpleMode&&<>
      <Panel className="mt-3 p-3"><SectionTitle href="/agents" link="Zarządzaj agentami">Agenci AI · aktywność</SectionTitle><p className="mt-1 text-xs text-slate-400">Status agentów konta · {enabled} / {agents.length} włączonych</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-6">{agents.map(a=><AgentTile key={a.id} agent={a}/>)}{agents.length===0&&<p className="col-span-full py-3 text-sm text-slate-400">{loading?"Pobieranie statusów…":"Brak agentów na koncie."}</p>}</div></Panel>
     </>}
     {<section aria-label="Szybki dostęp" className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">

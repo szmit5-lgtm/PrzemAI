@@ -15,6 +15,7 @@ function taskHarness() {
     async update(payload) { calls.push({ operation: "update", payload }); return payload.data; }
   } };
   const context = { module: { exports: {} }, Date, require: name => {
+    if (name === "../../lib/agentCatalog") return require("../lib/agentCatalog");
     assert.equal(name, "../../lib/prisma");
     return prisma;
   } };
@@ -43,7 +44,7 @@ test("task create and update accept strict ISO timestamps, clear and absent date
   const updated = await service.update("task", "owner-1", { dueDate: "2026-11-23" });
   assert.equal(updated.dueDate.toISOString(), "2026-11-23T12:00:00.000Z");
   assert.equal(calls[2].payload.where.userId, "owner-1");
-  assert.equal(calls[2].payload.where.source.not, "COMPANY");
+  assert.deepEqual(Array.from(calls[2].payload.where.source.notIn), ["COMPANY", "GENERAL_AGENT"]);
   const changed = await service.update("task", "owner-1", { priority: "HIGH" });
   assert.equal(Object.hasOwn(changed, "dueDate"), false);
   const cleared = await service.update("task", "owner-1", { dueDate: "" });

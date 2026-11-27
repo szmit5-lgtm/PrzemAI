@@ -31,6 +31,8 @@ model User {
   createdOrganizationInvestments OrganizationInvestment[]
   uploadedBankImportFiles BankImportFile[]
   linkedOrganizationFinances OrganizationFinanceLink[]
+  telegramChatSelections TelegramChatSelection[]
+  telegramChatReceipts TelegramChatReceipt[]
 }
 
 model History {
@@ -75,6 +77,11 @@ model Task {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  investmentId String?
+  investmentScoped Boolean @default(false)
+  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+
+  @@index([investmentId])
   @@index([userId])
   @@index([status])
   @@index([priority])
@@ -85,6 +92,7 @@ model Task {
 model ChatConversation {
   id    String @id @default(cuid())
   title String @default("Nowa rozmowa")
+  channel String @default("WEB")
 
   archivedAt    DateTime?
   lastMessageAt DateTime  @default(now())
@@ -364,6 +372,11 @@ model OrganizationDocument {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
+  investmentId String?
+  investment OrganizationInvestment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  isInvestmentReport Boolean @default(false)
+
+  @@index([investmentId, createdAt])
   @@unique([organizationId, sha256])
   @@index([organizationId, createdAt])
 }
@@ -385,6 +398,9 @@ model OrganizationInvestment {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  documents OrganizationDocument[]
+  tasks Task[]
 
   @@unique([organizationId, name])
   @@index([organizationId, status])
@@ -552,4 +568,35 @@ model WhatsAppMessage {
 
   @@index([organizationId, receivedAt])
   @@index([organizationId, contactWaId, receivedAt])
+}
+
+
+model TelegramChatSelection {
+  userId String
+  telegramUserId String
+  organizationId String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, telegramUserId])
+}
+
+model TelegramChatReceipt {
+  telegramUserId String
+  messageId String
+  userId String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([telegramUserId, messageId])
+  @@index([userId])
+}
+
+model OpenAIRequestBudget {
+  day      DateTime @id @db.Date
+  requests Int
+}
+
+model OpenAIMonthlyBudget {
+  month            DateTime @id @db.Date
+  reservedMicroPln BigInt
 }
