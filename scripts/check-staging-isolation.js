@@ -4,8 +4,9 @@
  * Fail-closed preflight for the one isolated Railway staging API service.
  * Reads connection metadata only, never connects to DB and never logs secrets.
  */
-function check(env = process.env) {
+function check(env = process.env, { database = "railway" } = {}) {
   const fail = () => { throw new Error("STAGING_ISOLATION_UNVERIFIED"); };
+  if (!["railway", "przemai_p0_rehearsal"].includes(database)) fail();
   if (env.RAILWAY_PROJECT_ID !== "8b898b94-7bca-4a34-af28-8f114d776825" ||
       env.RAILWAY_ENVIRONMENT_ID !== "64404202-9c65-4076-a917-111e6448281a" ||
       env.RAILWAY_ENVIRONMENT_NAME !== "staging" ||
@@ -17,7 +18,7 @@ function check(env = process.env) {
   if (!["postgresql:", "postgres:"].includes(db.protocol) ||
       db.hostname !== "postgres-vycl.railway.internal" ||
       (db.port && db.port !== "5432") || !db.username || !db.password ||
-      db.pathname !== "/railway" || db.hash) fail();
+      db.pathname !== "/" + database || db.hash) fail();
   const schema = db.searchParams.getAll("schema");
   if ([...db.searchParams.keys()].some(key => key !== "schema") ||
       schema.length > 1 || (schema.length === 1 && schema[0] !== "public")) fail();
