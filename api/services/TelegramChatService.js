@@ -91,10 +91,6 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
     });
     if (!thread || (thread.messages[0]?.metadata?.organizationId ?? null) !== organizationId)
       return "Nie znaleziono rozmowy WWW w wybranym zakresie.";
-  } else {
-    await db.chatConversation.createMany({
-      data: { id, userId, channel, title: "Telegram" }, skipDuplicates: true
-    });
   }
 
   let attachment = null;
@@ -116,6 +112,9 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
     }
     if (typeof text !== "string" || !text.trim() || !await stillAuthorized()) return null;
   }
+  if (!shared) await db.chatConversation.createMany({
+    data: { id, userId, channel, title: "Telegram" }, skipDuplicates: true
+  });
   const requestId = `telegram-${telegramUserId}-${msg.message_id}`;
   let result;
   try {
