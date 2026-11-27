@@ -138,7 +138,7 @@ async function browserFlow(browser, owner, companies) {
     page.waitForURL(web + "/"),
     page.getByRole("button", { name: "Zaloguj się" }).click()
   ]);
-  const ownerToken = await page.evaluate(() => localStorage.getItem("token"));
+  const ownerToken = (await context.cookies(web)).find(cookie => cookie.name === "przemai-session")?.value;
   assert.ok(ownerToken);
   const investment = companies.Dekonica.investment;
   await page.locator('a[href="/company/' + companies.Dekonica.id + '/investments/' + investment.id + '"]').click();
@@ -166,7 +166,7 @@ async function browserFlow(browser, owner, companies) {
   await context.close();
 
   const reopened = await browser.newContext({ viewport: { width: 1360, height: 920 } });
-  await reopened.addInitScript(token => localStorage.setItem("token", token), ownerToken);
+  await reopened.addCookies([{ name: "przemai-session", value: ownerToken, url: web, httpOnly: true, sameSite: "Strict" }]);
   const next = await reopened.newPage();
   await next.goto(web + "/chat");
   await next.getByRole("button", { name: /Rozmowa firmowa/ }).first().click();

@@ -16,16 +16,21 @@ Po uruchomieniu API na porcie 3000, w katalogu `frontend` wykonaj `npm ci`, `npm
 
 ## Android i iOS
 
-`mobile/` zawiera projekty Capacitor, wersjonowane zależności, identyfikator `com.dekonica.przemai`, ikony i opisy uprawnień. Wariant z adresem HTTPS służy do testów na odizolowanym stagingu. Capacitor dokumentuje `server.url` jako tryb deweloperski. Przed publikacją trzeba wybrać dystrybucję z lokalnie spakowanym interfejsem i mobilną sesją API albo natywny interfejs. Przy dystrybucji Android z utrzymaniem PWA można rozważyć Trusted Web Activity z Digital Asset Links. Na iOS trzeba zweryfikować wymagania App Store dotyczące minimalnej funkcjonalności aplikacji.
+Katalog mobile zawiera lokalnie pakowany interfejs oraz projekty Capacitor z identyfikatorem com.dekonica.przemai. Build sklepowy łączy się z jednym skonfigurowanym originem HTTPS API Express. Tryb zdalnej strony pozostaje dostępny przez npm run sync w testach stagingowych. Polecenie prepare:store odrzuca ten tryb.
 
-```sh
-cd mobile
-npm ci
-npm test
-PRZEMAI_MOBILE_STAGING_ORIGIN=https://staging.example.test npm run sync
-(cd android && ./gradlew assembleDebug)
-xcodebuild -project ios/App/App.xcodeproj -scheme App \
-  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
-```
+    cd mobile
+    npm ci
+    npm test
+    PRZEMAI_MOBILE_API_ORIGIN=https://api.example.test npm run prepare:store
+    (cd android && ./gradlew assembleDebug bundleRelease)
+    xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
 
-Android wymaga JDK 21 i Android SDK API 36. iOS wymaga macOS z obsługiwanym Xcode. `npm run sync` bez zmiennej zapisuje w projektach lokalny ekran informacyjny. Adres stagingu, klucze podpisu i profile dystrybucji są ustawieniami lokalnymi. Przed publikacją potwierdź identyfikator pakietu, obsługę aparatu i mikrofonu na urządzeniach, podpisywanie oraz informacje o prywatności w obu sklepach.
+Zastąp przykładowy origin zatwierdzonym adresem API. Android wymaga JDK 21 i SDK API 36. iOS wymaga macOS i Xcode. Do aktualizacji zachowaj identyfikator i klucz podpisu oraz zwiększ numery kompilacji i wersje widoczne dla użytkownika. PWA pozwala odświeżyć aplikację po pobraniu nowej wersji service workera.
+
+Token aplikacji natywnej istnieje tylko w pamięci procesu. Ponowne uruchomienie i bezczynność wymagają ponownego logowania. Zmiana spółki rozpoczyna osobną rozmowę. Powiadomienia lokalne zapisuje użytkownik dla przyszłego terminu zadania. Mają ogólną treść, a wylogowanie usuwa oczekujące przypomnienia. Dostarczanie zależy od uprawnień systemowych i ograniczeń zasilania.
+
+Dokumenty natywne są widoczne na liście i można je przesyłać z systemowego selektora plików. Przed publikacją trzeba sprawdzić przesyłanie plików, wygaszanie sesji i powiadomienia na urządzeniach oraz przygotować podpisy i deklaracje prywatności. Zdalne FCM/APNs wymaga osobnej konfiguracji. Załączniki P1 i głos pozostają do rozbudowy klienta natywnego.
+
+## Zgodność modułów
+
+Endpoint dashboardu KSeF liczy netto i brutto z zapisanych kwot, w tym korekt, według kontraktu #108. Natywny General Agent korzysta z tekstowego kontraktu API używanego też w #110. Połączenie gałęzi #108 i #110 ze sobą wymaga uzgodnienia zmian w GeneralAgentService.js i GeneralAgentSources.js.

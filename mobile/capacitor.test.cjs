@@ -15,3 +15,12 @@ test("staging uses one HTTPS origin without a navigation allowlist", () => {
     assert.throws(() => createConfig(value));
   }
 });
+
+test("the packaged app endpoint is one HTTPS origin", () => {
+  const { apiOrigin } = require("./build.cjs");
+  assert.equal(apiOrigin("https://api.example.test"), "https://api.example.test");
+  assert.equal(apiOrigin(), "");
+  for (const value of ["http://api.example.test", "https://login:pass@api.example.test",
+    "https://api.example.test/api", "https://api.example.test/?tenant=foreign"])
+    assert.throws(() => apiOrigin(value));
+});
