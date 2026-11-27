@@ -13,6 +13,7 @@ async function main() {
   assert.equal(url.hostname, "127.0.0.1");
   assert.match(url.pathname, /^\/przemai_p0_e2e_[a-z0-9_]+$/);
   const db = require("../lib/prisma");
+  const { SCHEMA_QUERY } = require("./staging-schema-probe");
   const { estimateRequest, openAIRequestPolicy } = require("../lib/openAIRequestPolicy");
   const { OrganizationService } = require("../api/services/OrganizationService");
   const { OrganizationInvestmentService } = require("../api/services/OrganizationInvestmentService");
@@ -44,6 +45,8 @@ async function main() {
   }
 
   try {
+    const [schema] = await db.$queryRawUnsafe(SCHEMA_QUERY);
+    for (const [check, present] of Object.entries(schema)) assert.equal(present, true, check);
     const [owner, employee] = await Promise.all(["owner", "leszek"].map(role => db.user.create({
       data: { email: role + "-" + suffix + "@example.test", password: "synthetic" }
     })));

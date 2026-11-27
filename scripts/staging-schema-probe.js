@@ -13,6 +13,12 @@ const SCHEMA_QUERY = [
   'to_regclass(\'public."BankStatement"\') IS NOT NULL AS "bankStatement",',
   'to_regclass(\'public."BankTransaction"\') IS NOT NULL AS "bankTransaction",',
   'to_regclass(\'public."_prisma_migrations"\') IS NOT NULL AS "migrations",',
+  'to_regclass(\'public."OpenAIRequestBudget"\') IS NOT NULL AS "dailyAiBudget",',
+  'to_regclass(\'public."OpenAIMonthlyBudget"\') IS NOT NULL AS "monthlyAiBudget",',
+  'EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = \'public\' AND table_name = \'ChatConversation\' AND column_name = \'channel\' AND is_nullable = \'NO\') AS "chatChannel",',
+  'EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = \'public\' AND table_name = \'Task\' AND column_name = \'investmentScoped\' AND data_type = \'boolean\' AND is_nullable = \'NO\') AS "investmentScoped",',
+  'EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = to_regclass(\'public."Task"\') AND conname = \'Task_investmentId_fkey\' AND confdeltype = \'n\') AS "taskSetNull",',
+  'EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = to_regclass(\'public."OrganizationDocument"\') AND conname = \'OrganizationDocument_investmentId_fkey\' AND confdeltype = \'n\') AS "documentSetNull",',
   'EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = \'public\' AND table_name = \'OrganizationInvestment\' AND column_name = \'assignedUserIds\' AND udt_name = \'_text\' AND is_nullable = \'NO\') AS "investmentAssignees"'
 ].join(" ");
 
@@ -26,7 +32,8 @@ async function probe({ env = process.env, db, log = console } = {}) {
   if (!Array.isArray(rows) || rows.length !== 1) {
     throw new Error("STAGING_SCHEMA_PROBE_INVALID_RESULT");
   }
-  const keys = ["whatsapp", "bankAccount", "bankStatement", "bankTransaction", "migrations", "investmentAssignees"];
+  const keys = ["whatsapp", "bankAccount", "bankStatement", "bankTransaction", "migrations", "investmentAssignees",
+    "dailyAiBudget", "monthlyAiBudget", "chatChannel", "investmentScoped", "taskSetNull", "documentSetNull"];
   const result = {};
   for (const key of keys) {
     if (typeof rows[0][key] !== "boolean") {
@@ -41,7 +48,8 @@ async function probe({ env = process.env, db, log = console } = {}) {
 async function main() {
   const db = require("../lib/prisma");
   try {
-    await probe({ db });
+    const result = await probe({ db });
+    if (Object.values(result).includes(false)) process.exitCode = 2;
   } catch (_) {
     // A connection or schema error must never echo credentials or SQL details.
     console.error("[STAGING-SCHEMA] READ_ONLY_PROBE_FAILED");

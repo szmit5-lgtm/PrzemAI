@@ -209,7 +209,7 @@ async function main() {
     });
     await ready(web + "/login");
     browser = await chromium.launch({
-      executablePath: process.env.PRZEMAI_CHROMIUM || "/usr/bin/chromium",
+      executablePath: process.env.PRZEMAI_CHROMIUM,
       args: ["--no-sandbox"], headless: true
     });
     const { conversation, ownerToken } = await browserFlow(browser, users.owner, companies);
