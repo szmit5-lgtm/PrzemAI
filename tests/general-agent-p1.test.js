@@ -57,7 +57,7 @@ test("extracts a genuine DOCX text document", async () => {
 });
 
 test("voice downloads are bounded and a mock transcriber receives only verified OGG", async () => {
-  const voice = { file_id: "file1", duration: 3, file_size: 16 };
+  const voice = { file_id: "file1", duration: 3, file_size: Buffer.byteLength("OggS synthetic") };
   const calls = [];
   const text = await transcribeTelegramVoice(voice, { token: "mock",
     fetchRequest: async (url, options) => {

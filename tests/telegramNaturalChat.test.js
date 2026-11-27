@@ -63,12 +63,13 @@ function fixture() {
   };
   let nextId = 1;
   function send(text, { messageId = nextId++, sender = 42, chatId = sender,
-    type = "private", updateId = messageId, chat } = {}) {
+    type = "private", updateId = messageId, chat, caption, document, voice, extractDocument, transcribe } = {}) {
     return handleCommand({
       db,
       update: { update_id: updateId, message: {
-        message_id: messageId, text, from: { id: sender }, chat: { id: chatId, type }
+        message_id: messageId, text, caption, document, voice, from: { id: sender }, chat: { id: chatId, type }
       } },
+      extractDocument, transcribe,
       chat: async (userId, message, id, options) => {
         calls.push({ userId, message, id, ...options });
         if (!options.sharedWebThread)
@@ -228,4 +229,70 @@ test("linked Telegram continues the exact WEB thread only in its verified compan
     ({ userId, message, id, organizationId, sharedWebThread })), [{
     userId: "linked", message: "Kontynuuj", id: "shared", organizationId: "a", sharedWebThread: true
   }]);
+});
+
+
+test("linked documents reuse the selected chat and a provider replay never extracts again", async () => {
+  const { send, calls } = fixture();
+  await send("/spolka alpha");
+  await send("Przygotuj analizę");
+  const document = { file_id: "test", file_name: "protokol.pdf", file_size: 150 };
+  let extracted = 0;
+  const options = { messageId: 700, document, caption: "Zestaw protokół", extractDocument: async media => {
+    assert.equal(media, document);
+    extracted++;
+    return { name: "protokol.pdf", text: "Treść syntetyczna." };
+  } };
+  const replies = await Promise.all([send(undefined, options), send(undefined, options)]);
+  assert.equal(replies.filter(Boolean).length, 1);
+  assert.equal(extracted, 1);
+  assert.equal(calls[1].id, calls[0].id);
+  assert.equal(calls[1].organizationId, "a");
+  assert.equal(calls[1].message, "Zestaw protokół");
+  assert.deepEqual(calls[1].attachment, { name: "protokol.pdf", text: "Treść syntetyczna." });
+});
+
+test("company changes while media is processing suppress a stale document or voice turn", async () => {
+  const { send, calls } = fixture();
+  await send("/spolka alpha");
+  assert.equal(await send(undefined, { document: { file_id: "a" }, extractDocument: async () => {
+    await send("/spolka beta");
+    return { name: "test.pdf", text: "Treść" };
+  } }), null);
+  assert.equal(await send(undefined, { voice: { file_id: "a" }, transcribe: async () => {
+    await send("/spolka alpha");
+    return "Głos";
+  } }), null);
+  assert.equal(calls.length, 0);
+});
+
+test("Telegram document downloader bounds bytes and rejects paths outside the document directory", async () => {
+  const { extractTelegramDocument } = require("../api/services/TelegramMediaService");
+  const bytes = Buffer.from("%PDF-synthetic");
+  const document = { file_id: "test_id", file_name: "synthetic.pdf", file_size: bytes.length };
+  const extractor = async ({ buffer, originalname }) => {
+    assert.deepEqual(buffer, bytes);
+    assert.equal(originalname, "synthetic.pdf");
+    return { name: originalname, text: "synthetic" };
+  };
+  const getFile = filePath => Response.json({ result: { file_path: filePath } });
+  let fetchCount = 0;
+  assert.deepEqual(await extractTelegramDocument(document, { extractor, token: "synthetic",
+    fetchRequest: async (_url, { redirect }) => {
+      assert.equal(redirect, "error");
+      return ++fetchCount === 1 ? getFile("documents/file_2.pdf") : new Response(bytes);
+    }
+  }), { name: "synthetic.pdf", text: "synthetic" });
+  for (const invalidPath of ["documents/../private.pdf", "https://elsewhere.test/file.pdf"]) {
+    fetchCount = 0;
+    await assert.rejects(extractTelegramDocument(document, { extractor, token: "synthetic",
+      fetchRequest: () => { fetchCount++; return getFile(invalidPath); }
+    }), /Unsupported Telegram file path/);
+    assert.equal(fetchCount, 1);
+  }
+  fetchCount = 0;
+  await assert.rejects(extractTelegramDocument(document, { extractor, token: "synthetic",
+    fetchRequest: () => ++fetchCount === 1 ? getFile("documents/file_2.pdf") :
+      new Response(Buffer.concat([bytes, bytes]))
+  }), /too large/);
 });

@@ -45,10 +45,12 @@ async function companyCommand({ db, organizations, userId, selectionKey, argumen
 }
 
 async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked, chat,
-  transcribe = (...args) => require("./TelegramVoiceService").transcribeTelegramVoice(...args) }) {
+  transcribe = (...args) => require("./TelegramVoiceService").transcribeTelegramVoice(...args),
+  extractDocument = (...args) => require("./TelegramMediaService").extractTelegramDocument(...args) }) {
   if (!Number.isSafeInteger(msg.message_id) || msg.message_id <= 0)
     return "Nie można potwierdzić identyfikatora wiadomości.";
-  if (text.length > 4096) return "Wiadomość jest zbyt długa.";
+  const caption = typeof msg.caption === "string" ? msg.caption.trim() : "";
+  if (text.length > 4096 || caption.length > 4096) return "Wiadomość jest zbyt długa.";
 
   // Claim before calling the shared backend. Replays must not write more turns
   // or start another agent plan, even if a worker stops after claiming.
@@ -95,18 +97,30 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
     });
   }
 
-  if (!text && msg.voice) {
-    if (!await isStillLinked()) return null;
-    try { text = await transcribe(msg.voice); }
-    catch { return "Nie udało się przetworzyć głosu. Wyślij krótkie nagranie OGG lub tekst."; }
-    if (!text.trim() || !await isStillLinked() || !await hasAccess(organizations, userId, organizationId))
-      return null;
+  let attachment = null;
+  if (!text && (msg.voice || msg.document)) {
+    const stillAuthorized = async () => await isStillLinked() &&
+      ((await getSelection())?.organizationId ?? null) === organizationId &&
+      await hasAccess(organizations, userId, organizationId);
+    if (!await stillAuthorized()) return null;
+    try {
+      if (msg.voice) text = await transcribe(msg.voice);
+      else {
+        attachment = await extractDocument(msg.document);
+        text = caption || "Przeanalizuj załącznik: " + attachment.name;
+      }
+    } catch {
+      return msg.voice
+        ? "Nie udało się przetworzyć głosu. Wyślij krótkie nagranie OGG lub tekst."
+        : "Nie udało się odczytać dokumentu. Wyślij PDF, DOCX, XLSX lub obraz do 4 MB.";
+    }
+    if (typeof text !== "string" || !text.trim() || !await stillAuthorized()) return null;
   }
   const requestId = `telegram-${telegramUserId}-${msg.message_id}`;
   let result;
   try {
     result = await chat(userId, shared ? shared[2] : text, id,
-      { organizationId, channel, requestId, ...(shared && { sharedWebThread: true }) });
+      { organizationId, channel, requestId, ...(attachment && { attachment }), ...(shared && { sharedWebThread: true }) });
   } catch (error) {
     console.error("[TelegramChat] Shared chat failed", error?.name || "Error");
     return CHAT_ERROR;

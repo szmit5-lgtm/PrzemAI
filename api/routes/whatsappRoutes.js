@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
 const { evaluateOutbound } = require("../services/WhatsAppPolicy");
+const { whatsAppContent, publicAttachment, draftForMessage } = require("../services/WhatsAppInboundService");
 const router = express.Router();
 
 // Private conversations and generated drafts must never be cached by browsers,
@@ -53,65 +54,39 @@ router.post("/webhook", async (req, res) => {
     });
     if (!org) return res.sendStatus(503);
     const entries = req.body.entry;
-    // Reject malformed deliveries rather than acknowledging and losing messages.
-    if (!Array.isArray(entries)) return res.sendStatus(503);
-    // Never silently acknowledge messages dropped by an arbitrary array cap.
-    // Validate the complete batch before writing anything. A single Meta request
-    // can contain 100 entries × 100 changes × 100 messages; per-array limits
-    // alone permit a million inserts and partial processing before a retry.
-    let messageCount = 0;
-    if (entries.length > 100) return res.sendStatus(503);
+    if (!Array.isArray(entries) || entries.length > 100) return res.sendStatus(503);
+    const incoming = [];
+    // Validate the complete bounded delivery before the first database write.
     for (const entry of entries) {
-      if (!entry || !Array.isArray(entry.changes)) return res.sendStatus(503);
-      const changes = entry.changes;
-      if (changes.length > 100) return res.sendStatus(503);
-      for (const change of changes) {
-        if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
-        if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
-        const messages = change.value.messages;
-        messageCount += messages.length;
-        if (messageCount > 100) return res.sendStatus(503);
-        // Validate the entire relevant delivery before the first database write.
-        // Otherwise a malformed later message could cause partial persistence
-        // followed by a retry, even when the earlier messages were accepted.
-        for (const message of messages) {
-          if (!message || typeof message.id !== "string" ||
-              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" ||
-              !/^\\d{6,20}$/.test(message.from)) return res.sendStatus(503);
+      if (!Array.isArray(entry?.changes) || entry.changes.length > 100) return res.sendStatus(503);
+      for (const change of entry.changes) {
+        const value = change?.value;
+        if (change?.field !== "messages" || value?.metadata?.phone_number_id !== phoneNumberId) continue;
+        // Meta uses the same field for outbound delivery receipts.
+        if (value.messages === undefined && Array.isArray(value.statuses)) continue;
+        if (!Array.isArray(value.messages) || incoming.length + value.messages.length > 100)
+          return res.sendStatus(503);
+        for (const message of value.messages) {
+          if (typeof message?.id !== "string" || !/^wamid\.[\w.+/-]{1,248}={0,2}$/.test(message.id) ||
+              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
+          incoming.push(message);
         }
       }
     }
-    for (const entry of entries) {
-      const changes = Array.isArray(entry.changes) ? entry.changes : [];
-      if (changes.length > 100) return res.sendStatus(503);
-      for (const change of changes) {
-        if (change.field !== "messages") continue;
-        const value = change.value || {};
-        const incomingPhone = value.metadata?.phone_number_id;
-        // A webhook can include unrelated phone numbers; never mix tenants.
-        if (incomingPhone !== phoneNumberId) continue;
-        const messages = Array.isArray(value.messages) ? value.messages : [];
-        if (messages.length > 100) return res.sendStatus(503);
-        for (const message of messages) {
-          if (typeof message.id !== "string" || !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
-          const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
-          const body = type === "text" && typeof message.text?.body === "string"
-            ? message.text.body.slice(0, 16000) : null;
-          const timestamp = Number(message.timestamp);
-          const receivedAt = Number.isSafeInteger(timestamp) && timestamp > 0 &&
-            timestamp < 4102444800 ? new Date(timestamp * 1000) : new Date();
-          try {
-            await prisma.whatsAppMessage.create({
-              data: { organizationId, externalMessageId: message.id,
-                phoneNumberId, contactWaId: message.from, messageType: type,
-                text: body, receivedAt }
-            });
-          } catch (error) {
-            if (error?.code !== "P2002") throw error; // duplicate Meta delivery
-          }
-        }
+    for (const message of incoming) {
+      const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
+      const content = whatsAppContent(message, type);
+      const timestamp = Number(message.timestamp);
+      const receivedAt = Number.isSafeInteger(timestamp) && timestamp > 0 &&
+        timestamp < 4102444800 ? new Date(timestamp * 1000) : new Date();
+      try {
+        await prisma.whatsAppMessage.create({
+          data: { organizationId, externalMessageId: message.id,
+            phoneNumberId, contactWaId: message.from, messageType: type,
+            ...content, receivedAt }
+        });
+      } catch (error) {
+        if (error?.code !== "P2002") throw error; // duplicate Meta delivery
       }
     }
     return res.sendStatus(200);
@@ -132,17 +107,19 @@ router.get("/organizations/:organizationId/messages", verifyToken, async (req, r
       select: { id: true }
     });
     if (!membership) return res.sendStatus(403);
-    const contactWaId = typeof req.query.contact === "string" ? req.query.contact : null;
-    if (contactWaId && !/^\d{6,20}$/.test(contactWaId))
+    const contactWaId = req.query.contact;
+    if (contactWaId !== undefined && (typeof contactWaId !== "string" || !/^\d{6,20}$/.test(contactWaId)))
       return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
     const take = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
     const data = await prisma.whatsAppMessage.findMany({
       where: { organizationId, ...(contactWaId ? { contactWaId } : {}) },
       orderBy: [{ receivedAt: "desc" }, { id: "desc" }], take,
       select: { id: true, contactWaId: true, direction: true, messageType: true,
-        text: true, receivedAt: true }
+        text: true, receivedAt: true, metadata: true }
     });
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: data.map(({ metadata, ...message }) => ({
+      ...message, attachment: publicAttachment(metadata)
+    })) });
   } catch (error) {
     console.error("WhatsApp inbox read failed:", error?.code || "UNKNOWN");
     return res.status(503).json({ success: false, error: "Skrzynka chwilowo niedostępna." });
@@ -188,11 +165,11 @@ router.post("/organizations/:organizationId/draft-preview", verifyToken, async (
     if (!membership) return res.sendStatus(403);
     const last = await prisma.whatsAppMessage.findFirst({
       where: { organizationId, contactWaId, direction: "INBOUND" },
-      orderBy: { receivedAt: "desc" },
-      select: { id: true, receivedAt: true }
+      orderBy: [{ receivedAt: "desc" }, { id: "desc" }],
+      select: { id: true, receivedAt: true, messageType: true }
     });
     if (!last) return res.status(404).json({ success: false, error: "Brak wiadomości kontaktu." });
-    const draft = "Dzień dobry, dziękujemy za wiadomość. Sprawdzimy temat i wrócimy z odpowiedzią.";
+    const draft = draftForMessage(last.messageType);
     return res.json({ success: true, contactWaId, sourceMessageId: last.id,
       draft, requiresHumanApproval: true, sent: false,
       policy: evaluateOutbound({ text: draft, globalPaused: true }) });
