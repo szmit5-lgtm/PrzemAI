@@ -27,6 +27,9 @@ function routeHarness() {
     "../middleware/verifyToken": verifyToken,
     "../controllers/ChatController": class ChatController {},
     "multer": multer,
+    "../services/ChatService": {},
+    "../services/ChatAttachmentService": { MAX_FILE: 4 * 1024 * 1024 },
+    "../services/ChatReportService": {},
     "../services/VoiceTranscriptionService": { VoiceTranscriptionService }
   };
   const context = { module: { exports: {} }, require(name) {

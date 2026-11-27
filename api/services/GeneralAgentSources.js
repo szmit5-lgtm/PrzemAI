@@ -4,6 +4,7 @@ const { OrganizationService } = require("./OrganizationService");
 const { OrganizationFinanceService } = require("./OrganizationFinanceService");
 const { visibleInvestmentWhere } = require("./OrganizationInvestmentService");
 const { normalize } = require("./InvestmentContextService");
+const { extractAttachment, MAX_FILE } = require("./ChatAttachmentService");
 const { redactText, documentReport } = require("../../lib/aiContext");
 
 const { OrganizationBankMonthlyService } = require("./OrganizationBankMonthlyService");
@@ -26,19 +27,35 @@ class GeneralAgentSources {
     this.db = db;
     this.organizations = new OrganizationService({ db });
     this.finance = new OrganizationFinanceService({ db, orgService: this.organizations });
-    const bankAccess = new OrganizationBankAccessService({ db, organizationService: this.organizations });
-    this.bankAccess = bankAccess;
-    this.bank = new OrganizationBankMonthlyService({ db, access: bankAccess });
-    this.settlements = new OrganizationSettlementService({ db, finance: this.finance, bankAccess });
+    this.bankAccess = new OrganizationBankAccessService({ db, organizationService: this.organizations });
+    this.bank = new OrganizationBankMonthlyService({ db, access: this.bankAccess });
+    this.settlements = new OrganizationSettlementService({ db, finance: this.finance, bankAccess: this.bankAccess });
     this.investmentFinance = new OrganizationInvestmentFinanceService({ db, finance: this.finance });
   }
 
-  async authorize({ userId, organizationId, agentKey, investmentIds, bankData }) {
+  async financeAccess(userId, organizationId) {
+    async function permitted(check) {
+      try { await check(); return true; }
+      catch (error) {
+        if ([403, 404].includes(error.status)) return false;
+        throw error;
+      }
+    }
+    const [invoices, bank] = await Promise.all([
+      permitted(() => this.finance.accessible(userId, organizationId)),
+      permitted(() => this.bankAccess.authorize(userId, organizationId))
+    ]);
+    return { invoices, bank };
+  }
+
+  async authorize({ userId, organizationId, agentKey, investmentIds, financialSources }) {
     if (!organizationId) return agentKey === "document";
     try {
       if (agentKey === "financial") {
-        await this.finance.accessible(userId, organizationId);
-        if (bankData) await this.bankAccess.authorize(userId, organizationId);
+        const access = await this.financeAccess(userId, organizationId);
+        if (!access.invoices && !access.bank) return false;
+        if (financialSources?.invoices && !access.invoices) return false;
+        if (financialSources?.bank && !access.bank) return false;
       }
       if (agentKey !== "financial" || investmentIds?.length) {
         const member = await this.organizations.membership(userId, organizationId,
@@ -59,19 +76,21 @@ class GeneralAgentSources {
 
   async load(scope, instruction) {
     const { userId, organizationId, agentKey } = scope;
-    if (!await this.authorize(scope)) return null;
     if (agentKey === "financial") {
+      if (!organizationId) return null;
+      const access = await this.financeAccess(userId, organizationId);
+      if (!access.invoices && !access.bank) return null;
       const text = String(instruction);
       const reference = text.match(/(?:^|\s)([a-z0-9]+(?:[/-][a-z0-9]+)+)(?=$|[\s,.?!])/i)?.[1];
       const periodText = reference ? text.replace(reference, "") : text;
       const years = [...new Set(periodText.match(/\b(?:20[2-9][0-9]|2100)\b/g) || [])].map(Number);
       const year = years.length === 1 ? years[0] : undefined;
-      const [invoiceTotals, page] = await Promise.all([
+      const [invoiceTotals, page] = access.invoices ? await Promise.all([
         this.finance.agentTotals(userId, organizationId, year),
         this.finance.documents(userId, organizationId, { limit: 25, year, reference })
-      ]);
+      ]) : [[], { items: [], hasMore: false }];
       const bankPeriods = [];
-      try {
+      if (access.bank) try {
         for (const bankYear of years.length ? years.slice(0, 5) : [new Date().getUTCFullYear()]) {
           const report = await this.bank.report(userId, organizationId, bankYear);
           if (!report.accounts.length) continue;
@@ -85,7 +104,7 @@ class GeneralAgentSources {
         if (![403, 404, 413].includes(error.status)) throw error;
       }
       const financialReports = [];
-      if (/\b(sald\w*|rozlicz\w*|platnos\w*|zaplac\w*|niezaplac\w*|prognoz\w*|nalezn\w*|zobowiaz\w*|przetermin\w*|stal\w*|invalid xml)\b/.test(normalize(text))) {
+      if (access.invoices && access.bank && /\b(sald\w*|rozlicz\w*|platnos\w*|zaplac\w*|niezaplac\w*|prognoz\w*|nalezn\w*|zobowiaz\w*|przetermin\w*|stal\w*|invalid xml)\b/.test(normalize(text))) {
         try {
           const report = await this.settlements.report(userId, organizationId, year || new Date().getUTCFullYear());
           financialReports.push({ year: report.year, asOf: report.asOf, summary: report.summary,
@@ -102,7 +121,7 @@ class GeneralAgentSources {
       }
       let investmentProfitability = [];
       let investmentIds = [];
-      if (/\b(rentownosc\w*|marz\w*|zysk\w*)\b/.test(normalize(text))) {
+      if (access.invoices && /\b(rentownosc\w*|marz\w*|zysk\w*)\b/.test(normalize(text))) {
         try {
           const member = await this.organizations.membership(userId, organizationId);
           const report = await this.investmentFinance.report(userId, organizationId, year || new Date().getUTCFullYear(), member);
@@ -116,13 +135,14 @@ class GeneralAgentSources {
         }
       }
       return {
+        financialSources: { invoices: access.invoices, bank: bankPeriods.length > 0 || financialReports.length > 0 },
         coverage: "Sumy obejmują wszystkie zapisane faktury KSeF w podanym zakresie, według daty wystawienia. " +
           "Kwoty zawierają korekty ze znakiem z KSeF. Pola missing wskazują kwoty nieznane. " +
           "Szczegóły faktur to maksymalnie 25 pozycji. Raport bankowy obejmuje wyłącznie zaimportowane operacje i potwierdzone salda. " +
           "Dane bankowe dotyczą lat jawnie wskazanych w pytaniu (maksymalnie pięciu) lub bieżącego roku. Brak okresu bankowego oznacza brak danych w kontekście. " +
-          "Prognoza to scenariusz oparty na importach i terminach płatności. Rentowność obejmuje przypisane faktury netto.",
+          "Prognoza opiera się na importach i terminach płatności. Rentowność obejmuje przypisane faktury netto. " +
+          (access.invoices ? "" : "Faktury KSeF są poza dostępnym zakresem."),
         investmentIds,
-        bankData: bankPeriods.length > 0 || financialReports.length > 0,
         invoiceTotals,
         bankPeriods,
         financialReports,
@@ -136,6 +156,7 @@ class GeneralAgentSources {
         }))
       };
     }
+    if (!await this.authorize(scope)) return null;
     if (agentKey === "investment") {
       const member = await this.organizations.membership(userId, organizationId);
       const investments = await this.db.organizationInvestment.findMany({
@@ -164,7 +185,7 @@ class GeneralAgentSources {
     const selected = rankDocuments(rows, instruction, "name");
     const documents = await Promise.all(selected.map(async row => {
       const title = redactText(row.name, 200);
-      if (row.size > 2 * 1024 * 1024) return { title, availableText: false };
+      if (row.size > MAX_FILE) return { title, availableText: false };
       const file = await this.db.organizationDocument.findFirst({
         where: { id: row.id, organizationId }, select: { content: true }
       });
@@ -173,9 +194,11 @@ class GeneralAgentSources {
       try {
         let text = "";
         if (row.contentType === "text/plain") text = bytes.toString("utf8");
-        if (row.contentType === "application/pdf") text = (await require("pdf-parse")(bytes, { max: 12 })).text;
-        if (row.contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-          text = (await require("mammoth").extractRawText({ buffer: bytes })).value;
+        else if (["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+          .includes(row.contentType)) {
+          const originalname = row.contentType === "application/pdf" ? "source.pdf" : "source.docx";
+          text = (await extractAttachment({ originalname, buffer: bytes })).text;
+        }
         return { title, text: redactText(text, 3000), availableText: Boolean(text.trim()) };
       } catch {
         return { title, availableText: false };

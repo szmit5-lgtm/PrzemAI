@@ -207,9 +207,41 @@ export async function sendChatMessage(
             message,
             conversationId,
             ...(organizationId && { organizationId }),
-            ...(requestId && { requestId })
+            ...(requestId && { requestId }),
+            background: true
         })
     });
+}
+
+export function sendChatAttachment(file, message, conversationId, organizationId) {
+    const body = new FormData();
+    body.set("file", file);
+    if (message) body.set("message", message);
+    if (conversationId) body.set("conversationId", conversationId);
+    if (organizationId) body.set("organizationId", organizationId);
+    return request("/api/chat/attachment", { method: "POST", body });
+}
+
+export async function downloadChatReport(conversationId, messageId) {
+    const path = "/api/chat/" + encodeURIComponent(conversationId) + "/report/" + encodeURIComponent(messageId);
+    const result = await fetch(path, { headers: { Authorization: "Bearer " + getToken() } });
+    if (!result.ok) throw new Error("Raport jest niedostępny.");
+    const url = URL.createObjectURL(await result.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "raport-przemai.md";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function sendChatReportToTelegram(conversationId, messageId, confirm) {
+    const path = "/api/chat/" + encodeURIComponent(conversationId) + "/telegram-report";
+    const approval = await request(path, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId })
+    });
+    if (!confirm()) return false;
+    await request(path + "/" + encodeURIComponent(approval.data.id), { method: "POST" });
+    return true;
 }
 
 export async function transcribeVoice(formData) {

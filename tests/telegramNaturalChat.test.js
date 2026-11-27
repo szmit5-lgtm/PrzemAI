@@ -53,6 +53,8 @@ function fixture() {
       }
     },
     chatConversation: {
+      findFirst: async ({ where }) => where.id === "shared" && where.userId === "linked" &&
+        where.channel === "WEB" ? { messages: [{ metadata: { organizationId: "a" } }] } : null,
       createMany: async ({ data, skipDuplicates }) => {
         assert.equal(skipDuplicates, true);
         if (!conversations.has(data.id)) conversations.set(data.id, data);
@@ -69,7 +71,8 @@ function fixture() {
       } },
       chat: async (userId, message, id, options) => {
         calls.push({ userId, message, id, ...options });
-        assert.deepEqual(conversations.get(id), { id, userId, channel: "TELEGRAM", title: "Telegram" });
+        if (!options.sharedWebThread)
+          assert.deepEqual(conversations.get(id), { id, userId, channel: "TELEGRAM", title: "Telegram" });
         return chat ? chat(userId, message, id, options) : { answer: "Odpowiedź wspólnego czatu" };
       }
     });
@@ -182,6 +185,9 @@ test("shared ChatService saves a company turn and keeps specialist results behin
     return { id: where.id };
   });
   global.prisma.chatConversation.update = async () => {};
+  global.prisma.organizationMembership = { findFirst: async ({ where }) => ({
+    userId: where.userId, organizationId: where.organizationId, role: "MEMBER"
+  }) };
   global.prisma.userSettings = { upsert: async () => ({ historyEnabled: true }) };
   global.prisma.chatMessage = {
     createMany: async ({ data }) => { messages.push(data); },
@@ -190,6 +196,7 @@ test("shared ChatService saves a company turn and keeps specialist results behin
   t.after(() => {
     delete global.prisma.chatConversation.update;
     delete global.prisma.userSettings;
+    delete global.prisma.organizationMembership;
     delete global.prisma.chatMessage;
   });
 
@@ -209,4 +216,16 @@ test("shared ChatService saves a company turn and keeps specialist results behin
     [["user", "a"], ["assistant", "a"]]);
   assert.equal(messages[1].metadata.generalPlanId, messages[0].id);
   assert.doesNotMatch(messages[1].content, /Wynik specjalisty z mocka/);
+});
+
+test("linked Telegram continues the exact WEB thread only in its verified company scope", async () => {
+  const { send, calls } = fixture();
+  assert.match((await send("/watek shared Kontynuuj")).text, /Nie znaleziono/);
+  await send("/spolka alpha");
+  assert.match((await send("/watek foreign Kontynuuj")).text, /Nie znaleziono/);
+  assert.equal((await send("/watek shared Kontynuuj")).text, "Odpowiedź wspólnego czatu");
+  assert.deepEqual(calls.map(({ userId, message, id, organizationId, sharedWebThread }) =>
+    ({ userId, message, id, organizationId, sharedWebThread })), [{
+    userId: "linked", message: "Kontynuuj", id: "shared", organizationId: "a", sharedWebThread: true
+  }]);
 });

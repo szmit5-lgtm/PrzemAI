@@ -14,7 +14,8 @@ import {
   parseChatSendResponse,parseChatArchiveResponse
 } from "@/lib/chatDashboardPayload";
 import {
-  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice,getOrganizations,getInvestmentPanel
+  sendChatMessage,getConversations,getConversation,deleteConversation,transcribeVoice,getOrganizations,
+  sendChatAttachment,downloadChatReport,sendChatReportToTelegram,getInvestmentPanel
 } from "@/lib/api";
 import {combineVoiceText,shouldSubmitVoiceTurn} from "@/lib/voiceInputPayload";
 
@@ -32,6 +33,9 @@ export default function ChatPage(){
  const [activeConversationId,setActiveConversationId]=useState(null);
  const [messages,setMessages]=useState([welcomeMessage]);
  const [message,setMessage]=useState("");
+ const [attachment,setAttachment]=useState(null);
+ const [sharedId,setSharedId]=useState(false);
+ const [reportStatus,setReportStatus]=useState("");
  const [organizations,setOrganizations]=useState([]);
  const [organizationId,setOrganizationId]=useState("");
  const selectedScope=organizations.some(org=>org.id===organizationId)?organizationId:"";
@@ -57,6 +61,24 @@ export default function ChatPage(){
  const voiceTurnRef=useRef(null);
  const loadingRef=useRef(false);
  const pendingRequestRef=useRef(null);
+
+ const hasPending=messages.some(item=>item.pending);
+ useEffect(()=>{
+   if(!activeConversationId||!hasPending)return;
+   let active=true;
+   const interval=setInterval(async ()=>{
+     try{
+       const data=parseChatDetailResponse(await getConversation(activeConversationId),activeConversationId);
+       if(!active)return;
+       const snapshot=new Map(data.messages.map(item=>[item.id,item]));
+       setMessages(items=>items.map(item=>{
+         const updated=snapshot.get(item.id);
+         return item.pending&&updated?{...item,content:updated.content,pending:Boolean(updated.metadata?.pending)}:item;
+       }));
+     }catch{}
+   },2500);
+   return ()=>{active=false;clearInterval(interval);};
+ },[activeConversationId,hasPending]);
 
  useEffect(()=>{
    let active=true;
@@ -235,6 +257,9 @@ export default function ChatPage(){
    cancelListening();
    window.speechSynthesis?.cancel();
    setActiveConversationId(null);
+   setAttachment(null);
+   setReportStatus("");
+   setSharedId(false);
    setMessages([welcomeMessage]);
    setMessage("");
    setError("");
@@ -249,10 +274,14 @@ export default function ChatPage(){
    try{
      const result=parseChatDetailResponse(await getConversation(id),id);
      setActiveConversationId(result.id);
+     setAttachment(null);
+     setReportStatus("");
+     setSharedId(false);
      const lastScope=result.messages.findLast(item=>item.role==="user")?.metadata?.organizationId;
      setOrganizationId(lastScope||"");
      setMessages(result.messages?.length?result.messages.map(m=>({
-       id:m.id,role:m.role,content:m.content
+       id:m.id,role:m.role,content:m.content,pending:Boolean(m.metadata?.pending),
+       restricted:Boolean(m.metadata?.restricted), organizationId:m.metadata?.organizationId
      })):[welcomeMessage]);
      setSidebarOpen(false);
    }catch(err){setError(err?.message||"Nie udało się otworzyć rozmowy.");}
@@ -350,13 +379,13 @@ export default function ChatPage(){
  }
  async function send(textInput){
    const text=typeof textInput==="string"?textInput.trim():message.trim();
-   if(!text||loadingRef.current||loadingConversation)return;
+   if((!text&&!attachment)||loadingRef.current||loadingConversation)return;
    loadingRef.current=true;
    setLoading(true);
    setError("");
    const temporaryId="temporary-"+Date.now();
    setMessages(current=>[...current,{
-     id:temporaryId,role:"user",content:text
+     id:temporaryId,role:"user",content:text || attachment.name
    }]);
    setMessage("");
    try{
@@ -367,11 +396,15 @@ export default function ChatPage(){
        pendingRequestRef.current={fingerprint,id};
      }
      const requestId=pendingRequestRef.current.id;
-     const result=parseChatSendResponse(await sendChatMessage(text,activeConversationId,selectedScope,requestId));
+     const result=attachment
+       ?parseChatSendResponse(await sendChatAttachment(attachment,text,activeConversationId,selectedScope))
+       :parseChatSendResponse(await sendChatMessage(text,activeConversationId,selectedScope,requestId));
+     setAttachment(null);
      pendingRequestRef.current=null;
      setActiveConversationId(result.conversationId);
      setMessages(current=>[...current,{
-       id:result.message?.id||"answer-"+Date.now(),role:"assistant",content:result.answer
+       id:result.message?.id||"answer-"+Date.now(),role:"assistant",content:result.answer,pending:Boolean(result.pending),
+       organizationId:selectedScope
      }]);
      readAnswer(result.answer);
      await loadConversations();
@@ -380,6 +413,16 @@ export default function ChatPage(){
      setMessage(text);
      setMessages(current=>current.filter(x=>x.id!==temporaryId));
    }finally{setLoading(false);loadingRef.current=false;}
+ }
+ async function reportAction(item, telegram){
+   setReportStatus("");
+   try{
+     if(telegram){
+       const sent=await sendChatReportToTelegram(activeConversationId,item.id,
+         ()=>window.confirm("Wysłać ten raport na Twoje powiązane konto Telegram?"));
+       if(sent)setReportStatus("Raport wysłany na Telegram.");
+     } else await downloadChatReport(activeConversationId,item.id);
+   }catch(error){setReportStatus(error.message);}
  }
  function handleKeyDown(event){
    if(event.key==="Enter"&&!event.shiftKey){
@@ -457,10 +500,16 @@ export default function ChatPage(){
         {organizations.map(org=><option key={org.id} value={org.id}>{org.displayName||org.name}</option>)}
        </select>
       </label>}
+      {activeConversationId&&<button type="button" onClick={()=>setSharedId(value=>!value)}
+       className="text-xs text-violet-200">Wątek na Telegramie</button>}
       <Link href="/agents" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-300/20 bg-violet-400/10 px-3 text-xs font-semibold text-violet-200 hover:bg-violet-400/15">
        <Bot size={15}/> Wszyscy agenci <ChevronRight size={13}/>
       </Link>
      </div>
+     {sharedId&&activeConversationId&&<p className="break-all px-4 py-2 text-xs text-slate-300">
+      Na powiązanym koncie wybierz ten sam zakres poleceniem /spolka, a potem wpisz /watek {activeConversationId} i swoją wiadomość.
+     </p>}
+     {reportStatus&&<p role="status" className="px-4 py-2 text-xs text-slate-300">{reportStatus}</p>}
      {error&&<p role="alert" className="mx-4 mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200 sm:mx-6">{error}</p>}
      <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-[radial-gradient(ellipse_at_top,rgba(79,70,229,.06),transparent_58%)] px-3 py-4 sm:px-7 sm:py-6" role="log" aria-label="Historia rozmowy z asystentem">
       {loadingConversation?<div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400"><LoaderCircle size={20} className="animate-spin"/> Ładowanie rozmowy…</div>:
@@ -480,6 +529,12 @@ export default function ChatPage(){
          </span>
          <div className={"max-w-[min(95%,850px)] min-w-0 break-words whitespace-pre-wrap rounded-2xl border px-4 py-3 text-sm leading-7 sm:px-5 "+(item.role==="user"?"border-blue-400/20 bg-[#244b9e] text-white":"border-white/10 bg-[#18243f] text-slate-100")}>
           {item.content}
+          {activeConversationId&&item.role==="assistant"&&item.id&&!item.pending&&!item.restricted&&
+           <div className="mt-2 flex flex-wrap gap-3 text-xs text-violet-200">
+            <button type="button" onClick={()=>reportAction(item,false)}>Pobierz raport</button>
+            {!item.organizationId&&<button type="button" onClick={()=>reportAction(item,true)}>Wyślij na Telegram</button>}
+           </div>}
+          {item.pending&&<p role="status" className="text-xs text-violet-200">Sprawdzam postęp zlecenia…</p>}
          </div>
         </div>)}
         {loading&&<div className="flex items-center gap-3 text-sm text-slate-300"><LoaderCircle size={19} className="animate-spin text-violet-300"/> PrzemAI przygotowuje odpowiedź…</div>}
@@ -509,6 +564,18 @@ export default function ChatPage(){
        {transcribing?"Przetwarzam nagranie…":listening?"Słucham… Po zakończeniu mówienia wyślę wiadomość automatycznie."
         :"Dotknij dużego mikrofonu i mów. Po zakończeniu wypowiedzi asystent odpowie także głosowo."}
       </p>}
+      {messages.some(item=>item.pending&&(item.organizationId||"")===selectedScope)&&
+       <button type="button" disabled={busy||listening||Boolean(attachment)} onClick={()=>send("Status")}
+        className="mb-2 text-xs text-violet-200">Sprawdź lub wznów zlecenie</button>}
+      <label className="mb-2 block text-xs text-slate-300">
+       Załącz PDF, DOCX, XLSX lub zdjęcie (do 4 MB)
+       <input type="file" accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" disabled={busy||listening}
+        onChange={event=>{setAttachment(event.target.files?.[0]||null);event.target.value="";}}
+        className="ml-2 max-w-full"/>
+      </label>
+      {attachment&&<button type="button" onClick={()=>setAttachment(null)} className="mb-2 text-xs text-violet-200">
+       Usuń załącznik {attachment.name}
+      </button>}
       <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/15 bg-[#0b152c] p-2 focus-within:border-violet-400/50">
        <button type="button" onClick={toggleMicrophone} disabled={!voiceReady}
         aria-label="Nagraj wiadomość głosową" aria-pressed={listening}
@@ -523,7 +590,7 @@ export default function ChatPage(){
         placeholder={listening?"Słucham Twojej wypowiedzi…":"Napisz lub dotknij mikrofonu"}
         aria-label="Wiadomość do asystenta"
         className="max-h-32 min-h-14 min-w-0 flex-1 resize-y bg-transparent px-1 py-3 text-base leading-7 text-white outline-none placeholder:text-slate-500 disabled:opacity-50 sm:px-3"/>
-       <button type="button" onClick={()=>send()} disabled={busy||listening||!message.trim()}
+       <button type="button" onClick={()=>send()} disabled={busy||listening||(!message.trim()&&!attachment)}
         aria-label="Wyślij wiadomość"
         className="inline-flex min-h-14 min-w-14 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-2 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-40 sm:px-5">
         {loading?<LoaderCircle size={20} className="animate-spin"/>:<Send size={21}/>}

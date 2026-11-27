@@ -203,10 +203,10 @@ async function main() {
     assert.equal(context.investmentProfitability[0].profitability[0].netResult,"70.00");
     assert.doesNotMatch(JSON.stringify(context),/must-not-leak|FOREIGN/);
     assert.equal(await sources.authorize({userId:employee.id,organizationId:dek.id,agentKey:"financial",
-      investmentIds:context.investmentIds,bankData:context.bankData}),true);
+      investmentIds:context.investmentIds,financialSources:context.financialSources}),true);
     await db.organizationInvestment.updateMany({where:{organizationId:dek.id},data:{assignedUserIds:[]}});
     assert.equal(await sources.authorize({userId:employee.id,organizationId:dek.id,agentKey:"financial",
-      investmentIds:context.investmentIds,bankData:context.bankData}),false);
+      investmentIds:context.investmentIds,financialSources:context.financialSources}),false);
     const dbReport=new OrganizationSettlementService({db});
     const historic=await dbReport.report(owner.id,dek.id,year,lastMonth);
     assert.equal(historic.items.length,0);

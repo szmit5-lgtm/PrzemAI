@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const { randomBytes, randomUUID, createHash } = require("node:crypto");
 const { once } = require("node:events");
-const { mkdtemp, rm } = require("node:fs/promises");
+const { mkdtemp, readFile, rm } = require("node:fs/promises");
 const { createServer } = require("node:http");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
@@ -151,16 +151,25 @@ async function browserFlow(browser, owner, companies) {
   const scope = page.getByLabel("Zakres");
   const sendFor = async (company, excluded) => {
     await scope.selectOption(companies[company].id);
-    await page.getByLabel("Wiadomość do asystenta").fill("Porównaj faktury, dokumenty i inwestycje");
+    await page.getByLabel("Wiadomość do asystenta").fill("Przygotuj raport sytuacji spółki");
     const posted = page.waitForResponse(r => r.request().method() === "POST" && r.url().endsWith("/api/chat"));
     await page.getByRole("button", { name: "Wyślij wiadomość" }).click();
     const response = await posted;
     assert.equal(response.status(), 200);
     const data = await response.json();
+    assert.equal(data.pending, true);
+    const answer = page.getByText("Faktura-" + company, { exact: false }).last();
+    const reportButton = answer.getByRole("button", { name: "Pobierz raport" });
+    await reportButton.waitFor();
+    const content = await answer.textContent();
     for (const key of ["Faktura", "Dokument", "Przypisana"])
-      assert.match(data.answer, new RegExp(key + "-" + company));
-    assert.doesNotMatch(data.answer, new RegExp(excluded));
-    await page.getByText("Financial Agent — gotowe", { exact: false }).last().waitFor();
+      assert.match(content, new RegExp(key + "-" + company));
+    assert.doesNotMatch(content, new RegExp(excluded));
+    const downloaded = page.waitForEvent("download");
+    await reportButton.click();
+    const download = await downloaded;
+    assert.equal(download.suggestedFilename(), "raport-przemai.md");
+    assert.match(await readFile(await download.path(), "utf8"), new RegExp("Faktura-" + company));
     return data.conversationId;
   };
   const conversation = await sendFor("Dekonica", "Deherus");
@@ -219,6 +228,19 @@ async function main() {
     assert.doesNotMatch(JSON.stringify(requests), /sk-syntheticE2E123/);
     console.log("WWW: login, two company scopes, three-agent plans, reopening without AI calls OK");
 
+    const memoryRequest = { token: ownerToken, body: {
+      requestId: randomUUID(), message: "Zapamiętaj, że wolę krótkie raporty"
+    } };
+    for (let replay = 0; replay < 2; replay++) {
+      const memory = await json("/api/chat", memoryRequest);
+      assert.equal(memory.status, 200);
+      assert.match(memory.data.answer, /Zapamiętałem/);
+    }
+    assert.equal(await db.memory.count({ where: { userId: users.owner.id, content: "wolę krótkie raporty" } }), 1);
+    assert.equal(await db.memory.count({ where: { userId: users.member.id } }), 0);
+    assert.equal(requests.length, 6);
+    console.log("Personal memory persists independently of model calls and deduplicates replay OK");
+
     const token = await tokenFor(users.member);
     const memberRequest = { organizationId: companies.Dekonica.id,
       requestId: randomUUID(), message: "Przeanalizuj inwestycje" };
@@ -239,7 +261,8 @@ async function main() {
     const denied = await json("/api/chat", { token, body: {
       organizationId: companies.Deherus.id, requestId: randomUUID(), message: memberRequest.message
     } });
-    assert.doesNotMatch(denied.data.answer, /Przypisana-Deherus/);
+    assert.equal(denied.status, 403);
+    assert.doesNotMatch(JSON.stringify(denied.data), /Przypisana-Deherus/);
     await db.organizationInvestment.update({ where: { id: companies.Dekonica.investment.id },
       data: { assignedUserIds: [] } });
     saved = await json(memberUrl, { token });
