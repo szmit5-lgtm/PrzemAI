@@ -168,7 +168,7 @@ async function browserFlow(browser, owner, companies) {
     const downloaded = page.waitForEvent("download");
     await reportButton.click();
     const download = await downloaded;
-    assert.equal(download.suggestedFilename(), "raport-przemai.md");
+    assert.equal(download.suggestedFilename(), "raport-przemai.rtf");
     assert.match(await readFile(await download.path(), "utf8"), new RegExp("Faktura-" + company));
     return data.conversationId;
   };

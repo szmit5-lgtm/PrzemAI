@@ -108,6 +108,9 @@ router.get("/:id/report/:messageId", verifyToken, async (req, res, next) => {
     if (!report) return res.sendStatus(404);
     res.set("Cache-Control", "private, no-store");
     res.set("X-Content-Type-Options", "nosniff");
+    if (req.query.format === "rtf")
+      return res.attachment("raport-przemai.rtf").type("application/rtf").send(reports.reportRtf(report.text));
+    if (req.query.format !== undefined && req.query.format !== "md") return res.sendStatus(400);
     return res.attachment("raport-przemai.md").type("text/plain").send(report.text);
   } catch (error) { next(error); }
 });

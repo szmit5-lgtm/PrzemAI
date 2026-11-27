@@ -12,6 +12,17 @@ async function reportFor(chat, userId, conversationId, messageId) {
   return { text: "# Raport PrzemAI\n\n" + redactText(message.content, 12000) + "\n", message };
 }
 
+function reportRtf(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const escaped = lines.map(line => line.replace(/[\\{}]|[^\x20-\x7e]/g, character => {
+    if ("\\{}".includes(character)) return "\\" + character;
+    if (character === "\t") return "\\tab ";
+    const code = character.charCodeAt(0);
+    return "\\u" + (code > 32767 ? code - 65536 : code) + "?";
+  }));
+  return "{\\rtf1\\ansi\\uc1 " + escaped.join("\\par\n") + "}";
+}
+
 function digest(text) { return createHash("sha256").update(text).digest("hex"); }
 
 async function currentBinding(db, userId) {
@@ -59,4 +70,4 @@ async function confirm({ db, chat, userId, conversationId, id, send }) {
   return true;
 }
 
-module.exports = { reportFor, prepare, confirm };
+module.exports = { reportFor, reportRtf, prepare, confirm };

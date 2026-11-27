@@ -223,13 +223,14 @@ export function sendChatAttachment(file, message, conversationId, organizationId
 }
 
 export async function downloadChatReport(conversationId, messageId) {
-    const path = "/api/chat/" + encodeURIComponent(conversationId) + "/report/" + encodeURIComponent(messageId);
-    const result = await fetch(path, { headers: { Authorization: "Bearer " + getToken() } });
+    const path = "/api/chat/" + encodeURIComponent(conversationId) + "/report/" + encodeURIComponent(messageId) + "?format=rtf";
+    const result = await fetch(path, { credentials: "same-origin", cache: "no-store" });
+    if (result.status === 401) handleExpiredSession();
     if (!result.ok) throw new Error("Raport jest niedostępny.");
     const url = URL.createObjectURL(await result.blob());
     const link = document.createElement("a");
     link.href = url;
-    link.download = "raport-przemai.md";
+    link.download = "raport-przemai.rtf";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -5,6 +5,7 @@ const { GENERAL_SOURCE, getAgentDefinition } = require("../../lib/agentCatalog")
 const GENERAL_TASKS_PER_MINUTE = 12;
 const GENERAL_WINDOW_MS = 60000;
 const GENERAL_AGENTS = Object.freeze(["financial", "document", "investment"]);
+const canDelegate = key => GENERAL_AGENTS.includes(key) || getAgentDefinition(key)?.mode === "TASK_DRAFT";
 
 function validateDispatch(body, general = false) {
   if (!body || typeof body !== "object" || Array.isArray(body))
@@ -19,7 +20,7 @@ function validateDispatch(body, general = false) {
     const agentKey = typeof item?.agentKey === "string" ? item.agentKey.trim() : "";
     const instruction = typeof item?.instruction === "string" ? item.instruction.trim() : "";
     const def = getAgentDefinition(agentKey);
-    if (!def || (general ? !GENERAL_AGENTS.includes(agentKey) : def.mode !== "TASK_DRAFT"))
+    if (!def || (general ? !canDelegate(agentKey) : def.mode !== "TASK_DRAFT"))
       throw new Error("Nieobsługiwany agent w planie.");
     if (instruction.length < 5 || instruction.length > 8000)
       throw new Error("Instrukcja musi mieć od 5 do 8000 znaków.");
@@ -94,5 +95,5 @@ async function dispatchPlan({ userId, payload, db = prisma, general = null }) {
 
 module.exports = {
   validateDispatch, dispatchPlan, lockGeneralUser,
-  GENERAL_SOURCE, GENERAL_AGENTS, GENERAL_TASKS_PER_MINUTE, GENERAL_WINDOW_MS
+  GENERAL_SOURCE, GENERAL_AGENTS, canDelegate, GENERAL_TASKS_PER_MINUTE, GENERAL_WINDOW_MS
 };

@@ -6,7 +6,7 @@ const { getAgentDefinition } = require("../../lib/agentCatalog");
 const { redactText } = require("../../lib/aiContext");
 const { normalize } = require("./InvestmentContextService");
 const {
-  dispatchPlan, lockGeneralUser, GENERAL_SOURCE, GENERAL_AGENTS,
+  dispatchPlan, lockGeneralUser, GENERAL_SOURCE, GENERAL_AGENTS, canDelegate,
   GENERAL_TASKS_PER_MINUTE, GENERAL_WINDOW_MS
 } = require("./MultiAgentDispatchService");
 const GeneralAgentSources = require("./GeneralAgentSources");
@@ -21,6 +21,8 @@ const COMPANY_REPORT = /\b(raport|podsumuj|podsumowanie|przeglad|zestawienie)\b.
 const INVOICE_LOOKUP = /\b(znajdz|odszukaj|wyszukaj|otworz|pokaz|sprawdz)\b.*\b(faktur\w*|fv|fs)\b/;
 
 function agentsFor(text, organizationId) {
+  const explicit = /^agent ([a-z]+) /.exec(text);
+  if (explicit) return canDelegate(explicit[1]) ? [explicit[1]] : [];
   if (organizationId && COMPANY_REPORT.test(text)) return GENERAL_AGENTS;
   const invoiceLookup = organizationId && INVOICE_LOOKUP.test(text);
   return GENERAL_AGENTS.filter(key => DOMAIN[key].test(text) || (invoiceLookup && key === "document"));
@@ -60,19 +62,19 @@ class GeneralAgentService {
         ...(field ? [{ metadata: { path: [field], equals: value } }] : [])
       ] },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: field ? GENERAL_AGENTS.length : 1
+      take: field ? 5 : 1
     });
   }
 
   canReadResult(task, scope) {
-    const { agentKey, investmentIds, financialSources } = task.metadata;
+    const { agentKey, investmentIds, financialSources, memoryIds } = task.metadata;
     // Earlier versions stored investment results without source provenance.
     if (agentKey === "investment" && task.status === "DONE" && !Array.isArray(investmentIds))
       return false;
     // Legacy financial reports can include bank balances without provenance.
     const required = agentKey === "financial" && task.status === "DONE"
       ? financialSources || { invoices: true, bank: true } : null;
-    return this.sources.authorize({ ...scope, agentKey, investmentIds, financialSources: required });
+    return this.sources.authorize({ ...scope, agentKey, investmentIds, financialSources: required, memoryIds });
   }
 
   async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true, background = false, attachment = null }) {
@@ -92,7 +94,7 @@ class GeneralAgentService {
         const planId = latest.metadata.planId;
         if (status) return this.readPlan(scope, planId, { resume: true, historyEnabled });
         if (!keys.length) keys = (await this.findTasks(scope, "planId", planId))
-          .map(task => task.metadata.agentKey).filter(key => GENERAL_AGENTS.includes(key));
+          .map(task => task.metadata.agentKey).filter(canDelegate);
         parentPlanId = planId;
       } else if (status && organizationId) {
         return { answer: "W tej rozmowie i wybranym zakresie nie ma zleceń agentów." };
@@ -162,6 +164,7 @@ class GeneralAgentService {
     let failureCode = null;
     let investmentIds = null;
     let financialSources = null;
+    let memoryIds = [];
     try {
       const agent = await this.db.agent.findFirst({
         where: { userId: scope.userId, key: agentKey, enabled: true }, select: { id: true }
@@ -174,7 +177,8 @@ class GeneralAgentService {
       const previousInstruction = redactText(previous?.description, 3000);
       const loaded = await this.sources.load(access, previousInstruction + " " + task.description);
       if (!loaded) throw new Error("Unavailable");
-      const { investmentIds: sourceIds, financialSources: currentFinance, ...data } = loaded;
+      const { investmentIds: sourceIds, financialSources: currentFinance, memoryIds: currentMemoryIds, ...data } = loaded;
+      memoryIds = currentMemoryIds || [];
       if (agentKey === "financial") financialSources = currentFinance || { invoices: true, bank: true };
       if (agentKey === "investment" || sourceIds?.length) investmentIds = sourceIds || [];
       const previousResult = previous?.status === "DONE" && await this.canReadResult(previous, scope)
@@ -182,6 +186,8 @@ class GeneralAgentService {
       // A continuation can cite earlier sources. Retain their provenance too.
       if (previousResult && previous.metadata.investmentIds?.length)
         investmentIds = [...new Set([...(investmentIds || []), ...previous.metadata.investmentIds])];
+      if (previousResult && previous.metadata.memoryIds?.length)
+        memoryIds = [...new Set([...memoryIds, ...previous.metadata.memoryIds])];
       if (previousResult && financialSources) {
         const inherited = previous.metadata.financialSources || { invoices: true, bank: true };
         financialSources = {
@@ -189,8 +195,8 @@ class GeneralAgentService {
           bank: financialSources.bank || inherited.bank
         };
       }
-      if (!await this.sources.authorize({ ...access, investmentIds, financialSources })) throw new Error("Unavailable");
-      if (!Object.values(data).some(value => Array.isArray(value) && value.length)) {
+      if (!await this.sources.authorize({ ...access, investmentIds, financialSources, memoryIds })) throw new Error("Unavailable");
+      if (GENERAL_AGENTS.includes(agentKey) && !Object.values(data).some(value => Array.isArray(value) && value.length)) {
         result = "Nie znaleziono zapisanych danych w tym zakresie.";
       } else {
         result = redactText(await this.ai.ask({
@@ -219,7 +225,7 @@ class GeneralAgentService {
     await this.db.task.updateMany({
       where: { ...where, status: "IN_PROGRESS", startedAt },
       data: { status: result ? "DONE" : "ERROR", completedAt: new Date(),
-        metadata: { ...task.metadata, investmentIds, financialSources, failureCode, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
+        metadata: { ...task.metadata, investmentIds, financialSources, memoryIds, failureCode, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
     });
   }
 

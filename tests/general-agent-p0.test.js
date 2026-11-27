@@ -290,3 +290,38 @@ test("a lookup can use the document specialist when the financial source is unav
   assert.match(calls[0].user, /Zapisana kwota/);
   assert.match(response.answer, /Znaleziona kwota: 100 PLN/);
 });
+
+test("explicit delegation is limited to catalog agents and shares only active personal memories", async () => {
+  assert.equal(GeneralAgentService.accepts("agent offer: przygotuj ofertę"), true);
+  assert.equal(GeneralAgentService.accepts("agent unknown: napisz coś"), false);
+  const { validateDispatch } = require("../api/services/MultiAgentDispatchService");
+  const plan = key => ({ title: "Plan testowy", assignments: [{ agentKey: key, instruction: "Przygotuj szkic" }] });
+  assert.equal(validateDispatch(plan("offer"), true).assignments[0].agentKey, "offer");
+  assert.throws(() => validateDispatch(plan("unknown"), true));
+  let enabled = true;
+  let archived = false;
+  const scope = { userId: "u", agentKey: "offer" };
+  const sources = new GeneralAgentSources({
+    userSettings: { async findUnique({ where }) {
+      assert.deepEqual(where, { userId: "u" });
+      return { memoryEnabled: enabled };
+    } },
+    memory: {
+      async findMany({ where }) {
+        assert.deepEqual(where, { userId: "u", archivedAt: null });
+        return [{ id: "m", title: "Preferencja", content: "Krótki szkic" }];
+      },
+      async count({ where }) {
+        assert.deepEqual(where, { userId: "u", archivedAt: null, id: { in: ["m"] } });
+        return archived ? 0 : 1;
+      }
+    }
+  });
+  const memory = await sources.load(scope, "");
+  assert.deepEqual(memory.memoryIds, ["m"]);
+  assert.equal(await sources.authorize({ ...scope, memoryIds: ["m"] }), true);
+  archived = true;
+  assert.equal(await sources.authorize({ ...scope, memoryIds: ["m"] }), false);
+  enabled = false;
+  assert.deepEqual(await sources.load(scope, ""), {});
+});

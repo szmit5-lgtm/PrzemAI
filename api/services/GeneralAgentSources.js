@@ -1,5 +1,6 @@
 "use strict";
 
+const { getAgentDefinition } = require("../../lib/agentCatalog");
 const { OrganizationService } = require("./OrganizationService");
 const { OrganizationFinanceService } = require("./OrganizationFinanceService");
 const { visibleInvestmentWhere } = require("./OrganizationInvestmentService");
@@ -48,8 +49,14 @@ class GeneralAgentSources {
     return { invoices, bank };
   }
 
-  async authorize({ userId, organizationId, agentKey, investmentIds, financialSources }) {
-    if (!organizationId) return agentKey === "document";
+  async authorize({ userId, organizationId, agentKey, investmentIds, financialSources, memoryIds }) {
+    if (!organizationId) {
+      if (agentKey !== "document" && getAgentDefinition(agentKey)?.mode !== "TASK_DRAFT") return false;
+      if (!memoryIds?.length) return true;
+      const settings = await this.db.userSettings.findUnique({ where: { userId }, select: { memoryEnabled: true } });
+      if (!settings?.memoryEnabled) return false;
+      return await this.db.memory.count({ where: { userId, archivedAt: null, id: { in: memoryIds } } }) === memoryIds.length;
+    }
     try {
       if (agentKey === "financial") {
         const access = await this.financeAccess(userId, organizationId);
@@ -166,6 +173,18 @@ class GeneralAgentSources {
       return { investmentIds: investments.map(row => row.id), investments: investments.map(row => ({
         name: redactText(row.name, 160), status: redactText(row.status, 40), progress: row.progress,
         description: redactText(row.description, 800)
+      })) };
+    }
+    if (agentKey !== "document") {
+      if (organizationId) return {};
+      const settings = await this.db.userSettings.findUnique({ where: { userId }, select: { memoryEnabled: true } });
+      if (!settings?.memoryEnabled) return {};
+      const memory = await this.db.memory.findMany({
+        where: { userId, archivedAt: null }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 8,
+        select: { id: true, title: true, content: true }
+      });
+      return { memoryIds: memory.map(row => row.id), memory: memory.map(row => ({
+        title: redactText(row.title, 160), content: redactText(row.content, 700)
       })) };
     }
     if (!organizationId) {

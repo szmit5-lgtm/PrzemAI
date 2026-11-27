@@ -32,7 +32,7 @@ async function checkChart(company, token, api, year, month) {
       args:["--no-sandbox"],headless:true});
     const page = await browser.newPage();
     page.on("pageerror", error => console.error("Browser error:", error.message));
-    await page.addInitScript(value=>localStorage.setItem("token",value),token);
+    await page.context().addCookies([{name:"przemai-session",value:token,url:web,httpOnly:true,sameSite:"Strict"}]);
     await page.goto(web);
     const cards=page.getByRole("region",{name:"Faktury w wybranym okresie"});
     const sales=cards.locator("section").filter({hasText:"Faktury sprzedażowe PLN"});
