@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { randomUUID } = require("node:crypto");
+const { randomInt, randomUUID } = require("node:crypto");
 const { once } = require("node:events");
 
 async function main() {
@@ -15,6 +15,7 @@ async function main() {
   const bridge = require("../api/services/TelegramBridgeService");
   const express = require("express");
   const replies = [];
+  const telegramId = randomInt(1_000_000, 1_000_000_000);
   bridge.sendTelegramMessage = async reply => { replies.push(reply); };
   process.env.TELEGRAM_WEBHOOK_SECRET = randomUUID();
   const aiCalls = [];
@@ -43,7 +44,7 @@ async function main() {
     })));
 
     async function update(messageId, text, secret = process.env.TELEGRAM_WEBHOOK_SECRET) {
-      const id = 42042;
+      const id = telegramId;
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json", "X-Telegram-Bot-Api-Secret-Token": secret },
@@ -73,7 +74,7 @@ async function main() {
     assert.match(alphaPrompt, /alpha investment/);
     assert.doesNotMatch(alphaPrompt, /beta investment/);
 
-    const web = await chat.chat(user.id, text, null, { organizationId: alpha.id, requestId: "telegram-42042-5" });
+    const web = await chat.chat(user.id, text, null, { organizationId: alpha.id, requestId: `telegram-${telegramId}-5` });
     assert.match(web.answer, /Odpowiedź z lokalnego mocka/);
     assert.equal(await update(6, "/spolka " + beta.slug), 200);
     assert.equal(await update(7, "Pokaż wyniki"), 200);
@@ -97,6 +98,12 @@ async function main() {
     assert.equal(await update(10, "Pokaż wyniki"), 200);
     assert.match(replies.at(-1).text, /Brak dostępu/);
     assert.equal(aiCalls.length, 3);
+    assert.equal(await update(11, "/spolka " + beta.slug), 200);
+    assert.equal(await update(12, "Jak się masz?"), 200);
+    assert.equal(replies.at(-1).text, "Odpowiedź z lokalnego mocka");
+    assert.equal(await update(13, "Czy możesz powiedzieć więcej?"), 200);
+    assert.match(aiCalls.at(-1).user, /Jak się masz/);
+    assert.doesNotMatch(aiCalls.at(-1).user, /alpha investment|Dzień dobry/);
     console.log("Telegram PostgreSQL E2E passed");
   } finally {
     server.close();

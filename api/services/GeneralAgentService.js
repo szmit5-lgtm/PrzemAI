@@ -57,7 +57,7 @@ class GeneralAgentService {
     return this.sources.authorize({ ...scope, agentKey, investmentIds });
   }
 
-  async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true }) {
+  async handleTurn({ userId, conversationId, organizationId = null, turnId, message, historyEnabled = true, allowScopedSmallTalk = false }) {
     const scope = { userId, conversationId, organizationId };
     if (!GeneralAgentService.accepts(message, organizationId)) return null;
     const [existing] = await this.findTasks(scope, "planId", turnId);
@@ -81,7 +81,7 @@ class GeneralAgentService {
       }
     }
 
-    if (!keys.length) return organizationId
+    if (!keys.length) return organizationId && !allowScopedSmallTalk
       ? { answer: "W zakresie spółki mogę przeanalizować zapisane finanse, dokumenty lub inwestycje. Napisz, czego dotyczy sprawa." }
       : null;
 

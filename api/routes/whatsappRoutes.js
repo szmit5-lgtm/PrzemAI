@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
 const { evaluateOutbound } = require("../services/WhatsAppPolicy");
+const { OrganizationService } = require("../services/OrganizationService");
+const { PAIRING, createLink, redeemLink, linkedUserId, prepareDraft } = require("../services/WhatsAppChatService");
 const router = express.Router();
 
 // Private conversations and generated drafts must never be cached by browsers,
@@ -46,73 +48,58 @@ router.post("/webhook", async (req, res) => {
   if (req.body?.object !== "whatsapp_business_account") return res.sendStatus(404);
   const organizationId = process.env.WHATSAPP_ORGANIZATION_ID;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  if (!organizationId || !phoneNumberId) return res.sendStatus(503);
+  if (!organizationId || !phoneNumberId) {
+    console.error("[WhatsApp] WEBHOOK_BINDING_MISSING");
+    return res.sendStatus(503);
+  }
   try {
     const org = await prisma.organization.findFirst({
       where: { id: organizationId, status: "ACTIVE" }, select: { id: true }
     });
-    if (!org) return res.sendStatus(503);
-    const entries = req.body.entry;
-    // Reject malformed deliveries rather than acknowledging and losing messages.
-    if (!Array.isArray(entries)) return res.sendStatus(503);
-    // Never silently acknowledge messages dropped by an arbitrary array cap.
-    // Validate the complete batch before writing anything. A single Meta request
-    // can contain 100 entries × 100 changes × 100 messages; per-array limits
-    // alone permit a million inserts and partial processing before a retry.
-    let messageCount = 0;
-    if (entries.length > 100) return res.sendStatus(503);
-    for (const entry of entries) {
-      if (!entry || !Array.isArray(entry.changes)) return res.sendStatus(503);
-      const changes = entry.changes;
-      if (changes.length > 100) return res.sendStatus(503);
-      for (const change of changes) {
-        if (change.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
-        if (!Array.isArray(change.value?.messages)) return res.sendStatus(503);
-        const messages = change.value.messages;
-        messageCount += messages.length;
-        if (messageCount > 100) return res.sendStatus(503);
-        // Validate the entire relevant delivery before the first database write.
-        // Otherwise a malformed later message could cause partial persistence
-        // followed by a retry, even when the earlier messages were accepted.
-        for (const message of messages) {
-          if (!message || typeof message.id !== "string" ||
-              !/^wamid\\.[\\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" ||
-              !/^\\d{6,20}$/.test(message.from)) return res.sendStatus(503);
-        }
-      }
+    if (!org) {
+      console.error("[WhatsApp] WEBHOOK_ORGANIZATION_INACTIVE_OR_MISSING");
+      return res.sendStatus(503);
     }
+    const entries = req.body.entry;
+    if (!Array.isArray(entries) || entries.length > 100) return res.sendStatus(400);
+    const deliveries = [];
     for (const entry of entries) {
-      const changes = Array.isArray(entry.changes) ? entry.changes : [];
-      if (changes.length > 100) return res.sendStatus(503);
-      for (const change of changes) {
-        if (change.field !== "messages") continue;
-        const value = change.value || {};
-        const incomingPhone = value.metadata?.phone_number_id;
-        // A webhook can include unrelated phone numbers; never mix tenants.
-        if (incomingPhone !== phoneNumberId) continue;
-        const messages = Array.isArray(value.messages) ? value.messages : [];
-        if (messages.length > 100) return res.sendStatus(503);
+      if (!Array.isArray(entry?.changes) || entry.changes.length > 100) return res.sendStatus(400);
+      for (const change of entry.changes) {
+        if (change?.field !== "messages" || change.value?.metadata?.phone_number_id !== phoneNumberId) continue;
+        const { messages, statuses } = change.value;
+        if (messages === undefined && Array.isArray(statuses)) continue;
+        if (!Array.isArray(messages) || deliveries.length + messages.length > 100) return res.sendStatus(400);
         for (const message of messages) {
-          if (typeof message.id !== "string" || !/^wamid\.[\w.-]{1,250}$/.test(message.id) ||
-              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) return res.sendStatus(503);
-          const type = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
-          const body = type === "text" && typeof message.text?.body === "string"
+          if (typeof message?.id !== "string" || !/^wamid\.[\w.+/=\-]{1,250}$/.test(message.id) ||
+              typeof message.from !== "string" || !/^\d{6,20}$/.test(message.from)) return res.sendStatus(400);
+          const messageType = typeof message.type === "string" ? message.type.slice(0, 40) : "unknown";
+          const body = messageType === "text" && typeof message.text?.body === "string"
             ? message.text.body.slice(0, 16000) : null;
+          const pairing = PAIRING.exec(body?.trim() || "");
           const timestamp = Number(message.timestamp);
           const receivedAt = Number.isSafeInteger(timestamp) && timestamp > 0 &&
             timestamp < 4102444800 ? new Date(timestamp * 1000) : new Date();
-          try {
-            await prisma.whatsAppMessage.create({
-              data: { organizationId, externalMessageId: message.id,
-                phoneNumberId, contactWaId: message.from, messageType: type,
-                text: body, receivedAt }
-            });
-          } catch (error) {
-            if (error?.code !== "P2002") throw error; // duplicate Meta delivery
-          }
+          deliveries.push({
+            code: pairing?.[1],
+            data: { organizationId, phoneNumberId, contactWaId: message.from,
+              externalMessageId: message.id, messageType: pairing ? "pairing" : messageType,
+              text: pairing ? null : body, receivedAt }
+          });
         }
       }
+    }
+    if (deliveries.length) {
+      await prisma.$transaction(async tx => {
+        for (const { code, data } of deliveries) {
+          if (data.messageType === "text" && data.text) {
+            const chatUserId = await linkedUserId(tx, data);
+            if (chatUserId) data.metadata = { chatUserId };
+          }
+          const inserted = await tx.whatsAppMessage.createMany({ data, skipDuplicates: true });
+          if (inserted.count && code) await redeemLink(tx, data, code);
+        }
+      });
     }
     return res.sendStatus(200);
   } catch (error) {
@@ -175,28 +162,42 @@ router.get("/organizations/:organizationId/conversations", verifyToken, async (r
   }
 });
 
+router.post("/organizations/:organizationId/link-code", verifyToken, async (req, res) => {
+  const { organizationId } = req.params;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!phoneNumberId || organizationId !== process.env.WHATSAPP_ORGANIZATION_ID)
+    return res.sendStatus(403);
+  try {
+    return res.status(201).json({ success: true, data: await createLink(prisma, req.user.id, organizationId, phoneNumberId) });
+  } catch (error) {
+    if (error.status === 403) return res.sendStatus(403);
+    console.error("[WhatsApp] Link creation failed", error?.code || "UNKNOWN");
+    return res.sendStatus(503);
+  }
+});
+
 router.post("/organizations/:organizationId/draft-preview", verifyToken, async (req, res) => {
-  const organizationId = req.params.organizationId;
+  const { organizationId } = req.params;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const contactWaId = req.body?.contactWaId;
   if (typeof contactWaId !== "string" || !/^\d{6,20}$/.test(contactWaId))
     return res.status(400).json({ success: false, error: "Nieprawidłowy kontakt." });
+  if (!phoneNumberId || organizationId !== process.env.WHATSAPP_ORGANIZATION_ID)
+    return res.sendStatus(403);
   try {
-    const membership = await prisma.organizationMembership.findFirst({
-      where: { organizationId, userId: req.user.id, status: "ACTIVE",
-        organization: { status: "ACTIVE" } }, select: { id: true }
-    });
-    if (!membership) return res.sendStatus(403);
+    await new OrganizationService({ db: prisma }).membership(req.user.id, organizationId);
+    const scope = { organizationId, phoneNumberId, contactWaId };
     const last = await prisma.whatsAppMessage.findFirst({
-      where: { organizationId, contactWaId, direction: "INBOUND" },
-      orderBy: { receivedAt: "desc" },
-      select: { id: true, receivedAt: true }
+      where: { ...scope, direction: "INBOUND", messageType: "text", text: { not: null } },
+      orderBy: [{ receivedAt: "desc" }, { id: "desc" }]
     });
-    if (!last) return res.status(404).json({ success: false, error: "Brak wiadomości kontaktu." });
-    const draft = "Dzień dobry, dziękujemy za wiadomość. Sprawdzimy temat i wrócimy z odpowiedzią.";
+    if (!last?.text?.trim()) return res.sendStatus(404);
+    const draft = await prepareDraft(prisma, scope, req.user.id, last);
     return res.json({ success: true, contactWaId, sourceMessageId: last.id,
       draft, requiresHumanApproval: true, sent: false,
       policy: evaluateOutbound({ text: draft, globalPaused: true }) });
   } catch (error) {
+    if (error.status === 403 || error.status === 409) return res.sendStatus(error.status);
     console.error("WhatsApp draft preview failed:", error?.code || "UNKNOWN");
     return res.status(503).json({ success: false, error: "Podgląd szkicu niedostępny." });
   }

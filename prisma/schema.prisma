@@ -550,6 +550,7 @@ model WhatsAppMessage {
   messageType String
   text String?
   receivedAt DateTime @default(now())
+  draftState String?
   metadata Json?
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

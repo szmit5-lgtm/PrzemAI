@@ -43,3 +43,12 @@ Obsługa uprawnionych konwersacji WhatsApp indywidualnych z zachowaniem obecnego
 - Pauza zatrzymuje wysyłanie; awaria webhooku nie powoduje dubli.
 - Nie ma deklaracji obsługi grup w czasie rzeczywistym ani dostępu do prywatnej historii, którego API nie zapewnia.
 - Brak aktywacji produkcyjnej przed testami i zgodą właściciela.
+
+
+## Powiązanie konta i czat
+
+1. Użytkownik z aktywnym członkostwem w skonfigurowanej spółce pobiera jednorazowy kod z `POST /api/whatsapp/organizations/{organizationId}/link-code` z JWT.
+2. Wysyła zwrócony tekst z własnego konta WhatsApp. Podpisany webhook wiąże nadawcę z użytkownikiem w tej spółce i dla skonfigurowanego numeru. Kod wygasa po 10 minutach, a jego treść nie trafia do skrzynki.
+3. Kolejne zwykłe wiadomości trafiają do skrzynki. `POST /api/whatsapp/organizations/{organizationId}/draft-preview` z `contactWaId` przygotowuje szkic dla najnowszej wiadomości tekstowej za pomocą wspólnego czatu PrzemAI. Szkic jest dostępny dla powiązanego użytkownika z aktywnym członkostwem, wymaga zatwierdzenia i nie jest wysyłany przez to API.
+
+WhatsApp i Telegram utrzymują osobne trwałe rozmowy dla każdego konta i zakresu. W zakresie spółki General Agent stosuje dotychczasowe uprawnienia do źródeł. Zwykła rozmowa w tym zakresie korzysta z wcześniejszych tur tej rozmowy, bez dostępu do prywatnej pamięci lub historii użytkownika.

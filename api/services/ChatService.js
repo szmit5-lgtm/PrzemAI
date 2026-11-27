@@ -28,8 +28,8 @@ class ChatService {
         if (typeof message !== "string" || !message.trim() || message.length > 12000)
             throw new Error("Nieprawidłowa wiadomość.");
 
-        const settings =
-            await SettingsService.get(userId);
+        const settings = await SettingsService.get(userId);
+        const scopedChannel = Boolean(organizationId && channel !== "WEB");
 
         const requestKey = requestId && GeneralAgentService.accepts(message, organizationId)
             ? requestIdentifier(userId, requestId, channel) : null;
@@ -64,7 +64,8 @@ class ChatService {
 
         const delegated = await this.general.handleTurn({
             userId, conversationId: conversation.id, organizationId,
-            turnId: turn.id, message, historyEnabled: settings.historyEnabled
+            turnId: turn.id, message, historyEnabled: settings.historyEnabled,
+            allowScopedSmallTalk: scopedChannel
         });
         if (delegated) {
             const metadata = delegated.planId
@@ -88,11 +89,11 @@ class ChatService {
             previousMessages
         ] = await Promise.all([
 
-            settings.executiveMode
+            !scopedChannel && settings.executiveMode
                 ? TaskService.list(userId)
                 : Promise.resolve([]),
 
-            settings.historyEnabled
+            !scopedChannel && settings.historyEnabled
                 ? prisma.history.findMany({
 
                     where: {
@@ -117,7 +118,7 @@ class ChatService {
                 })
                 : Promise.resolve([]),
 
-            settings.memoryEnabled
+            !scopedChannel && settings.memoryEnabled
                 ? MemoryService.list(userId)
                 : Promise.resolve([]),
 
@@ -147,7 +148,9 @@ class ChatService {
 
         const conversationHistory =
             previousMessages
-                .filter(item => !item.metadata?.organizationId)
+                .filter(item => scopedChannel
+                    ? item.metadata?.organizationId === organizationId && !item.metadata?.generalPlanId
+                    : !item.metadata?.organizationId)
                 .reverse()
                 .map(item => ({
 
@@ -272,9 +275,14 @@ ${redactText(message, 12000)}
         const answer =
             await this.ai.ask({
 
-                system: systemPrompt,
+                system: scopedChannel
+                    ? "Jesteś PrzemAI. Odpowiadaj po polsku na podstawie rozmowy. Nie twierdź, że widzisz dane spółki."
+                    : systemPrompt,
 
-                user: prompt,
+                user: scopedChannel ? JSON.stringify({
+                    conversation: conversationHistory, message: redactText(message, 12000)
+                }) : prompt,
+                ...(scopedChannel && { maxOutputTokens: 512, requestOptions: { timeout: 15000, maxRetries: 0 } }),
 
                 model:
                     settings.aiModel ||
@@ -286,7 +294,9 @@ ${redactText(message, 12000)}
             await this.createMessage(
                 conversation.id,
                 "assistant",
-                answer
+                answer,
+                scopedChannel ? messageScope : undefined,
+                replyId
             );
 
         await prisma.chatConversation.update({
@@ -304,7 +314,7 @@ ${redactText(message, 12000)}
 
         let savedMemories = [];
 
-        if (settings.memoryEnabled) {
+        if (!scopedChannel && settings.memoryEnabled) {
 
             try {
 
@@ -499,7 +509,8 @@ ${redactText(message, 12000)}
 
     async getConversation(
         userId,
-        conversationId
+        conversationId,
+        channel = "WEB"
     ) {
 
         const conversation = await prisma.chatConversation
@@ -509,7 +520,7 @@ ${redactText(message, 12000)}
 
                     id: conversationId,
                     userId,
-                    channel: "WEB",
+                    channel,
                     archivedAt: null
 
                 },
