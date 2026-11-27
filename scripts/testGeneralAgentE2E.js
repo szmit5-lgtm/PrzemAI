@@ -149,7 +149,7 @@ async function browserFlow(browser, owner, companies) {
   const scope = page.getByLabel("Zakres");
   const sendFor = async (company, excluded) => {
     await scope.selectOption(companies[company].id);
-    await page.getByLabel("Wiadomość do asystenta").fill("Porównaj faktury, dokumenty i inwestycje");
+    await page.getByLabel("Wiadomość do asystenta").fill("Przygotuj raport sytuacji spółki");
     const posted = page.waitForResponse(r => r.request().method() === "POST" && r.url().endsWith("/api/chat"));
     await page.getByRole("button", { name: "Wyślij wiadomość" }).click();
     const response = await posted;

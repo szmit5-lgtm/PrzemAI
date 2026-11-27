@@ -80,9 +80,10 @@ class ChatService {
                 remembered = "Zapamiętałem tę informację w Twojej pamięci osobistej.";
             }
         }
-        const delegated = remembered ? { answer: remembered } : !attachment && await this.general.handleTurn({
+        const compareAttachment = attachment && organizationId && /\b(porównaj|porownaj|zestaw|zweryfikuj)\b/iu.test(message);
+        const delegated = remembered ? { answer: remembered } : (!attachment || compareAttachment) && await this.general.handleTurn({
             userId, conversationId: conversation.id, organizationId,
-            turnId: turn.id, message, historyEnabled: settings.historyEnabled, background
+            turnId: turn.id, message, historyEnabled: settings.historyEnabled, background, attachment
         });
         if (delegated) {
             const metadata = delegated.planId

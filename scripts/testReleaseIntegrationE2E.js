@@ -115,6 +115,12 @@ async function main() {
     let providerCalls = 0;
     const options = { db, limit: () => 10000, monthly, priceBounds,
       fetchRequest: async () => { providerCalls++; return new Response(); } };
+    const guarded = openAIRequestPolicy(options);
+    await assert.rejects(guarded.fetch("http://127.0.0.1/v1/audio/transcriptions", init),
+      { code: "AI_UNMETERED_REQUEST" });
+    await assert.rejects(openAIRequestPolicy({ ...options, priceBounds: "{}" }).fetch(url, init),
+      { code: "AI_PRICE_UNAVAILABLE" });
+    assert.equal(providerCalls, 0);
     const requests = Array.from({ length: 10 }, () => openAIRequestPolicy(options).fetch(url, init));
     const results = await Promise.allSettled(requests);
     assert.equal(results.filter(result => result.status === "fulfilled").length, 2);
