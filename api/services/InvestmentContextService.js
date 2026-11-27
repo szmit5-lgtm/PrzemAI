@@ -17,7 +17,13 @@ function mentionedProject(name,text){
 async function investmentContext({userId,instruction,db=prisma}={}){
  if(typeof userId!=="string"||!userId||typeof instruction!=="string")return "";
  const records=await db.organizationInvestment.findMany({
-  where:{organization:{memberships:{some:{userId,status:"ACTIVE"}}}},
+  where:{
+   organization:{status:"ACTIVE",memberships:{some:{userId,status:"ACTIVE"}}},
+   OR:[
+    {assignedUserIds:{has:userId}},
+    {organization:{memberships:{some:{userId,status:"ACTIVE",role:{in:["OWNER","ADMIN"]}}}}}
+   ]
+  },
   orderBy:{updatedAt:"desc"},take:100,
   select:{name:true,status:true,progress:true,description:true,
     organization:{select:{name:true}}}

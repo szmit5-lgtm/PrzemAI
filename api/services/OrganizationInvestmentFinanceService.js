@@ -135,7 +135,64 @@ class OrganizationInvestmentFinanceService{
  constructor({db=prisma,finance=null}={}){
   this.db=db;this.finance=finance||new OrganizationFinanceService({db});
  }
- async report(userId,organizationId,yearInput){
+ async catalog(userId,organizationId){
+  const {items:projects}=await this.finance.projects(userId,organizationId);
+  const investments=await this.db.organizationInvestment.findMany({
+   where:{organizationId},select:{id:true,name:true,status:true,progress:true,assignedUserIds:true},
+   take:MAX_INVESTMENTS+1
+  });
+  if(projects.length>=MAX_PROJECTS||investments.length>MAX_INVESTMENTS)
+   throw new OrganizationError("Katalog jest zbyt duży do jednoznacznego powiązania z KSeF.",413);
+  return {investments,projects};
+ }
+ async visibleProjects(userId,organizationId,role){
+  if(["OWNER","ADMIN"].includes(role))return null;
+  const {investments,projects}=await this.catalog(userId,organizationId);
+  const assigned=new Set(investments.filter(row=>row.assignedUserIds.includes(userId)).map(row=>row.id));
+  const mapping=reportForProjects({investments,projects,documents:[]});
+  const allowed=new Set(mapping.investments.filter(row=>assigned.has(row.id)).map(row=>row.legacyProjectId));
+  return projects.filter(project=>allowed.has(project.id));
+ }
+ async forInvestment(userId,organizationId,investment,yearInput,offsetInput){
+  const year=Number(yearInput);
+  const offset=Number(offsetInput ?? 0);
+  if(!Number.isInteger(year)||year<2020||year>2100||
+     !Number.isInteger(offset)||offset<0||offset>=MAX_DOCUMENTS)
+   throw new OrganizationError("Nieprawidłowy rok lub przesunięcie faktur.",400);
+  const link=await this.finance.accessible(userId,organizationId);
+  const {investments,projects}=await this.catalog(userId,organizationId);
+
+  const reportInput={organizationId,year,investments,projects,nip:link.nip};
+  const mapping=reportForProjects({...reportInput,documents:[]}).investments.find(row=>row.id===investment.id);
+  if(!mapping?.legacyProjectId)
+   return {year,mapping:mapping?.accountMapping||"UNLINKED",totals:[],months:[],invoices:[],nextOffset:null};
+
+  const documents=await this.db.financialDocument.findMany({
+   where:{
+    ...ksefDocPredicate(link.ownerUserId,link.nip),
+    projectId:mapping.legacyProjectId,
+    issueDate:{gte:new Date(Date.UTC(year,0,1)),lt:new Date(Date.UTC(year+1,0))},
+    AND:[{OR:[
+     {direction:"INCOMING",buyerNip:link.nip,OR:[{sellerNip:null},{sellerNip:{not:link.nip}}]},
+     {direction:"OUTGOING",sellerNip:link.nip,OR:[{buyerNip:null},{buyerNip:{not:link.nip}}]}
+    ]}]
+   },
+   select:{id:true,invoiceNumber:true,projectId:true,issueDate:true,direction:true,
+    sellerNip:true,buyerNip:true,currency:true,netAmount:true,vatAmount:true,grossAmount:true},
+   orderBy:[{issueDate:"desc"},{id:"desc"}],take:MAX_DOCUMENTS+1
+  });
+  if(documents.length>MAX_DOCUMENTS)
+   throw new OrganizationError("Za dużo faktur w wybranym roku.",413);
+
+  const eligible=documents.filter(doc=>assignedCompanyDirection(doc,link.nip)&&/^[A-Z]{3}$/.test(doc.currency.toUpperCase()));
+  const row=reportForProjects({...reportInput,documents:eligible}).investments.find(item=>item.id===investment.id);
+  const invoices=eligible.slice(offset,offset+50).map(({id,invoiceNumber,issueDate,direction,currency,grossAmount})=>({
+   id,invoiceNumber,issueDate,direction,currency:currency.toUpperCase(),grossAmount
+  }));
+  return {year,mapping:row.accountMapping,totals:row.totals,months:row.months,invoices,
+   nextOffset:offset+50<eligible.length?offset+50:null};
+ }
+ async report(userId,organizationId,yearInput,member=null){
   // The organization’s finance permission is checked before fetching
   // its accounting project catalog, invoices or investment names.
   const link=await this.finance.accessible(userId,organizationId);
@@ -147,7 +204,7 @@ class OrganizationInvestmentFinanceService{
   if(projects.length>=MAX_PROJECTS)
    throw new OrganizationError("Za dużo projektów KSeF do jednoznacznego raportu.",413);
   const investments=await this.db.organizationInvestment.findMany({
-   where:{organizationId},select:{id:true,name:true,status:true,progress:true},
+   where:{organizationId},select:{id:true,name:true,status:true,progress:true,assignedUserIds:true},
    orderBy:[{name:"asc"},{id:"asc"}],take:MAX_INVESTMENTS+1
   });
   if(investments.length>MAX_INVESTMENTS)
@@ -162,7 +219,13 @@ class OrganizationInvestmentFinanceService{
   });
   if(documents.length>MAX_DOCUMENTS)
    throw new OrganizationError("Za dużo faktur do jednego raportu. Zawęź zakres roku.",413);
-  return reportForProjects({organizationId,year,investments,projects,documents,nip:link.nip});
+  const report=reportForProjects({organizationId,year,investments,projects,documents,nip:link.nip});
+  if(!member||["OWNER","ADMIN"].includes(member.role))return report;
+  const assigned=new Set(investments.filter(item=>item.assignedUserIds.includes(userId)).map(item=>item.id));
+  const visible=report.investments.filter(item=>assigned.has(item.id));
+  return {...report,investments:visible,otherKsefProjects:[],
+   counts:{matchedInvoices:visible.reduce((sum,item)=>sum+item.documents,0)}};
+
  }
 }
 module.exports={OrganizationInvestmentFinanceService,reportForProjects,

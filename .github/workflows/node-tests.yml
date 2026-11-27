@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/agent-runtime-finance-mail
+      - feature/messaging-natural-chat
+      - release/przemai-p0-integration
   pull_request:
   workflow_dispatch:
 
@@ -14,8 +16,23 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_DB: przemai_p0_e2e_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -24,5 +41,40 @@ jobs:
         run: npm ci
       - name: Generate Prisma client
         run: npx prisma generate
+      - name: Prepare release browser tests
+        if: contains(fromJSON('["release/przemai-p0-integration","feature/messaging-natural-chat"]'), github.head_ref || github.ref_name)
+        run: |
+          npm ci --prefix frontend
+          mkdir -p "$RUNNER_TEMP/przemai-e2e"
+          npm install --prefix "$RUNNER_TEMP/przemai-e2e" --no-save --no-package-lock playwright@1.58.2
+          chrome=$(command -v google-chrome || command -v chromium)
+          {
+            echo "PRZEMAI_CHROMIUM=$chrome"
+            echo "NODE_PATH=$RUNNER_TEMP/przemai-e2e/node_modules"
+          } >> "$GITHUB_ENV"
+      - name: Native Prisma upgrade, rollback and application rehearsal
+        if: contains(fromJSON('["release/przemai-p0-integration","feature/messaging-natural-chat"]'), github.head_ref || github.ref_name)
+        env:
+          DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_ci
+        run: |
+          set -o pipefail
+          log=$(mktemp)
+          if ! {
+            bash scripts/testNativePrismaRollback.sh &&
+            node scripts/testReleaseIntegrationE2E.js &&
+            node scripts/testGeneralAgentE2E.js &&
+            node scripts/testTelegramChatE2E.js &&
+            node scripts/testWhatsAppChatE2E.js &&
+            node scripts/testFinancialAgentE2E.js
+          } 2>&1 | tee "$log"; then
+            details=$(tail -25 "$log")
+            details=${details//%/%25}
+            details=${details//$'\r'/%0D}
+            details=${details//$'\n'/%0A}
+            echo "::error title=Native Prisma rehearsal failed::$details"
+            exit 1
+          fi
       - name: Run Node tests
         run: npm test
+      - name: Run frontend and API tests
+        run: node --test frontend/tests/*.test.mjs api/tests/*.test.js

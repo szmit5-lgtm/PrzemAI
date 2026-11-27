@@ -1,5 +1,6 @@
 "use strict";
 const OpenAI = require("openai");
+const { openAIRequestPolicy } = require("../../lib/openAIRequestPolicy");
 const { toFile } = require("openai/uploads");
 
 // Transcription is invoked only after an explicit microphone action. Audio is
@@ -7,8 +8,7 @@ const { toFile } = require("openai/uploads");
 class VoiceTranscriptionService {
   constructor({ createClient = () => new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 30000,
-    maxRetries: 1
+    ...openAIRequestPolicy()
   }) } = {}) {
     this.createClient = createClient;
   }

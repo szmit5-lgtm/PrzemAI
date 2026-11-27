@@ -140,7 +140,12 @@ async function browserFlow(browser, owner, companies) {
   ]);
   const ownerToken = await page.evaluate(() => localStorage.getItem("token"));
   assert.ok(ownerToken);
-  await page.goto(web + "/chat");
+  const investment = companies.Dekonica.investment;
+  await page.locator('a[href="/company/' + companies.Dekonica.id + '/investments/' + investment.id + '"]').click();
+  await page.getByRole("heading", { name: investment.name, exact: true }).waitFor();
+  await page.getByRole("link", { name: "General Agent", exact: true }).click();
+  await page.waitForFunction(name => document.querySelector("textarea")?.value.includes(name), investment.name);
+  assert.equal(await page.getByLabel("Zakres").inputValue(), companies.Dekonica.id);
   const scope = page.getByLabel("Zakres");
   const sendFor = async (company, excluded) => {
     await scope.selectOption(companies[company].id);
@@ -189,6 +194,7 @@ async function main() {
       ...(process.env.PRZEMAI_E2E_PRISMA_TOOLS && { PRZEMAI_E2E_PRISMA_TOOLS: process.env.PRZEMAI_E2E_PRISMA_TOOLS }),
       JWT_SECRET: jwtSecret, PORT: "3031", FRONTEND_URL: web,
       OPENAI_API_KEY: "local-mock-only",
+      OPENAI_PRICE_BOUNDS_JSON: JSON.stringify({ "gpt-5.5": { input: 1, output: 1, validUntil: new Date(Date.now() + 3600000).toISOString() } }),
       OPENAI_BASE_URL: "http://127.0.0.1:" + mock.address().port + "/v1",
       TELEGRAM_NOTIFICATIONS_ENABLED: "false"
     };
@@ -203,7 +209,7 @@ async function main() {
     });
     await ready(web + "/login");
     browser = await chromium.launch({
-      executablePath: process.env.PRZEMAI_CHROMIUM || "/usr/bin/chromium",
+      executablePath: process.env.PRZEMAI_CHROMIUM,
       args: ["--no-sandbox"], headless: true
     });
     const { conversation, ownerToken } = await browserFlow(browser, users.owner, companies);

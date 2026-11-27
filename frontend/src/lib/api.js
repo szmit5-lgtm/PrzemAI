@@ -459,6 +459,40 @@ export async function replyToAgentAssignment(key,id,message) {
     });
 }
 
+function investmentEndpoint(orgId, investmentId) {
+    return "/api/organizations/" + encodeURIComponent(orgId) + "/investments/" + encodeURIComponent(investmentId);
+}
+
+export function getInvestmentPanel(orgId, investmentId, signal) {
+    return request(investmentEndpoint(orgId, investmentId), { signal, cache: "no-store" });
+}
+
+export function getInvestmentFinance(orgId, investmentId, year, offset, signal) {
+    return request(investmentEndpoint(orgId, investmentId) + "/finance?" +
+        new URLSearchParams({ year, offset }), { signal, cache: "no-store" });
+}
+
+export function attachInvestmentRecord(orgId, investmentId, recordId, kind) {
+    return request(investmentEndpoint(orgId, investmentId) + "/records", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId, kind })
+    });
+}
+
+export function createInvestmentTask(orgId, investmentId, title) {
+    return request(investmentEndpoint(orgId, investmentId) + "/tasks", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title })
+    });
+}
+
+export function changeInvestmentTaskStatus(orgId, investmentId, taskId, status) {
+    return request(investmentEndpoint(orgId, investmentId) + "/tasks/" + encodeURIComponent(taskId), {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+    });
+}
+
 export async function getOrganizationInvestments(orgId) {
   return request("/api/organizations/" + encodeURIComponent(orgId) + "/investments");
 }
@@ -488,19 +522,21 @@ export async function getOrganizationDocuments(orgId) {
   return request("/api/organizations/" + encodeURIComponent(orgId) + "/documents");
 }
 
-export async function uploadOrganizationDocument(orgId, file) {
+export async function uploadOrganizationDocument(orgId, file, investmentId, report = false) {
   const body = new FormData();
   body.append("file", file);
-  return request("/api/organizations/" + encodeURIComponent(orgId) + "/documents", {
+  const query = investmentId ? "?" + new URLSearchParams({ investmentId, report }) : "";
+  return request("/api/organizations/" + encodeURIComponent(orgId) + "/documents" + query, {
     method: "POST", body
   });
 }
 
-export async function downloadOrganizationDocument(orgId, documentId) {
+export async function downloadOrganizationDocument(orgId, documentId, investmentId) {
   const token = getToken();
   if (!token) throw new Error("Zaloguj się, aby pobrać dokument.");
   const response = await fetch("/api/organizations/" + encodeURIComponent(orgId) +
-    "/documents/" + encodeURIComponent(documentId) + "/download", {
+    "/documents/" + (investmentId ? "investment/" + encodeURIComponent(investmentId) + "/" : "") +
+    encodeURIComponent(documentId) + "/download", {
     headers: { Authorization: "Bearer " + token }, cache: "no-store"
   });
   if (response.status === 401) {
@@ -599,6 +635,11 @@ export async function getOrganizationFinanceAnnualReport(orgId,year){
 export async function getOrganizationFinanceDocuments(orgId,{offset=0,limit=50}={}){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/documents?"+
   new URLSearchParams({offset:String(offset),limit:String(limit)}).toString());
+}
+export async function assignOrganizationFinanceProject(orgId,documentId,projectId){
+ return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/documents/"+
+  encodeURIComponent(documentId)+"/project",{method:"PATCH",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId})});
 }
 export async function getOrganizationFinanceProjects(orgId){
  return request("/api/organizations/"+encodeURIComponent(orgId)+"/finance/projects");

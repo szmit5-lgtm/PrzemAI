@@ -8,8 +8,11 @@ const SELECT = {
   status: true, progress: true, source: true, assignedUserIds: true, createdAt: true, updatedAt: true
 };
 
+const managers = ["OWNER", "ADMIN"];
+const publicSelect = Object.fromEntries(Object.entries(SELECT).filter(([key]) => key !== "assignedUserIds"));
+
 function visibleInvestmentWhere(member, userId, organizationId) {
-  return ["OWNER", "ADMIN"].includes(member.role)
+  return managers.includes(member.role)
     ? { organizationId }
     : { organizationId, assignedUserIds: { has: userId } };
 }
@@ -21,15 +24,9 @@ class OrganizationInvestmentService {
   }
 
   async list(userId, organizationId) {
-    // Active organization membership is required; staff see only assigned projects.
-    // KSeF, invoices and bank statements are deliberately not queried.
     const member = await this.orgService.membership(userId, organizationId);
-    // Non-admin users can only see projects explicitly assigned to them.
-    // An organization membership must never imply access to every investment.
     const where = visibleInvestmentWhere(member, userId, organizationId);
-    // Do not disclose other employees' identifiers to ordinary members.
-    const select = ["OWNER", "ADMIN"].includes(member.role)
-      ? SELECT : Object.fromEntries(Object.entries(SELECT).filter(([key]) => key !== "assignedUserIds"));
+    const select = managers.includes(member.role) ? SELECT : publicSelect;
     const rows = await this.db.organizationInvestment.findMany({
       where,
       select,
@@ -37,6 +34,60 @@ class OrganizationInvestmentService {
       take: 150
     });
     return { items: rows, scope: "ORGANIZATION_PROJECTS_ONLY" };
+  }
+
+  async requireInvestment(userId, organizationId, investmentId) {
+    const member = await this.orgService.membership(userId, organizationId);
+    const investment = await this.db.organizationInvestment.findFirst({
+      where: { id: investmentId, ...visibleInvestmentWhere(member, userId, organizationId) },
+      select: publicSelect
+    });
+    if (!investment) throw new OrganizationError("Nie znaleziono dostępnej inwestycji.", 404);
+    return { investment, canManage: managers.includes(member.role) };
+  }
+
+  async panel(userId, organizationId, investmentId) {
+    const access = await this.requireInvestment(userId, organizationId, investmentId);
+    const [documents, tasks] = await Promise.all([
+      this.db.organizationDocument.findMany({
+        where: { organizationId, investmentId },
+        select: { id: true, name: true, size: true, createdAt: true, isInvestmentReport: true },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }]
+      }),
+      this.db.task.findMany({
+        where: { source: "COMPANY", investmentId, metadata: { path: ["organizationId"], equals: organizationId } },
+        select: { id: true, title: true, status: true, dueDate: true },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 101
+      })
+    ]);
+    return {
+      ...access, documents: documents.filter(row => !row.isInvestmentReport),
+      reports: documents.filter(row => row.isInvestmentReport),
+      tasks: tasks.slice(0, 100), moreTasks: tasks.length > 100
+    };
+  }
+
+  async attach(userId, organizationId, investmentId, input) {
+    const { kind, recordId } = input || {};
+    const { investment, canManage } = await this.requireInvestment(userId, organizationId, investmentId);
+    if (!canManage) throw new OrganizationError("Brak uprawnień do przypisywania rekordów.", 403);
+    if (!["task", "document", "report"].includes(kind) ||
+        typeof recordId !== "string" || !recordId || recordId.length > 128) {
+      throw new OrganizationError("Nieprawidłowe dane przypisania.");
+    }
+    const result = kind === "task"
+      ? await this.db.task.updateMany({
+        where: { id: recordId, investmentId: null, investmentScoped: false, source: "COMPANY",
+          metadata: { path: ["organizationId"], equals: organizationId } },
+        data: { investmentId: investment.id, investmentScoped: true }
+      })
+      : await this.db.organizationDocument.updateMany({
+        where: { id: recordId, organizationId, investmentId: null },
+        data: { investmentId: investment.id, isInvestmentReport: kind === "report" }
+      });
+    if (result.count !== 1) throw new OrganizationError("Nie znaleziono wolnego rekordu w tej firmie.", 404);
+    return { id: recordId };
   }
 
   async create(userId, organizationId, input) {

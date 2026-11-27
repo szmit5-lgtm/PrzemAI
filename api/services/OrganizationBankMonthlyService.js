@@ -9,7 +9,7 @@ const ACCESS=new OrganizationBankAccessService();
 
 function toCents(value){
  const s=String(value??"").trim();
- const match=/^(-?)(\d{1,18})(?:\.(\d{1,2}))?$/.exec(s);
+ const match=/^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(s);
  if(!match)throw new Error("Niepoprawna wartość operacji lub salda bankowego.");
  const abs=BigInt(match[2])*100n+BigInt((match[3]||"").padEnd(2,"0")||"0");
  return match[1]==="-"?-abs:abs;
@@ -35,6 +35,26 @@ function aggregateAccount(transactions,accountId,month){
  return {inflows:money(inflows),outflows:money(outflows),
   net:money(inflows-outflows),transactionCount:values.length};
 }
+function counterpartiesForPeriod(transactions, accounts) {
+ const currencies = new Map(accounts.map(account => [account.id, account.currency]));
+ const groups = new Map();
+ for (const transaction of transactions) {
+  const currency = currencies.get(transaction.bankAccountId);
+  if (!currency) continue;
+  const counterparty = transaction.counterparty?.trim() || null;
+  const key = JSON.stringify([currency, counterparty?.toLocaleLowerCase("pl-PL") || null]);
+  const group = groups.get(key) || {currency, counterparty, inflows:0n, outflows:0n, count:0};
+  const amount = toCents(transaction.amount);
+  if (amount > 0n) group.inflows += amount;
+  if (amount < 0n) group.outflows -= amount;
+  group.count++;
+  groups.set(key, group);
+ }
+ return [...groups.values()].map(({inflows,outflows,...group}) => ({
+  ...group, inflows:money(inflows), outflows:money(outflows), net:money(inflows-outflows)
+ }));
+}
+
 function totalsForCurrency(accountRows){
  const grouped=new Map();
  for(const row of accountRows){
@@ -99,7 +119,7 @@ class OrganizationBankMonthlyService{
     where:{organizationId,bookedAt:{
      gte:startOfMonth(year,1),lt:startOfMonth(year+1,1)
     }},
-    select:{id:true,bankAccountId:true,bookedAt:true,amount:true},
+    select:{id:true,bankAccountId:true,bookedAt:true,amount:true,counterparty:true},
     orderBy:[{bookedAt:"asc"},{id:"asc"}],
     take:MAX_TRANSACTIONS+1
    })
@@ -130,12 +150,29 @@ class OrganizationBankMonthlyService{
     };
    });
    months.push({month,lastDay:monthEnd,accounts:accountRows,
-    currencies:totalsForCurrency(accountRows)});
+    currencies:totalsForCurrency(accountRows),
+    counterparties:counterpartiesForPeriod(transactions.filter(
+     row=>new Date(row.bookedAt).getUTCMonth()+1===month),accounts)});
   }
+  const quarters = Array.from({length:4}, (_, index) => {
+   const first = index*3;
+   const periodMonths = months.slice(first, first+3);
+   const accountRows = periodMonths[2].accounts.map((closing, accountIndex) => {
+    const rows = periodMonths.map(month => month.accounts[accountIndex]);
+    const inflows = rows.reduce((total,row) => total+toCents(row.inflows),0n);
+    const outflows = rows.reduce((total,row) => total+toCents(row.outflows),0n);
+    return {...closing,inflows:money(inflows),outflows:money(outflows),
+     net:money(inflows-outflows),transactionCount:rows.reduce((sum,row)=>sum+row.transactionCount,0)};
+   });
+   return {quarter:index+1,lastDay:periodMonths[2].lastDay,accounts:accountRows,
+    currencies:totalsForCurrency(accountRows),
+    counterparties:counterpartiesForPeriod(transactions.filter(row =>
+     Math.floor(new Date(row.bookedAt).getUTCMonth()/3)===index),accounts)};
+  });
   return {organizationId,year,source:"IMPORTED_BANK_STATEMENTS",
    accounts:accounts.map(a=>({id:a.id,ibanSuffix:a.iban.slice(-4),
     label:a.label||null,accountType:a.accountType,currency:a.currency})),
-   months};
+   months,quarters};
  }
 }
 module.exports={OrganizationBankMonthlyService,toCents,money,aggregateAccount,totalsForCurrency};

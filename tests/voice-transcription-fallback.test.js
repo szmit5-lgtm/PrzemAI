@@ -86,6 +86,7 @@ test("audio to transcription endpoint never includes account identifiers in outb
   const OpenAI = class {};
   const dependencies = {
     "openai": OpenAI,
+    "../../lib/openAIRequestPolicy": { openAIRequestPolicy: () => ({ maxRetries: 0 }) },
     "openai/uploads": { toFile: async (buffer, name, options) => {
       calls.push({ name, options, bytes: buffer.length });
       return { file: true };

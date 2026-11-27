@@ -12,7 +12,7 @@ const {
 const GeneralAgentSources = require("./GeneralAgentSources");
 
 const DOMAIN = {
-  financial: /\b(faktur\w*|ksef|finans\w*|vat|koszt\w*|przychod\w*)\b/,
+  financial: /\b(faktur\w*|ksef|finans\w*|vat|koszt\w*|przychod\w*|sald\w*|wplyw\w*|wydatk\w*|wyciag\w*)\b/,
   document: /\b(dokument\w*|umow\w*|aneks\w*|zalacznik\w*)\b/,
   investment: /\b(inwestyc\w*|rentownosc\w*|deweloper\w*|pum)\b/
 };

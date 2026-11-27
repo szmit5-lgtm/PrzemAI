@@ -119,6 +119,7 @@ return this.formatExecutiveReport(await this.ai.ask({
         }
         const response = await this.ai.client.responses.create({
             model: "gpt-5.5",
+            max_output_tokens: 4096,
             text: { format: { type: "json_object" } },
             input: [
                 {

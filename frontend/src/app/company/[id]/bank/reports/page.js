@@ -30,6 +30,7 @@ export default function CompanyBankMonthlyReports(){
  const [error,setError]=useState("");
  const [refresh,setRefresh]=useState(0);
  const [month,setMonth]=useState(null);
+ const [quarter,setQuarter]=useState(0);
  useEffect(()=>{
   if(!id)return;
   let active=true;
@@ -51,7 +52,10 @@ export default function CompanyBankMonthlyReports(){
     .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[id,year,refresh]);
- const selected=useMemo(()=>report?.months?.find(x=>x.month===month)||null,[report,month]);
+ const selected=useMemo(()=>quarter
+  ?report?.quarters?.find(x=>x.quarter===quarter)||null
+  :report?.months?.find(x=>x.month===month)||null,[report,month,quarter]);
+ const periodLabel=quarter?"Kwartał "+quarter:MONTHS[month-1];
  const pln=selected?.currencies?.find(x=>x.currency==="PLN")||null;
  const totals=report?.months||[];
  function submit(event){
@@ -79,7 +83,7 @@ export default function CompanyBankMonthlyReports(){
      Salda i przepływy — {company?.displayName||company?.name||"spółka"}
     </h1>
     <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">
-     Stan rachunku bieżącego i rachunku VAT osobno, suma obu rachunków, miesięczne wpływy i wydatki.
+     Stan rachunku bieżącego i rachunku VAT osobno, suma obu rachunków, miesięczne i kwartalne wpływy, wydatki oraz kontrahenci.
      Wyniki są obliczane wyłącznie na podstawie wyciągów tej spółki.
     </p>
    </section>
@@ -94,12 +98,19 @@ export default function CompanyBankMonthlyReports(){
       onChange={e=>setYearInput(e.target.value)}
       className="mt-2 block min-h-11 w-32 rounded-xl border border-white/15 bg-[#0c1930] px-3"/>
     </label>
-    <label className="text-sm font-semibold">Miesiąc
+    <label className="text-sm font-semibold">Kwartał
+     <select value={quarter} onChange={e=>setQuarter(Number(e.target.value))}
+      className="mt-2 block min-h-11 rounded-xl border border-white/15 bg-[#0c1930] px-3">
+      <option value={0}>Raport miesięczny</option>
+      {[1,2,3,4].map(value=><option key={value} value={value}>Kwartał {value}</option>)}
+     </select>
+    </label>
+    {!quarter&&<label className="text-sm font-semibold">Miesiąc
      <select value={month||today.getMonth()+1} onChange={e=>setMonth(Number(e.target.value))}
       className="mt-2 block min-h-11 w-44 rounded-xl border border-white/15 bg-[#0c1930] px-3">
       {MONTHS.map((label,index)=><option key={index} value={index+1}>{label}</option>)}
      </select>
-    </label>
+    </label>}
     <button type="submit" disabled={loading} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">
      <RefreshCw size={16}/> Pokaż zestawienie
     </button>
@@ -109,7 +120,7 @@ export default function CompanyBankMonthlyReports(){
    {error&&<p role="alert" className="mt-5 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</p>}
    {!loading&&!error&&selected&&<>
     <div className="mt-5">
-     <h2 className="text-lg font-bold">Stan na {new Date(Date.UTC(year,month,0)).toLocaleDateString("pl-PL")}</h2>
+     <h2 className="text-lg font-bold">Stan na {new Date(selected.lastDay).toLocaleDateString("pl-PL",{timeZone:"UTC"})}</h2>
      <p className="mt-1 text-xs text-slate-400">Saldo pochodzi z wyciągu zamykającego miesiąc. Gdy brakuje takiego wyciągu, nie zgadujemy wartości.</p>
     </div>
     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,7 +141,7 @@ export default function CompanyBankMonthlyReports(){
      </article>
     </div>
     <section className="mt-4 rounded-2xl border border-white/10 bg-[#111c35] p-5">
-     <h3 className="text-base font-bold">Wpływy i wydatki · {MONTHS[month-1]} {year}</h3>
+     <h3 className="text-base font-bold">Wpływy i wydatki · {periodLabel} {year}</h3>
      <div className="mt-4 grid gap-3 sm:grid-cols-3">
       <p className="text-sm text-slate-300">Wpływy <strong className="mt-1 block text-lg text-emerald-200 tabular-nums">{pln?money(pln.inflows,"PLN"):"—"}</strong></p>
       <p className="text-sm text-slate-300">Wydatki <strong className="mt-1 block text-lg text-rose-200 tabular-nums">{pln?money(pln.outflows,"PLN"):"—"}</strong></p>
@@ -139,7 +150,7 @@ export default function CompanyBankMonthlyReports(){
      <p className="mt-3 text-xs text-slate-400">Wpływy i wydatki obejmują również operacje pomiędzy własnymi rachunkami (np. przelewy VAT). Nie są równoznaczne z przychodami i kosztami księgowymi.</p>
     </section>
     <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
-     <h3 className="text-lg font-bold">Rachunki · {MONTHS[month-1]}</h3>
+     <h3 className="text-lg font-bold">Rachunki · {periodLabel}</h3>
      <div className="mt-3 grid gap-3 md:grid-cols-2">
       {selected.accounts.map(account=><article key={account.accountId} className="rounded-xl border border-white/10 bg-white/[.035] p-4">
        <p className="font-bold">{accountType(account.accountType)} · •••• {account.ibanSuffix} · {account.currency}</p>
@@ -149,6 +160,20 @@ export default function CompanyBankMonthlyReports(){
       </article>)}
      </div>
     </section>
+    {!!selected.counterparties?.length&&<section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
+     <h3 className="text-lg font-bold">Kontrahenci · {periodLabel}</h3>
+     <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[480px] text-left text-sm">
+       <thead><tr>{["Kontrahent","Operacje","Wpływy","Wydatki"].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead>
+       <tbody>{selected.counterparties.map(row=><tr key={JSON.stringify([row.currency,row.counterparty])} className="border-t border-white/10">
+        <td className="p-2">{row.counterparty||"Brak kontrahenta w wyciągu"}</td>
+        <td className="p-2">{row.count}</td>
+        <td className="p-2 tabular-nums">{money(row.inflows,row.currency)}</td>
+        <td className="p-2 tabular-nums">{money(row.outflows,row.currency)}</td>
+       </tr>)}</tbody>
+      </table>
+     </div>
+    </section>}
     <section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
      <h3 className="text-lg font-bold">Porównanie miesięcy · {year}</h3>
      <p className="mt-2 text-xs text-slate-400">Oddzielnie rachunek bieżący i VAT. Kwoty PLN; inne waluty nie są przeliczane ani dodawane.</p>
@@ -172,7 +197,7 @@ export default function CompanyBankMonthlyReports(){
      </div>
     </section>
     {selected.currencies.filter(c=>c.currency!=="PLN").length>0&&<section className="mt-5 rounded-xl border border-white/10 bg-[#111c35] p-4">
-     <h3 className="font-bold">Inne waluty · {MONTHS[month-1]}</h3>
+     <h3 className="font-bold">Inne waluty · {periodLabel}</h3>
      {selected.currencies.filter(c=>c.currency!=="PLN").map(x=><p key={x.currency} className="mt-2 text-sm text-slate-300">{x.currency}: {balance(x.balance,x.currency)} · wpływy {money(x.inflows,x.currency)} · wydatki {money(x.outflows,x.currency)}</p>)}
     </section>}
    </>}

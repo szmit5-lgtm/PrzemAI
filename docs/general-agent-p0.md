@@ -6,7 +6,7 @@ Zlecenia powstają atomowo w istniejącym dispatcherze. Wykonanie odczytu i anal
 
 Wejściem dla adapterów kanałów jest `ChatService.chat(userId, message, conversationId, { organizationId, requestId })`. Adapter ustala `userId` z uwierzytelnionej sesji lub własnego, zweryfikowanego powiązania konta, a identyfikator zdarzenia dostawcy deduplikuje przed wywołaniem czatu. Identyfikator spółki jest wyborem rozmówcy, który usługa sprawdza ponownie przy pobieraniu danych i wyników. Numer telefonu lub identyfikator kontaktu nie stanowi dowodu uprawnień. W P0 z tego wejścia korzysta WWW. Adaptery Telegram i WhatsApp nie przekazują jeszcze wiadomości do General Agenta.
 
-Finanse obejmują do 25 ostatnich zapisanych faktur z powiązanego KSeF. Biblioteka spółki udostępnia tekst do czterech wybranych dokumentów PDF, DOCX lub TXT o rozmiarze do 2 MB każdy. Skan PDF bez warstwy tekstowej jest oznaczany jako dokument bez dostępnego tekstu. W zakresie osobistym agent dokumentowy korzysta z zapisanych analiz, jeśli użytkownik włączył historię. Dane każdej spółki są pobierane osobno.
+Finanse obejmują miesięczne sumy wszystkich zapisanych faktur z powiązanego KSeF, w tym ujemne korekty. Agent otrzymuje szczegóły do 25 faktur i może wyszukać starsze faktury po numerze zawierającym ukośniki lub myślniki. Przy dodatkowym dostępie do banku otrzymuje sumy operacji oraz potwierdzone salda rachunków dla wskazanego roku lub bieżącego roku. Biblioteka spółki udostępnia tekst do czterech wybranych dokumentów PDF, DOCX lub TXT o rozmiarze do 2 MB każdy. Skan PDF bez warstwy tekstowej jest oznaczany jako dokument bez dostępnego tekstu. W zakresie osobistym agent dokumentowy korzysta z zapisanych analiz, jeśli użytkownik włączył historię. Dane każdej spółki są pobierane osobno.
 
 Test z lokalnym mockiem OpenAI uruchamia się poleceniem `node --test tests/general-agent-p0.test.js`. Test używa syntetycznych rekordów i lokalnej atrapy repozytorium. Sprawdzenie backendu z PostgreSQL wymaga wygenerowanego klienta Prisma.
 
@@ -24,3 +24,5 @@ NODE_OPTIONS="--require=$PWD/scripts/localPrismaE2E.cjs" node scripts/testGenera
 ```
 
 Klient testowy jest zapisywany w ignorowanym `node_modules/.prisma/client`. Skrypt użyty jako preload odrzuca adresy spoza izolowanej bazy lokalnej. Standardowy klient można przywrócić przez `npm run prisma:generate` po odblokowaniu pobierania silnika.
+
+Scenariusz finansowy uruchamia się w tym samym środowisku poleceniem `node scripts/testFinancialAgentE2E.js`. Sprawdza import wyciągów CSV i syntetycznego PDF Erste, deduplikację, bezpieczne usuwanie, uprawnienia pracowników, izolację spółek, korekty oraz kontekst finansowy obejmujący ponad 25 faktur.

@@ -147,13 +147,32 @@ router.get("/:id/finance/summary",verifyToken,
 router.get("/:id/finance/report/:year",verifyToken,
   handler(req=>financeService.annualReport(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/investments/:year",verifyToken,
-  handler(req=>investmentFinance.report(req.user.id,req.params.id,req.params.year)));
+  handler(async req=>{
+    const member=await service.membership(req.user.id,req.params.id);
+    return investmentFinance.report(req.user.id,req.params.id,req.params.year,member);
+  }));
 router.get("/:id/finance/bank-matches/:year",verifyToken,
   handler(req=>bankKsefMatches.review(req.user.id,req.params.id,req.params.year)));
 router.get("/:id/finance/documents",verifyToken,
-  handler(req=>financeService.documents(req.user.id,req.params.id,req.query)));
+  handler(async req=>{
+    const member=await service.membership(req.user.id,req.params.id);
+    const [documents,projects]=await Promise.all([
+      financeService.documents(req.user.id,req.params.id,req.query),
+      investmentFinance.visibleProjects(req.user.id,req.params.id,member.role)
+    ]);
+    if(projects===null)return documents;
+    const allowed=new Set(projects.map(project=>project.id));
+    return {...documents,items:documents.items.map(row=>
+      row.project&&!allowed.has(row.project.id)?{...row,project:null}:row)};
+  }));
+router.patch("/:id/finance/documents/:documentId/project",verifyToken,
+  handler(req=>financeService.assignProject(req.user.id,req.params.id,req.params.documentId,req.body?.projectId)));
 router.get("/:id/finance/projects",verifyToken,
-  handler(req=>financeService.projects(req.user.id,req.params.id)));
+  handler(async req=>{
+    const member=await service.membership(req.user.id,req.params.id);
+    const projects=await investmentFinance.visibleProjects(req.user.id,req.params.id,member.role);
+    return projects===null?financeService.projects(req.user.id,req.params.id):{items:projects};
+  }));
 router.get("/:id/finance/members",verifyToken,
   handler(req=>financeService.members(req.user.id,req.params.id)));
 router.patch("/:id/finance/members/:membershipId",verifyToken,
@@ -178,6 +197,25 @@ router.post("/:id/domains/:domainId/verify",verifyToken,
   handler(req=>service.verifyDomain(req.user.id,req.params.id,req.params.domainId)));
 router.get("/:id/investments",verifyToken,
   handler(req=>investmentService.list(req.user.id,req.params.id)));
+router.get("/:id/investments/:investmentId",verifyToken,
+  handler(req=>investmentService.panel(req.user.id,req.params.id,req.params.investmentId)));
+router.get("/:id/investments/:investmentId/finance",verifyToken,
+  handler(async req=>{
+    const {investment}=await investmentService.requireInvestment(req.user.id,req.params.id,req.params.investmentId);
+    return investmentFinance.forInvestment(req.user.id,req.params.id,investment,req.query.year,req.query.offset);
+  }));
+router.post("/:id/investments/:investmentId/tasks",verifyToken,
+  handler(async req=>{
+    const {investment}=await investmentService.requireInvestment(req.user.id,req.params.id,req.params.investmentId);
+    return service.createCompanyTask(req.user.id,req.params.id,req.body,investment.id);
+  }));
+router.patch("/:id/investments/:investmentId/tasks/:taskId",verifyToken,
+  handler(async req=>{
+    const {investment}=await investmentService.requireInvestment(req.user.id,req.params.id,req.params.investmentId);
+    return service.setCompanyTaskStatus(req.user.id,req.params.id,req.params.taskId,req.body?.status,investment.id);
+  }));
+router.patch("/:id/investments/:investmentId/records",verifyToken,
+  handler(req=>investmentService.attach(req.user.id,req.params.id,req.params.investmentId,req.body)));
 router.post("/:id/investments",verifyToken,
   handler(req=>investmentService.create(req.user.id,req.params.id,req.body)));
 router.patch("/:id/investments/:investmentId",verifyToken,
