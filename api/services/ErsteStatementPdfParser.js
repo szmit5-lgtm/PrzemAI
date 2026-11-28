@@ -1,7 +1,38 @@
 "use strict";
 
+const { execFile } = require("node:child_process");
+const fs = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
+const { promisify } = require("node:util");
 const {parseErstePrintedCsv}=require("./ErsteStatementCsvParser");
 const {parseAmount}=require("./BankFileParser");
+
+const run = promisify(execFile);
+const MAX_PAGES = 120;
+
+async function readLayoutText(buffer) {
+ const directory = await fs.mkdtemp(path.join(os.tmpdir(), "przemai-bank-pdf-"));
+ try {
+  const input = path.join(directory, "statement.pdf");
+  await fs.writeFile(input, buffer, { mode: 0o600 });
+  const { stdout } = await run("pdftotext", [
+   "-f", "1", "-l", String(MAX_PAGES + 1), "-layout", "-enc", "UTF-8", input, "-"
+  ], { timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
+  return stdout;
+ } finally {
+  await fs.rm(directory, { recursive: true, force: true });
+ }
+}
+
+function layoutPages(text) {
+ // Require Poppler's end-of-page markers to avoid treating a partial extract
+ // as a complete statement. The extra requested page detects truncation.
+ const pages = text.split("\f");
+ if (pages.pop().trim() || !pages.length || pages.length > MAX_PAGES)
+  throw Error("Nie odczytano wszystkich stron PDF.");
+ return pages.map(page => page.split(/\r?\n/).map(line => line.trim()).join("\n"));
+}
 
 const amountPattern=/-?\d+(?:[ \u00a0\u202f]\d{3})*,\d{2}/g;
 const datePattern=/\b\d{2}-\d{2}-20\d{2}\b/g;
@@ -20,13 +51,18 @@ async function renderPage(page) {
   .map(item=>item.text).join(" ")).join("\n");
 }
 
-async function parseErsteStatementPdf(buffer,pdfParser){
- const pages=[];
- const result=await pdfParser(buffer,{max:120,pagerender:async page=>{
-  pages.push(await renderPage(page));
-  return "";
- }});
- if(!pages.length||pages.length!==result.numpages)throw Error("Nie odczytano wszystkich stron PDF.");
+async function parseErsteStatementPdf(buffer,pdfParser,extractLayout = readLayoutText){
+ let pages=[];
+ try {
+  const result=await pdfParser(buffer,{max:MAX_PAGES,pagerender:async page=>{
+   pages.push(await renderPage(page));
+   return "";
+  }});
+  if (result.numpages > MAX_PAGES) throw Error("Nie odczytano wszystkich stron PDF.");
+  if (!pages.length || pages.length !== result.numpages) throw Error("Nie odczytano wszystkich stron PDF.");
+ } catch {
+  pages = layoutPages(await extractLayout(buffer));
+ }
  const rows=[];
  const balances=new Map();
  const quote=row=>row.map(cell=>'"'+String(cell??"").replace(/"/g,'""')+'"').join(";");
