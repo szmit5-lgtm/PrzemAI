@@ -765,3 +765,7 @@ export function searchWorkspace(query, organizationId) {
 export function getPersonalExport() {
     return request("/api/workspace/personal-export");
 }
+
+export function getSystemAiUsage() {
+    return request("/api/admin/ai-usage");
+}

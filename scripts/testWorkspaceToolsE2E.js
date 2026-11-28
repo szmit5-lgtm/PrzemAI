@@ -11,15 +11,19 @@ async function main() {
   assert.match(dbUrl.pathname, /^\/przemai_p0_e2e_[a-z0-9_]+$/);
 
   process.env.JWT_SECRET = randomUUID();
+  process.env.OPENAI_DAILY_REQUEST_LIMIT = "75";
+  process.env.OPENAI_MONTHLY_BUDGET_PLN = "123.45";
   const express = require("express");
   const jwt = require("jsonwebtoken");
   const db = require("../lib/prisma");
   const app = express();
   app.use(express.json());
+  app.use("/api/admin", require("../api/routes/adminRoutes"));
   app.use("/api/workspace", require("../api/routes/workspaceToolsRoutes"));
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const base = "http://127.0.0.1:" + server.address().port + "/api/workspace";
+  const api = "http://127.0.0.1:" + server.address().port + "/api";
+  const base = api + "/workspace";
   const userIds = [];
   const companyIds = [];
 
@@ -110,6 +114,23 @@ async function main() {
     assert.equal(archive.history.length, 500);
     assert.deepEqual(archive.truncatedSections, ["history"]);
     assert.ok(archive.history.every(row => row.report === undefined));
+    const usageUrl = api + "/admin/ai-usage";
+    assert.equal((await fetch(usageUrl)).status, 401);
+    await db.user.update({ where: { id: employee.id }, data: { role: "admin" } });
+    assert.equal((await fetch(usageUrl, { headers: headersFor(employee) })).status, 403);
+    await db.user.update({
+      where: { id: owner.id }, data: { email: "p.szmitkowski@dekonica.com" }
+    });
+    assert.equal((await fetch(usageUrl, { headers: headersFor(owner) })).status, 403);
+    await db.user.update({ where: { id: owner.id }, data: { role: "admin" } });
+    const usageResponse = await fetch(usageUrl, { headers: headersFor(owner) });
+    assert.equal(usageResponse.status, 200);
+    const { data: usage } = await usageResponse.json();
+    assert.equal(usage.requestsLimit, 75);
+    assert.equal(usage.budgetLimitMicroPln, "123450000");
+    assert.match(usage.reservedMicroPln, /^\d+$/);
+    assert.match(usage.day, /^\d{4}-\d{2}-\d{2}$/);
+    console.log("Admin usage E2E OK: authentication, database role and approved identity, configured limits");
     console.log("Workspace E2E OK: session, CSRF, tenant roles, assigned investments, literal search, bounds and personal export");
   } finally {
     await new Promise(resolve => server.close(resolve));
