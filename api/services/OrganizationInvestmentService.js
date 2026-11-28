@@ -51,7 +51,7 @@ class OrganizationInvestmentService {
     const [documents, tasks] = await Promise.all([
       this.db.organizationDocument.findMany({
         where: { organizationId, investmentId },
-        select: { id: true, name: true, size: true, createdAt: true, isInvestmentReport: true },
+        select: { id: true, name: true, size: true, createdAt: true, isInvestmentReport: true, contentType: true },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }]
       }),
       this.db.task.findMany({

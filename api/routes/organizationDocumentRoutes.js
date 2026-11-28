@@ -3,6 +3,7 @@ const express = require("express");
 const multer = require("multer");
 const crypto = require("node:crypto");
 const path = require("node:path");
+const { imageSize } = require("image-size");
 const prisma = require("../../lib/prisma");
 const { OrganizationService, OrganizationError } = require("../services/OrganizationService");
 
@@ -14,7 +15,9 @@ const organizations = new OrganizationService();
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 const MAX_ORG_BYTES = 200 * 1024 * 1024;
 const MAX_ORG_FILES = 120;
+const PHOTOS = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg" };
 const ALLOWED = {
+  ...PHOTOS,
   ".pdf": "application/pdf",
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".txt": "text/plain"
@@ -49,7 +52,9 @@ const upload = multer({
   limits: { files: 1, fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname || "").toLowerCase();
-    if (!ALLOWED[ext]) return cb(Object.assign(new Error("Obsługujemy wyłącznie PDF, DOCX i TXT."), { code: "INVALID_DOCUMENT" }));
+    if (!ALLOWED[ext] || (PHOTOS[ext] && (typeof req.query.investmentId !== "string" || !req.query.investmentId || req.query.report === "true")))
+      return cb(Object.assign(new Error("Zdjęcie PNG lub JPEG dodaj bezpośrednio do inwestycji. Dokumenty mogą mieć format PDF, DOCX lub TXT."),
+        { code: "INVALID_DOCUMENT" }));
     cb(null, true);
   }
 }).single("file");
@@ -59,6 +64,14 @@ function validFile(file) {
   const ext = path.extname(file.originalname || "").toLowerCase();
   if (ext === ".pdf") return file.buffer.subarray(0, 5).toString("ascii") === "%PDF-";
   if (ext === ".docx") return file.buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  if (PHOTOS[ext]) {
+    try {
+      const { type, width, height } = imageSize(file.buffer);
+      return type === (ext === ".png" ? "png" : "jpg") &&
+        Number.isInteger(width) && Number.isInteger(height) &&
+        width > 0 && height > 0 && width <= 12000 && height <= 12000;
+    } catch { return false; }
+  }
   if (ext === ".txt") {
     try {
       new TextDecoder("utf-8", { fatal: true }).decode(file.buffer);
@@ -98,7 +111,7 @@ router.post("/", (req, res) => upload(req, res, async uploadError => {
   }
   const name = fileName(req.file?.originalname);
   if (!name || !validFile(req.file)) return res.status(400).json({
-    success: false, error: "Nieprawidłowy plik. Wybierz poprawny dokument PDF, DOCX lub TXT (do 8 MB)."
+    success: false, error: "Nieprawidłowy plik. Dozwolone są PDF, DOCX, TXT oraz zdjęcia inwestycji PNG i JPEG do 8 MB."
   });
   const sha256 = crypto.createHash("sha256").update(req.file.buffer).digest("hex");
   const ext = path.extname(name).toLowerCase();

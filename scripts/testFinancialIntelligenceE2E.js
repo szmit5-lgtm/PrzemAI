@@ -226,6 +226,27 @@ async function main() {
       const { data: fresh } = await (await readBriefing(owner)).json();
       assert.equal(fresh.alerts.find(alert => alert.id === taskAlert.id).status, expected);
     }
+    const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAAWnSoUAAAAASUVORK5CYII=", "base64");
+    const documentsUrl = endpoint + "/api/organizations/" + dek.id + "/documents";
+    const uploadPhoto = (user, bytes, query) => {
+      const form = new FormData();
+      form.set("file", new Blob([bytes], { type: "image/png" }), "syntetyczne-zdjecie.png");
+      return fetch(documentsUrl + query, { method: "POST", body: form,
+        headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) } });
+    };
+    const photoQuery = "?investmentId=" + ownedInvestment.id;
+    assert.equal((await uploadPhoto(employee, image, photoQuery)).status, 403);
+    assert.equal((await uploadPhoto(owner, image, "")).status, 400);
+    assert.equal((await uploadPhoto(owner, Buffer.from("invalid"), photoQuery)).status, 400);
+    const photo = await uploadPhoto(owner, image, photoQuery);
+    assert.equal(photo.status, 201);
+    const { item } = await photo.json();
+    const photoUrl = documentsUrl + "/investment/" + ownedInvestment.id + "/" + item.id + "/download";
+    const downloadPhoto = user => fetch(photoUrl, { headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) } });
+    assert.equal((await downloadPhoto(employee)).status, 404);
+    const downloadedPhoto = await downloadPhoto(owner);
+    assert.match(downloadedPhoto.headers.get("content-disposition"), /attachment/);
+    assert.deepEqual(Buffer.from(await downloadedPhoto.arrayBuffer()), image);
     const reportEndpoint = endpoint + "/api/organizations/" + dek.id + "/investments/" + ownedInvestment.id + "/report";
     const exportReport = (user, format) => fetch(reportEndpoint + "?" + new URLSearchParams({ format, year }), {
       headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) }
