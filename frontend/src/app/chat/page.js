@@ -414,14 +414,14 @@ export default function ChatPage(){
      setMessages(current=>current.filter(x=>x.id!==temporaryId));
    }finally{setLoading(false);loadingRef.current=false;}
  }
- async function reportAction(item, telegram){
+ async function reportAction(item, action){
    setReportStatus("");
    try{
-     if(telegram){
+     if(action==="telegram"){
        const sent=await sendChatReportToTelegram(activeConversationId,item.id,
          ()=>window.confirm("Wysłać ten raport na Twoje powiązane konto Telegram?"));
        if(sent)setReportStatus("Raport wysłany na Telegram.");
-     } else await downloadChatReport(activeConversationId,item.id);
+     } else await downloadChatReport(activeConversationId,item.id,action);
    }catch(error){setReportStatus(error.message);}
  }
  function handleKeyDown(event){
@@ -531,8 +531,14 @@ export default function ChatPage(){
           {item.content}
           {activeConversationId&&item.role==="assistant"&&item.id&&!item.pending&&!item.restricted&&
            <div className="mt-2 flex flex-wrap gap-3 text-xs text-violet-200">
-            <button type="button" onClick={()=>reportAction(item,false)}>Pobierz raport</button>
-            {!item.organizationId&&<button type="button" onClick={()=>reportAction(item,true)}>Wyślij na Telegram</button>}
+            <div role="group" aria-label="Pobierz raport" className="flex flex-wrap gap-2">
+             {[["docx","Word"],["pdf","PDF"],["xlsx","Excel"]].map(([format,label])=>
+              <button key={format} type="button" onClick={()=>reportAction(item,format)}
+               className="min-h-9 rounded-lg border border-violet-400/30 px-2 hover:bg-violet-500/20">
+               Pobierz {label}
+              </button>)}
+            </div>
+            {!item.organizationId&&<button type="button" onClick={()=>reportAction(item,"telegram")}>Wyślij na Telegram</button>}
            </div>}
           {item.pending&&<p role="status" className="text-xs text-violet-200">Sprawdzam postęp zlecenia…</p>}
          </div>
