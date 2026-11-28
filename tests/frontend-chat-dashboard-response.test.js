@@ -75,7 +75,7 @@ test("chat UI validates all responses and does not mistake load errors for empty
 
 test("polling removes revoked results and only refreshes messages already displayed", async () => {
     const { mergePendingChatMessages } = await loadParser();
-    const pending = { ...message, pending: true, organizationId: "alpha" };
+    const pending = { ...message, pending: true, organizationId: "alpha", sources: [{ label: "Poufne", href: "/company/alpha" }] };
     const completed = { id: "completed", content: "Zapisany wynik", pending: false };
     const updated = mergePendingChatMessages([pending, completed], [
         { ...message, content: "Brak dostępu.", metadata: { restricted: true, pending: true } },
@@ -83,7 +83,7 @@ test("polling removes revoked results and only refreshes messages already displa
         { id: "unexpected", content: "Nie dołączaj" }
     ]);
     assert.deepEqual(updated, [
-        { ...pending, organizationId: null, pending: false, restricted: true, content: "Brak dostępu." },
+        { ...pending, organizationId: null, pending: false, restricted: true, content: "Brak dostępu.", sources: [] },
         completed
     ]);
 });

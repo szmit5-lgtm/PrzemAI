@@ -288,7 +288,7 @@ export default function ChatPage(){
      setOrganizationId(lastScope||"");
      setMessages(result.messages?.length?result.messages.map(m=>({
        id:m.id,role:m.role,content:m.content,pending:Boolean(m.metadata?.pending),
-       restricted:Boolean(m.metadata?.restricted), organizationId:m.metadata?.organizationId, origin:m.metadata?.origin
+       restricted:Boolean(m.metadata?.restricted), organizationId:m.metadata?.organizationId, origin:m.metadata?.origin, sources:m.metadata?.sources
      })):[welcomeMessage]);
      setSidebarOpen(false);
    }catch(err){setError(err?.message||"Nie udało się otworzyć rozmowy.");}
@@ -411,7 +411,7 @@ export default function ChatPage(){
      setActiveConversationId(result.conversationId);
      setMessages(current=>[...current,{
        id:result.message?.id||"answer-"+Date.now(),role:"assistant",content:result.answer,pending:Boolean(result.pending),
-       organizationId:selectedScope
+       organizationId:selectedScope, sources:result.message?.metadata?.sources
      }]);
      readAnswer(result.answer);
      await loadConversations();
@@ -537,6 +537,13 @@ export default function ChatPage(){
          <div className={"max-w-[min(95%,850px)] min-w-0 break-words whitespace-pre-wrap rounded-2xl border px-4 py-3 text-sm leading-7 sm:px-5 "+(item.role==="user"?"border-blue-400/20 bg-[#244b9e] text-white":"border-white/10 bg-[#18243f] text-slate-100")}>
           {item.origin==="WHATSAPP"&&<span className="mb-1 block text-xs font-semibold text-blue-100">WhatsApp</span>}
           {item.content}
+          {Array.isArray(item.sources) && item.sources.length > 0 && !item.restricted && (
+            <ul aria-label="Źródła danych" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              {item.sources.filter(source => source && typeof source.label === "string" &&
+                typeof source.href === "string" && /^\/(?:[a-zA-Z0-9%-]+\/)*[a-zA-Z0-9%-]+$/.test(source.href))
+                .map(source => <li key={source.href}><Link href={source.href} className="text-violet-200 underline">{source.label}</Link></li>)}
+            </ul>
+          )}
           {activeConversationId&&item.role==="assistant"&&item.id&&!item.pending&&!item.restricted&&
            <div className="mt-2 flex flex-wrap gap-3 text-xs text-violet-200">
             <div role="group" aria-label="Pobierz raport" className="flex flex-wrap gap-2">

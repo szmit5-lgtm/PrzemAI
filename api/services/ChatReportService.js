@@ -9,7 +9,10 @@ async function reportFor(chat, userId, conversationId, messageId) {
   const conversation = await chat.getConversation(userId, conversationId);
   const message = conversation?.messages.find(item => item.id === messageId && item.role === "assistant");
   if (!message || message.metadata?.restricted || message.metadata?.pending || !message.content.trim()) return null;
-  return { text: "# Raport PrzemAI\n\n" + redactText(message.content, 12000) + "\n", message };
+  const sources = Array.isArray(message.metadata?.sources) ? message.metadata.sources : [];
+  const labels = sources.map(source => redactText(source?.label, 120)).filter(Boolean);
+  const appendix = labels.length ? "\n## Źródła zapisanych danych\n" + labels.map(label => "- " + label).join("\n") + "\n" : "";
+  return { text: "# Raport PrzemAI\n\n" + redactText(message.content, 12000) + "\n" + appendix, message };
 }
 
 function reportRtf(text) {

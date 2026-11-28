@@ -59,7 +59,8 @@ export function mergePendingChatMessages(messages, refreshed) {
             content: updated.content,
             pending: !restricted && Boolean(updated.metadata?.pending),
             restricted,
-            organizationId: restricted ? null : item.organizationId
+            organizationId: restricted ? null : item.organizationId,
+            sources: restricted ? [] : updated.metadata?.sources
         };
     });
 }

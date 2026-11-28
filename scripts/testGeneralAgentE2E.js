@@ -300,6 +300,8 @@ async function main() {
     let saved = await json(memberUrl, { token });
     assert.equal(saved.data.conversation.messages.length, 2);
     assert.match(JSON.stringify(saved.data), /Przypisana-Dekonica/);
+    const sourcePath = "/company/" + companies.Dekonica.id + "/investments";
+    assert.ok(saved.data.conversation.messages[1].metadata.sources.some(source => source.href === sourcePath));
     assert.doesNotMatch(JSON.stringify(saved.data), /Nieprzypisana|Deherus/);
     assert.equal(requests.length, 7);
     const conflict = await json("/api/chat", { token, body: { ...memberRequest, message: "Zmień inwestycję" } });
@@ -314,6 +316,7 @@ async function main() {
     saved = await json(memberUrl, { token });
     assert.match(JSON.stringify(saved.data), /brak dostępu/);
     assert.doesNotMatch(JSON.stringify(saved.data), /Przypisana-Dekonica/);
+    assert.ok(!saved.data.conversation.messages[1].metadata.sources.some(source => source.href === sourcePath));
     assert.equal(requests.length, 7);
     console.log("Parallel duplicate, conflicting request, assigned-only and revoked investment access OK");
 

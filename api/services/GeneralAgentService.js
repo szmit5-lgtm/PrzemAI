@@ -41,6 +41,40 @@ const LABEL = {
   TODO: "w kolejce", IN_PROGRESS: "w toku", DONE: "gotowe", ERROR: "błąd"
 };
 
+const sourceLabels = {
+  invoices: ["Faktury KSeF", "/finance"],
+  bank: ["Wpływy i wydatki", "/bank/reports"],
+  settlements: ["Rozliczenia i prognoza", "/finance/bank-matches"],
+  investments: ["Rejestr inwestycji", "/investments"],
+  profitability: ["Finanse inwestycji", "/finance/investments"],
+  companyDocuments: ["Dokumenty spółki", "/documents"],
+  historyDocuments: ["Historia analiz dokumentów", "/history"],
+  memory: ["Pamięć osobista", "/memory"]
+};
+
+function collectedSourceKinds(data, organizationId) {
+  return [
+    ...((data.invoices?.length || data.invoiceTotals?.length) ? ["invoices"] : []),
+    ...(data.bankPeriods?.length ? ["bank"] : []),
+    ...(data.financialReports?.length ? ["settlements"] : []),
+    ...(data.investments?.length ? ["investments"] : []),
+    ...(data.investmentProfitability?.length ? ["profitability"] : []),
+    ...(data.documents?.length ? [organizationId ? "companyDocuments" : "historyDocuments"] : []),
+    ...(data.memory?.length ? ["memory"] : [])
+  ];
+}
+
+function sourceLinks(kinds, organizationId) {
+  const base = organizationId ? "/company/" + encodeURIComponent(organizationId) : "";
+  return [...new Set(kinds)].flatMap(kind => {
+    if (!Object.hasOwn(sourceLabels, kind)) return [];
+    const personal = kind === "historyDocuments" || kind === "memory";
+    if (personal === Boolean(organizationId)) return [];
+    const [label, path] = sourceLabels[kind];
+    return [{ label, href: base + path }];
+  });
+}
+
 class GeneralAgentService {
   constructor({ db = prisma, ai = new AIEngine(), sources = new GeneralAgentSources(db) } = {}) {
     this.db = db;
@@ -165,6 +199,7 @@ class GeneralAgentService {
     let investmentIds = null;
     let financialSources = null;
     let memoryIds = [];
+    let sourceKinds = [];
     try {
       const agent = await this.db.agent.findFirst({
         where: { userId: scope.userId, key: agentKey, enabled: true }, select: { id: true }
@@ -179,11 +214,14 @@ class GeneralAgentService {
       if (!loaded) throw new Error("Unavailable");
       const { investmentIds: sourceIds, financialSources: currentFinance, memoryIds: currentMemoryIds, ...data } = loaded;
       memoryIds = currentMemoryIds || [];
+      sourceKinds = collectedSourceKinds(data, scope.organizationId);
       if (agentKey === "financial") financialSources = currentFinance || { invoices: true, bank: true };
       if (agentKey === "investment" || sourceIds?.length) investmentIds = sourceIds || [];
       const previousResult = previous?.status === "DONE" && await this.canReadResult(previous, scope)
         ? redactText(previous.metadata.result, 1800) : "";
       // A continuation can cite earlier sources. Retain their provenance too.
+      if (previousResult && Array.isArray(previous.metadata.sourceKinds))
+        sourceKinds = [...new Set([...sourceKinds, ...previous.metadata.sourceKinds])];
       if (previousResult && previous.metadata.investmentIds?.length)
         investmentIds = [...new Set([...(investmentIds || []), ...previous.metadata.investmentIds])];
       if (previousResult && previous.metadata.memoryIds?.length)
@@ -225,7 +263,7 @@ class GeneralAgentService {
     await this.db.task.updateMany({
       where: { ...where, status: "IN_PROGRESS", startedAt },
       data: { status: result ? "DONE" : "ERROR", completedAt: new Date(),
-        metadata: { ...task.metadata, investmentIds, financialSources, memoryIds, failureCode, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
+        metadata: { ...task.metadata, investmentIds, financialSources, memoryIds, sourceKinds, failureCode, result: result || null, resultStatus: result ? "DRAFT_READY" : "FAILED" } }
     });
   }
 
@@ -240,6 +278,7 @@ class GeneralAgentService {
           !await this.canReadResult(task, scope)) return { heading: label + " — brak dostępu" };
       return {
         status: task.status,
+        sourceKinds: task.status === "DONE" && Array.isArray(task.metadata.sourceKinds) ? task.metadata.sourceKinds : [],
         heading: label + " — " + (LABEL[task.status] || task.status),
         result: task.status === "DONE" ? redactText(task.metadata.result, 3000)
           : task.status === "ERROR" ? AI_LIMIT_MESSAGES.get(task.metadata.failureCode) : ""
@@ -256,7 +295,8 @@ class GeneralAgentService {
     const content = sections.length
       ? ["Raport General Agenta" + (summary ? " — " + summary : ""), ...sections].join("\n\n")
       : "Brak zleceń w wybranym zakresie.";
-    return { planId, pending, answer: content };
+    const sources = sourceLinks(parts.flatMap(part => part.sourceKinds || []), scope.organizationId);
+    return { planId, pending, answer: content, sources };
   }
 }
 

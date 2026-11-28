@@ -35,12 +35,15 @@ test("PDF uses an embedded font and paginates long reports", async () => {
 test("export input is restricted to visible, finished assistant messages", async () => {
   const chat = { getConversation: async (user, id) => user === "owner" && id === "thread"
     ? { messages: [
-      { id: "visible", role: "assistant", content: "Dane. password: hidden" },
+      { id: "visible", role: "assistant", content: "Dane. password: hidden",
+        metadata: { sources: [{ label: "Faktury KSeF", href: "/company/dekonica/finance" }] } },
       { id: "restricted", role: "assistant", content: "Dane.", metadata: { restricted: true } },
       { id: "pending", role: "assistant", content: "Dane.", metadata: { pending: true } },
       { id: "user", role: "user", content: "Pytanie." }
     ] } : null };
   for (const id of ["restricted", "pending", "user"]) assert.equal(await reportFor(chat, "owner", "thread", id), null);
   assert.equal(await reportFor(chat, "other", "thread", "visible"), null);
-  assert.doesNotMatch((await reportFor(chat, "owner", "thread", "visible")).text, /password: hidden/);
+  const exported = await reportFor(chat, "owner", "thread", "visible");
+  assert.doesNotMatch(exported.text, /password: hidden/);
+  assert.match(exported.text, /Źródła zapisanych danych\n- Faktury KSeF/);
 });
