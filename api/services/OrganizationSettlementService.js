@@ -64,7 +64,7 @@ class OrganizationSettlementService {
     return link;
   }
 
-  async report(userId, organizationId, yearInput, asOf = new Date()) {
+  async report(userId, organizationId, yearInput, asOf = new Date(), { includeItems = true } = {}) {
     const link = await this.scope(userId, organizationId);
     const year = Number(yearInput);
     if (!Number.isInteger(year) || year < 2020 || year > 2100)
@@ -102,7 +102,7 @@ class OrganizationSettlementService {
             ? Math.min(100, xml.attempts) : null,
             nextRetryAt: Number.isFinite(retry) ? new Date(retry).toISOString() : null };
         }
-        items.push({ id: invoice.id, invoiceNumber: invoice.invoiceNumber, direction: invoice.direction,
+        if (includeItems) items.push({ id: invoice.id, invoiceNumber: invoice.invoiceNumber, direction: invoice.direction,
           currency: invoice.currency, dueDate: day(invoice.dueDate), status, overdue,
           gross: gross === null ? null : money(gross), adjusted: adjusted === null ? null : money(adjusted),
           ...(invalidXml && { invalidXml }),

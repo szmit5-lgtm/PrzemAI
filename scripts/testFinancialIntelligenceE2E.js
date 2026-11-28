@@ -56,6 +56,14 @@ async function checkChart(company, token, api, year, month) {
     assert.match(await page.locator("[aria-live=polite]").innerText(),/Syntetyczny odbiorca/);
     await page.getByRole("button",{name:new RegExp("Wydatki · "+label+" ·","i")}).click();
     await page.getByText("Zwrot KOR/289/"+year,{exact:true}).waitFor();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(web + "/raport-wlasciciela");
+    await page.getByRole("heading", { name: "Poranny raport właściciela" }).waitFor();
+    await page.getByRole("heading", { name: "Dekonica", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Deherus", exact: true }).waitFor();
+    const alerts = page.getByRole("region", { name: "Alerty wymagające uwagi" });
+    await alerts.getByText("Termin Dekoniki", { exact: false }).waitFor();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   } finally {
     await browser?.close();
     child.kill();
@@ -79,6 +87,7 @@ async function main() {
   app.use(express.json());
   app.use("/api/organizations",require("../api/routes/organizationRoutes"));
   app.use("/api/auth",require("../api/routes/authRoutes"));
+  app.use("/api/executive",require("../api/routes/executiveRoutes"));
   const server = app.listen(0, "127.0.0.1");
   try {
     await once(server, "listening");
@@ -162,6 +171,33 @@ async function main() {
     const report=async()=> (await request(dek,owner,root+"/"+year)).data;
     const item=(data,id)=>data.items.find(row=>row.id===id);
     const pay=(user,id,transactionId)=>request(dek,user,root+"/"+id+"/payments","POST",{transactionId});
+    const [ownedInvestment, foreignInvestment] = await Promise.all([dek, deh].map(company =>
+      db.organizationInvestment.create({ data: { organizationId: company.id, name: "Syntetyczna inwestycja", status: "IN_PROGRESS" } })
+    ));
+    await db.task.createMany({ data: [
+      { userId: owner.id, title: "Termin Dekoniki", investmentId: ownedInvestment.id, investmentScoped: true },
+      { userId: owner.id, title: "Obca inwestycja", investmentId: foreignInvestment.id, investmentScoped: true },
+      { userId: owner.id, title: "Odłączone zadanie inwestycyjne", investmentScoped: true }
+    ].map(task => ({ ...task, source: "COMPANY", dueDate: late, metadata: { organizationId: dek.id } })) });
+    const endpointBriefing = endpoint + "/api/executive/owner-briefing";
+    assert.equal((await fetch(endpointBriefing)).status, 401);
+    const readBriefing = user => fetch(endpointBriefing, {
+      headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) }
+    });
+    const ownerBriefing = await readBriefing(owner);
+    assert.equal(ownerBriefing.status, 200);
+    assert.match(ownerBriefing.headers.get("cache-control"), /no-store/);
+    const { data: briefing } = await ownerBriefing.json();
+    assert.deepEqual(briefing.companies.map(company => company.name).sort(), ["Deherus", "Dekonica"]);
+    assert.equal(briefing.companies.find(company => company.id === dek.id).investments.IN_PROGRESS, 1);
+    assert.deepEqual(briefing.companies.flatMap(company => company.dueTasks).map(task => task.title), ["Termin Dekoniki"]);
+    assert.equal(new Set(briefing.alerts.map(alert => alert.id)).size, briefing.alerts.length);
+    assert.ok(briefing.alerts.some(alert => alert.kind === "taskOverdue" && alert.title === "Termin Dekoniki"));
+    assert.ok(briefing.alerts.some(alert => alert.organizationId === dek.id && alert.kind === "overdueReceivable"));
+    const { data: employeeBriefing } = await (await readBriefing(employee)).json();
+    assert.deepEqual(employeeBriefing.companies, []);
+    assert.deepEqual(employeeBriefing.alerts, []);
+    console.log("Owner briefing E2E: ownership, company-scoped investment tasks and deduplicated alerts");
     const initial=await report();
     assert.equal(item(initial,invoice.id).status,dayBeforeToday(late)?"OVERDUE":"UNPAID");
     assert.equal(item(initial,unpaid.id).status,"UNPAID");

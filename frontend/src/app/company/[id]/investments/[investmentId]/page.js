@@ -60,20 +60,40 @@ function Finance({ organizationId, investmentId }) {
         : finance.totals.length === 0
           ? <p className="mt-3 text-slate-300">Brak przypisanych faktur KSeF w wybranym roku.</p>
           : <>
-            <p className="mt-3 text-sm text-slate-300">Kwoty brutto z faktur KSeF, według waluty i kierunku.</p>
+            <p className="mt-3 text-sm text-slate-300">Kwoty z przypisanych faktur KSeF, według waluty i kierunku.</p>
             <ul className="my-3 grid gap-2 sm:grid-cols-2">
               {finance.totals.map(row => <li key={row.currency + row.direction} className="rounded-lg bg-white/5 p-3">
                 <p className="text-sm text-slate-300">{direction(row.direction)} · {row.count} faktur</p>
-                <strong>{row.missingGross ? "Niepełne dane (" + row.currency + ")" : amount(row.gross, row.currency)}</strong>
+                <strong>{amount(row.net, row.currency)} netto</strong>
+                <p className="mt-1 text-xs text-slate-300">{amount(row.gross, row.currency)} brutto · VAT {amount(row.vat, row.currency)}</p>
               </li>)}
             </ul>
+            {!!finance.profitability?.length && (
+              <div className="my-4 space-y-2">
+                <h3 className="text-base font-semibold">Wynik na przypisanych fakturach</h3>
+                <p className="text-xs text-slate-300">Obliczenie według kwot netto z faktur. Wynik księgowy może uwzględniać inne koszty i przychody.</p>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {finance.profitability.map(row => <li key={row.currency} className="rounded-lg bg-white/5 p-3">
+                    <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
+                      <dt>Przychody netto</dt><dd>{amount(row.netSales, row.currency)}</dd>
+                      <dt>Koszty netto</dt><dd>{amount(row.netCosts, row.currency)}</dd>
+                      <dt>Wynik netto</dt><dd className="font-semibold">{amount(row.netResult, row.currency)}</dd>
+                      <dt>Marża</dt><dd>{row.marginPercent == null ? "—" : Number(row.marginPercent).toLocaleString("pl-PL") + "%"}</dd>
+                    </dl>
+                  </li>)}
+                </ul>
+              </div>
+            )}
             <h3 className="text-base font-semibold">Faktury</h3>
             <ul className="divide-y divide-white/10">
               {finance.invoices.map(invoice => <li key={invoice.id} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm">
                 <div className="min-w-0 break-words"><strong>{invoice.invoiceNumber || "Faktura bez numeru"}</strong>
                   <p className="text-slate-300">{direction(invoice.direction)} · {date.format(new Date(invoice.issueDate))}</p>
                 </div>
-                <span>{amount(invoice.grossAmount, invoice.currency)}</span>
+                <div className="text-right">
+                  <strong className="block">{amount(invoice.netAmount, invoice.currency)} netto</strong>
+                  <span className="text-xs text-slate-300">{amount(invoice.grossAmount, invoice.currency)} brutto</span>
+                </div>
               </li>)}
             </ul>
             <div className="flex flex-wrap gap-2">

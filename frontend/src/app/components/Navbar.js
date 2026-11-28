@@ -7,11 +7,12 @@ import { useVerifiedProfile } from "./AuthGuard";
 import {
   LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare,
   Brain, Settings, Bot, Wallet, Handshake, Building2, ShieldCheck,
-  Menu, X, BriefcaseBusiness, Search
+  Menu, X, BriefcaseBusiness, Search, Bell
 } from "lucide-react";
 
 const links = [
   {href:"/",label:"Pulpit",icon:LayoutDashboard},
+  {href:"/raport-wlasciciela",label:"Raport i alerty",icon:Bell},
   {href:"/chat",label:"Asystent AI",icon:MessageSquare},
   {href:"/agents",label:"Agenci",icon:Bot},
   {href:"/finance",label:"Finanse",icon:Wallet},

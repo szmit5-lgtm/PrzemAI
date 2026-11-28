@@ -790,3 +790,7 @@ export function changeWhatsAppHistoryLink(organizationId, conversationId, contac
 export function getSystemIntegrationHealth(signal) {
     return request("/api/admin/integration-health", { signal });
 }
+
+export function getOwnerBriefing(signal) {
+    return request("/api/executive/owner-briefing", { signal });
+}

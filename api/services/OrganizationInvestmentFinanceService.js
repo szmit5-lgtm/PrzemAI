@@ -182,7 +182,7 @@ class OrganizationInvestmentFinanceService{
   const reportInput={organizationId,year,investments,projects,nip:link.nip};
   const mapping=reportForProjects({...reportInput,documents:[]}).investments.find(row=>row.id===investment.id);
   if(!mapping?.legacyProjectId)
-   return {year,mapping:mapping?.accountMapping||"UNLINKED",totals:[],months:[],invoices:[],nextOffset:null};
+   return {year,mapping:mapping?.accountMapping||"UNLINKED",totals:[],months:[],profitability:[],invoices:[],nextOffset:null};
 
   const documents=await this.db.financialDocument.findMany({
    where:{
@@ -207,8 +207,8 @@ class OrganizationInvestmentFinanceService{
   const eligible=documents.map(doc=>effectiveProject(doc,organizationId)).filter(doc=>
    doc.projectId===mapping.legacyProjectId&&assignedCompanyDirection(doc,link.nip)&&/^[A-Z]{3}$/.test(doc.currency.toUpperCase()));
   const row=reportForProjects({...reportInput,documents:eligible}).investments.find(item=>item.id===investment.id);
-  const invoices=eligible.slice(offset,offset+50).map(({id,invoiceNumber,issueDate,direction,currency,grossAmount})=>({
-   id,invoiceNumber,issueDate,direction,currency:currency.toUpperCase(),grossAmount
+  const invoices=eligible.slice(offset,offset+50).map(({id,invoiceNumber,issueDate,direction,currency,netAmount,vatAmount,grossAmount})=>({
+   id,invoiceNumber,issueDate,direction,currency:currency.toUpperCase(),netAmount,vatAmount,grossAmount
   }));
   return {year,mapping:row.accountMapping,totals:row.totals,months:row.months,profitability:row.profitability,invoices,
    nextOffset:offset+50<eligible.length?offset+50:null};

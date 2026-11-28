@@ -78,6 +78,9 @@ test("financial totals and documents use only the exact matching project and the
   assert.equal(result.mapping, "EXACT_NAME");
   assert.equal(result.invoices[0].invoiceNumber, "FV-1");
   assert.equal(result.invoices[0].buyerNip, undefined);
+  assert.equal(result.invoices[0].netAmount, "100.37");
+  assert.equal(result.invoices[0].vatAmount, "23.08");
+  assert.equal(result.profitability[0].netResult, "-100.37");
   assert.equal(result.totals[0].gross, "123.45");
   assert.equal(result.months[0].month, 4);
 });
