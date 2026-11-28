@@ -1,4 +1,5 @@
 const { createHash } = require("node:crypto");
+const { Prisma } = require("@prisma/client");
 const prisma = require("../../lib/prisma");
 const AIEngine = require("../../core/ai/AIEngine");
 
@@ -7,7 +8,7 @@ const MemoryService = require("./MemoryService");
 const SettingsService = require("./SettingsService");
 const GeneralAgentService = require("./GeneralAgentService");
 const { OrganizationService } = require("./OrganizationService");
-const { redactText, documentReport } = require("../../lib/aiContext");
+const { redactText, documentReport, relevantMemories } = require("../../lib/aiContext");
 
 function requestIdentifier(userId, requestId, channel) {
     const scope = channel === "WEB" ? [userId, requestId] : [userId, requestId, channel];
@@ -142,19 +143,21 @@ class ChatService {
                 : Promise.resolve([]),
 
             settings.memoryEnabled && !organizationId
-                ? MemoryService.list(userId)
+                ? MemoryService.list(userId, { take: 100 })
                 : Promise.resolve([]),
 
             prisma.chatMessage.findMany({
 
                 where: {
                     conversationId: conversation.id,
-                    id: { not: turn.id }
+                    id: { not: turn.id },
+                    metadata: {
+                        path: ["organizationId"],
+                        equals: organizationId ?? Prisma.AnyNull
+                    }
                 },
 
-                orderBy: {
-                    createdAt: "desc"
-                },
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 
                 take: 16,
 
@@ -199,8 +202,7 @@ class ChatService {
 
             },
 
-            memories: memories
-                .slice(0, 16)
+            memories: relevantMemories(memories, message).slice(0, 16)
                 .map(memory => ({
 
                     type: redactText(memory.type, 100),

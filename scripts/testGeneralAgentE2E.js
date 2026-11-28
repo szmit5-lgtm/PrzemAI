@@ -16,6 +16,7 @@ const web = "http://127.0.0.1:3034";
 const jwtSecret = randomBytes(32).toString("hex");
 const password = randomBytes(24).toString("hex");
 const requests = [];
+const contextProbes = [];
 const children = new Set();
 let backend;
 
@@ -58,6 +59,8 @@ function openAIMock() {
     let records;
     try { ({ records } = JSON.parse(request.input[1].content[0].text)); } catch {}
     if (records) requests.push(request);
+    if (request.input[1]?.content[0]?.text === "P1_CONTEXT_SCOPE_QUERY")
+      contextProbes.push(JSON.stringify(request.input));
     const answer = Object.values(records || {}).filter(Array.isArray).flat()
       .map(row => row.invoice || row.title || row.name).filter(Boolean).join(", ");
     res.setHeader("Content-Type", "application/json");
@@ -240,6 +243,25 @@ async function main() {
     assert.equal(await db.memory.count({ where: { userId: users.member.id } }), 0);
     assert.equal(requests.length, 6);
     console.log("Personal memory persists independently of model calls and deduplicates replay OK");
+
+    // A run of newer company turns must not evict older personal context.
+    const mixed = await db.chatConversation.create({ data: { userId: users.owner.id, title: "Scope fixture" } });
+    await db.chatMessage.createMany({ data: [
+      { conversationId: mixed.id, role: "user", content: "P1_PERSONAL_CONTEXT_MARKER",
+        createdAt: new Date(0) },
+      ...Array.from({ length: 20 }, () => ({
+        conversationId: mixed.id, role: "user", content: "P1_COMPANY_CONTEXT_MARKER",
+        metadata: { organizationId: companies.Dekonica.id }
+      }))
+    ] });
+    const personal = await json("/api/chat", { token: ownerToken, body: {
+      conversationId: mixed.id, message: "P1_CONTEXT_SCOPE_QUERY"
+    } });
+    assert.equal(personal.status, 200);
+    assert.equal(contextProbes.length, 1);
+    assert.match(contextProbes[0], /P1_PERSONAL_CONTEXT_MARKER/);
+    assert.doesNotMatch(contextProbes[0], /P1_COMPANY_CONTEXT_MARKER/);
+    console.log("Personal context survives newer company turns without sharing company text OK");
 
     const token = await tokenFor(users.member);
     const memberRequest = { organizationId: companies.Dekonica.id,

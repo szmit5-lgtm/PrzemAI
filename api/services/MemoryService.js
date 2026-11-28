@@ -137,7 +137,7 @@ class MemoryService {
 
     }
 
-    async list(userId) {
+    async list(userId, { take } = {}) {
 
         return prisma.memory.findMany({
 
@@ -148,6 +148,7 @@ class MemoryService {
 
             },
 
+            ...(take !== undefined && { take }),
             orderBy: [
 
                 {
@@ -156,7 +157,8 @@ class MemoryService {
 
                 {
                     updatedAt: "desc"
-                }
+                },
+                { id: "desc" }
 
             ]
 
