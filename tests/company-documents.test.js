@@ -47,6 +47,7 @@ function harness({ role = "OWNER", persisted = null, count = 0, totalSize = 0 } 
     multer,
     "node:crypto": require("node:crypto"),
     "node:path": path,
+    "image-size": require("image-size"),
     "../../lib/prisma": prisma,
     "../services/OrganizationService": { OrganizationService, OrganizationError },
     "../services/OrganizationInvestmentService": { OrganizationInvestmentService: class {} }
