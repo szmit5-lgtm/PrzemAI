@@ -188,6 +188,10 @@ export async function deleteTask(id) {
     });
 }
 
+export function getDashboardOverview(signal) {
+    return request("/api/executive/overview", { signal });
+}
+
 export async function getExecutiveDashboard() {
     return request("/api/executive/dashboard");
 }

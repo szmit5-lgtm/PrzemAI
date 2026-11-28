@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getProfile } from "@/lib/api";
+import { useVerifiedProfile } from "./AuthGuard";
 import {
   LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare,
   Brain, Settings, Bot, Wallet, Handshake, Building2, ShieldCheck,
@@ -36,14 +36,8 @@ const isActive = (pathname, href) => href === "/"
 export default function Navbar({ vertical = false, organizationId = null, investmentOrganizationId = organizationId }) {
   const pathname = usePathname() || "/";
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showAdministration, setShowAdministration] = useState(false);
-  useEffect(() => {
-    let active = true;
-    getProfile().then(result => {
-      if (active) setShowAdministration(result?.user?.email?.trim().toLowerCase() === "p.szmitkowski@dekonica.com");
-    }).catch(() => { if (active) setShowAdministration(false); });
-    return () => { active = false; };
-  }, []);
+  const profile = useVerifiedProfile();
+  const showAdministration = profile?.email.trim().toLowerCase() === "p.szmitkowski@dekonica.com";
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   useEffect(() => {
     if (!mobileOpen) return;

@@ -1,34 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getProfile } from "@/lib/api";
 import { parseAuthenticatedProfile } from "@/lib/profilePayload";
 
 const PUBLIC_PATHS = new Set(["/login", "/register", "/preview", "/business/register"]);
 
+const ProfileContext = createContext(null);
+
+export function useVerifiedProfile() {
+  return useContext(ProfileContext);
+}
+
 export default function AuthGuard({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [verifiedPath, setVerifiedPath] = useState(null);
+  const [verification, setVerification] = useState(null);
   const [verificationError, setVerificationError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const isPublic = PUBLIC_PATHS.has(pathname);
 
   useEffect(() => {
-    if (isPublic) return;
+    if (isPublic) {
+      setVerification(null);
+      return;
+    }
     let active = true;
     setVerificationError("");
 
     getProfile()
       .then(data => {
         if (!active) return;
-        parseAuthenticatedProfile(data);
-        setVerifiedPath(pathname);
+        setVerification({ pathname, profile: parseAuthenticatedProfile(data) });
       })
-.catch(error => {
+      .catch(error => {
         if (!active) return;
-        setVerifiedPath(null);
+        setVerification(null);
         if (error?.status === 401) {
           router.replace("/login");
         } else {
@@ -39,7 +47,7 @@ export default function AuthGuard({ children }) {
     return () => { active = false; };
   }, [pathname, isPublic, router, retryKey]);
 
-  if (!isPublic && verifiedPath !== pathname) {
+  if (!isPublic && verification?.pathname !== pathname) {
     return (
       <div role="status" className="flex min-h-screen items-center justify-center bg-[#070e22] text-slate-100">
         <div className="text-center">
@@ -59,5 +67,5 @@ export default function AuthGuard({ children }) {
     );
   }
 
-  return children;
+  return <ProfileContext.Provider value={isPublic ? null : verification.profile}>{children}</ProfileContext.Provider>;
 }

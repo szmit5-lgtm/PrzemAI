@@ -44,5 +44,7 @@ test("AuthGuard checks the profile payload before verifying a protected path", a
         path.join(__dirname, "../frontend/src/app/components/AuthGuard.js"), "utf8"
     );
     assert.match(source, /import\s*\{\s*parseAuthenticatedProfile\s*\}\s*from\s*["']@\/lib\/profilePayload["']/);
-    assert.match(source, /parseAuthenticatedProfile\(data\);\s*setVerifiedPath\(pathname\)/);
+    assert.match(source, /setVerification\(\{ pathname, profile: parseAuthenticatedProfile\(data\) \}\)/);
+    assert.match(source, /verification\?\.pathname !== pathname/);
+    assert.match(source, /isPublic \? null : verification\.profile/);
 });

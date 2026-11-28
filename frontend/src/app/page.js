@@ -10,7 +10,7 @@ import Navbar from "./components/Navbar";
 import UserMenu from "./components/UserMenu";
 import CompanyBankSnapshot from "./components/CompanyBankSnapshot";
 import {
- getAgents,getExecutiveDashboard,
+ getAgents,getDashboardOverview,
  getOrganizations,getOrganizationInvestments,getOrganizationFinanceSummary,getInvoiceDashboard
 } from "@/lib/api";
 
@@ -109,19 +109,19 @@ export default function HomePage() {
   return()=>{active=false;};
  },[refresh]);
  useEffect(()=>{
-  let alive=true;
+  const controller=new AbortController();
   setLoading(true);
   Promise.allSettled([
-   getExecutiveDashboard(),getAgents()
+   getDashboardOverview(controller.signal),getAgents()
   ]).then(results=>{
-   if(!alive)return;
+   if(controller.signal.aborted)return;
    setErrors(results.filter(r=>r.status==="rejected").length);
    setData({
     executive:readValue(results[0],"dashboard"),
     agents:readValue(results[1],"data")||[]
    });
-  }).finally(()=>{if(alive)setLoading(false);});
-  return()=>{alive=false;};
+  }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+  return()=>controller.abort();
  },[refresh]);
  useEffect(()=>{
   const allowed=organizations.some(o=>o.id===primaryCompany);
@@ -226,7 +226,7 @@ export default function HomePage() {
        <button type="button" aria-pressed={simpleMode} onClick={()=>switchMode(true)} className={"rounded-lg px-3 py-2 "+(simpleMode?"bg-violet-600 text-white":"text-slate-300")}>Uproszczony</button>
        <button type="button" aria-pressed={!simpleMode} onClick={()=>switchMode(false)} className={"rounded-lg px-3 py-2 "+(!simpleMode?"bg-violet-600 text-white":"text-slate-300")}>Pełny</button>
       </div>
-      <UserMenu/>
+      <UserMenu dashboardData={{companies:organizations,taskCount:summary.openTasks === undefined ? null : summary.openTasks + summary.completedTasks}}/>
      </div>
     </header>
     <div className="lg:hidden"><Navbar organizationId={["OWNER","ADMIN"].includes(selectedOrg?.role) ? selectedOrg.id : null} investmentOrganizationId={selectedOrg?.id}/></div>

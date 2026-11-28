@@ -12,6 +12,11 @@ const service = new AgentService();
 const CYCLE_MS = 20000;
 const STALE_RUN_MS = 90 * 60000;
 const MAX_AGENTS_PER_CYCLE = 50;
+const configuredConcurrency = process.env.WORKER_AGENT_CONCURRENCY ?? "1";
+if (!/^[1-6]$/.test(configuredConcurrency)) {
+  throw new Error("WORKER_AGENT_CONCURRENCY must be between 1 and 6.");
+}
+const agentConcurrency = Number(configuredConcurrency);
 const ownerScope = process.env.WORKER_OWNER_USER_ID === undefined
   ? null : require("./lib/workerOwnerScope").workerOwnerScope();
 
@@ -252,8 +257,7 @@ async function cycle() {
     let completed = 0;
     let failed = 0;
 
-    for (const agent of due) {
-      if (stopping) break;
+    async function runScheduledAgent(agent) {
 
       // Recheck the due condition when claiming the agent. Another
       // worker may have finished and rescheduled it after findMany.
@@ -276,10 +280,10 @@ async function cycle() {
         // other due agents from running in the same scheduler cycle.
         failed += 1;
         console.error("[Worker] Failed to claim agent", agent.key, error.message);
-        continue;
+        return;
       }
 
-      if (lock.count !== 1) continue;
+      if (lock.count !== 1) return;
 
       // SIGTERM can arrive while the claim query is in flight. Do not start
       // a new agent after shutdown begins; release this unused claim so the
@@ -293,7 +297,7 @@ async function cycle() {
         } catch (error) {
           console.error("[Worker] Failed to release claim during shutdown", agent.key, error.message);
         }
-        break;
+        return;
       }
 
       // AgentRunner heartbeats both scheduled and manual executions.
@@ -305,6 +309,25 @@ async function cycle() {
         console.error("[Worker] Agent failed", agent.key, error.message);
       }
     }
+
+    // Keep one scheduled agent per user within this worker while independent
+    // users can run in parallel. Database claims still arbitrate each agent.
+    const pending = [...due];
+    const activeUsers = new Set();
+    async function drainScheduledAgents() {
+      while (!stopping) {
+        const index = pending.findIndex(agent => !activeUsers.has(agent.userId));
+        if (index === -1) return;
+        const [agent] = pending.splice(index, 1);
+        activeUsers.add(agent.userId);
+        try {
+          await runScheduledAgent(agent);
+        } finally {
+          activeUsers.delete(agent.userId);
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(agentConcurrency, due.length) }, drainScheduledAgents));
 
     cycleNumber += 1;
     if (cycleNumber === 1 || cycleNumber % 15 === 0 ||

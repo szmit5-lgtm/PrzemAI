@@ -58,7 +58,7 @@ function startWorker(overrides = {}) {
       warn: (...args) => events.warnings.push(args),
       error: (...args) => events.errors.push(args)
     },
-    process: { env: {}, on() {}, exit() { throw new Error("Unexpected exit"); } },
+    process: { env: overrides.env || {}, on() {}, exit() { throw new Error("Unexpected exit"); } },
     Date,
     setInterval(callback) { events.tick = callback; return 1; },
     clearInterval() {},
@@ -556,5 +556,37 @@ test("worker drains agents beyond the per-cycle limit without replaying complete
   assert.equal(pending.length, 0);
   assert.equal(new Set(events.runs.map(({ agent }) => agent.id)).size, 51);
   assert.equal(events.runs.at(-1).agent.id, "agent-50");
+  assert.equal(events.errors.length, 0);
+});
+
+test("parallel lanes respect the limit and serialize scheduled agents of one user", async () => {
+  const releases = new Map();
+  const due = [
+    { id: "a1", userId: "a" }, { id: "a2", userId: "a" },
+    { id: "b1", userId: "b" }, { id: "c1", userId: "c" }
+  ];
+  const events = startWorker({
+    env: { WORKER_AGENT_CONCURRENCY: "2" },
+    prisma: {
+      user: { findMany: async () => [{ id: "a" }, { id: "b" }, { id: "c" }] },
+      agent: {
+        findMany: async ({ where }) => where.status === "RUNNING" ? [] : due,
+        updateMany: async () => ({ count: 1 })
+      }
+    },
+    run: agent => new Promise(resolve => releases.set(agent.id, resolve))
+  });
+  const started = () => events.runs.map(({ agent }) => agent.id);
+  await settled();
+  assert.deepEqual(started(), ["a1", "b1"]);
+  releases.get("b1")();
+  await settled();
+  assert.deepEqual(started(), ["a1", "b1", "c1"]);
+  releases.get("a1")();
+  await settled();
+  assert.deepEqual(started(), ["a1", "b1", "c1", "a2"]);
+  releases.get("c1")();
+  releases.get("a2")();
+  await settled();
   assert.equal(events.errors.length, 0);
 });

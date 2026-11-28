@@ -6,6 +6,7 @@ on:
       - feature/agent-runtime-finance-mail
       - integration/przemai-next
       - feature/product-readiness
+      - feature/platform-reliability
   pull_request:
   workflow_dispatch:
 
@@ -42,7 +43,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Product workspace isolation and admin budget E2E
-        if: github.head_ref == 'feature/product-readiness' || github.ref == 'refs/heads/feature/product-readiness' || github.ref == 'refs/heads/integration/przemai-next'
+        if: github.head_ref == 'feature/product-readiness' || github.ref == 'refs/heads/feature/product-readiness' || github.ref == 'refs/heads/integration/przemai-next' || github.ref == 'refs/heads/feature/platform-reliability' || github.head_ref == 'feature/platform-reliability'
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_product_ci
           PRZEMAI_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -51,8 +52,9 @@ jobs:
           npx prisma migrate deploy
           node scripts/testWorkspaceToolsE2E.js
           node scripts/testSharedHistoryE2E.js
+          node scripts/testDashboardOverviewE2E.js
       - name: Prepare release browser tests
-        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next'
+        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next' || github.ref == 'refs/heads/feature/platform-reliability' || github.head_ref == 'feature/platform-reliability'
         run: |
           npm ci --prefix frontend
           mkdir -p "$RUNNER_TEMP/przemai-e2e"
@@ -63,7 +65,7 @@ jobs:
             echo "NODE_PATH=$RUNNER_TEMP/przemai-e2e/node_modules"
           } >> "$GITHUB_ENV"
       - name: Native Prisma upgrade, rollback and application rehearsal
-        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next'
+        if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next' || github.ref == 'refs/heads/feature/platform-reliability' || github.head_ref == 'feature/platform-reliability'
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_ci
           PRZEMAI_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -77,7 +79,7 @@ jobs:
             node scripts/testGeneralAgentE2E.js &&
             node scripts/testTelegramChatE2E.js &&
             node scripts/testFinancialAgentE2E.js &&
-            if [[ "$GITHUB_REF" == "refs/heads/integration/przemai-next" ]]; then
+            if [[ "$GITHUB_REF" == "refs/heads/integration/przemai-next" || "$GITHUB_REF" == "refs/heads/feature/platform-reliability" ]]; then
               PRZEMAI_P1_BROWSER=true node scripts/testFinancialIntelligenceE2E.js;
             fi
           } 2>&1 | tee "$log"; then
