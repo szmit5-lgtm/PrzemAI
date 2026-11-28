@@ -253,6 +253,25 @@ async function main() {
     assert.equal(await db.memory.count({ where: { userId: users.owner.id, content: "wolę krótkie raporty" } }), 1);
     assert.equal(await db.memory.count({ where: { userId: users.member.id } }), 0);
     assert.equal(requests.length, 6);
+    for (const [prefix, type, text] of [
+      ["decyzję", "DECISION", "weryfikujemy ryzyka w poniedziałek"],
+      ["ustalenie", "AGREEMENT", "dokumenty trafiają do sekretariatu"],
+      ["kontrahenta", "CLIENT", "Kontakt testowy"]
+    ]) {
+      const message = "Zapamiętaj " + prefix + ": " + text;
+      const personalSave = await json("/api/chat", { token: ownerToken, body: { requestId: randomUUID(), message } });
+      assert.equal(personalSave.status, 200);
+      assert.match(personalSave.data.answer, /Zapamiętałem/);
+      const row = await db.memory.findFirst({ where: { userId: users.owner.id, type, content: text } });
+      assert.equal(row?.content, text);
+      const companySave = await json("/api/chat", { token: ownerToken, body: {
+        organizationId: companies.Dekonica.id, requestId: randomUUID(),
+        message: "Zapamiętaj " + prefix + ": wartość firmowa " + text
+      } });
+      assert.match(companySave.data.answer, /zakresu osobistego/);
+      assert.equal(await db.memory.count({ where: { userId: users.owner.id, content: "wartość firmowa " + text } }), 0);
+    }
+    assert.equal(requests.length, 6);
     console.log("Personal memory persists independently of model calls and deduplicates replay OK");
 
     // A run of newer company turns must not evict older personal context.

@@ -1,14 +1,24 @@
 const { createHash } = require("node:crypto");
 const prisma = require("../../lib/prisma");
 
+const instructionTypes = {
+    decyzja: "DECISION", "decyzję": "DECISION",
+    ustalenie: "AGREEMENT", kontrahent: "CLIENT", kontrahenta: "CLIENT"
+};
+
 class MemoryService {
 
     async rememberInstruction(userId, content) {
+        const explicit = /^(decyzja|decyzję|ustalenie|kontrahent|kontrahenta)\s*:\s*([\s\S]*)$/iu.exec(content);
+        const type = explicit ? instructionTypes[explicit[1].toLowerCase()] : "FACT";
+        const text = explicit ? explicit[2].trim() : content;
+        if (!text) return false;
+        const identity = explicit ? [userId, type, text] : [userId, content];
         const id = "chat-memory-" + createHash("sha256")
-            .update(JSON.stringify([userId, content])).digest("hex");
+            .update(JSON.stringify(identity)).digest("hex");
         const inserted = await prisma.memory.createMany({
-            data: { id, userId, type: "FACT", title: content.slice(0, 160),
-                content, source: "CHAT", importance: 4, tags: ["zapamiętane"] },
+            data: { id, userId, type, title: text.slice(0, 160),
+                content: text, source: "CHAT", importance: 4, tags: ["zapamiętane"] },
             skipDuplicates: true
         });
         if (inserted.count === 0) {
@@ -17,6 +27,7 @@ class MemoryService {
                 data: { archivedAt: null }
             });
         }
+        return true;
     }
 
     normalizeImportance(value, fallback = 3) {

@@ -81,8 +81,9 @@ class ChatService {
             } else if (fact.length > 1200 || redactText(fact, 1200) !== fact) {
                 remembered = "Podaj krótszą informację bez kluczy, haseł i adresów URL.";
             } else {
-                await MemoryService.rememberInstruction(userId, fact);
-                remembered = "Zapamiętałem tę informację w Twojej pamięci osobistej.";
+                const stored = await MemoryService.rememberInstruction(userId, fact);
+                remembered = stored ? "Zapamiętałem tę informację w Twojej pamięci osobistej."
+                    : "Podaj treść, którą mam zapamiętać.";
             }
         }
         const compareAttachment = attachment && organizationId && /\b(porównaj|porownaj|zestaw|zweryfikuj)\b/iu.test(message);
