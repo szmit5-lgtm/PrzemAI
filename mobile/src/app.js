@@ -1,6 +1,7 @@
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { parseChatListResponse, parseChatDetailResponse } from "../../frontend/src/lib/chatDashboardPayload.js";
 import { formatInvoicePLN, invoicePeriodTotals } from "../../frontend/src/lib/invoiceDashboard.mjs";
 
 const root = document.querySelector("#app");
@@ -306,10 +307,52 @@ const pages = {
     const attachment = node("input", null, { type: "file", accept: ".pdf,.docx,.xlsx,.png,.jpg,.jpeg" });
     const submit = node("button", "Wyślij", { type: "submit" });
     const result = node("div", null, { "aria-live": "polite", "aria-label": "Historia rozmowy" });
+    const history = node("div", null, { "aria-label": "Zapisane rozmowy", "aria-live": "polite" });
+    const scopedQuery = "?organizationId=" + encodeURIComponent(organizationId);
+    const scopedPath = id => "/api/chat/" + encodeURIComponent(id) + scopedQuery;
+    let historyRequest = 0;
+    const historyButton = button("Zapisane rozmowy", async () => {
+      const request = ++historyRequest;
+      historyButton.disabled = true;
+      history.replaceChildren(node("p", "Ładowanie rozmów…"));
+      try {
+        const rows = parseChatListResponse(await api("/api/chat" + scopedQuery));
+        if (!active() || request !== historyRequest) return;
+        history.replaceChildren(...rows.map(row => {
+          const date = new Date(row.lastMessageAt);
+          const dateLabel = Number.isNaN(date.getTime()) ? "" : " · " + date.toLocaleString("pl-PL");
+          return button(row.title + dateLabel, async () => {
+            const detail = ++historyRequest;
+            try {
+              const reply = parseChatDetailResponse(await api(scopedPath(row.id)), row.id);
+              if (!active() || detail !== historyRequest || current.sending) return;
+              const restored = newChat();
+              restored.conversationId = reply.id;
+              restored.turns = reply.messages.filter(item => !item.metadata?.restricted &&
+                (item.metadata?.organizationId || "") === organizationId).slice(-40).map(item => ({
+                  message: item.role === "assistant" ? "General Agent" : "Wiadomość",
+                  answer: item.content,
+                  id: item.id,
+                  pending: item.role === "assistant" && Boolean(item.metadata?.pending)
+                }));
+              chat = restored;
+              render();
+            } catch (error) { if (active() && detail === historyRequest) showError(history, error); }
+          });
+        }));
+        if (!rows.length) history.append(node("p", "Brak zapisanych rozmów w tym zakresie."));
+      } catch (error) { if (active() && request === historyRequest) showError(history, error); }
+      finally { if (active()) historyButton.disabled = current.sending; }
+    });
+    const newConversation = button("Nowa rozmowa", () => {
+      if (current.sending) return;
+      chat = newChat();
+      render();
+    });
     input.addEventListener("input", () => { current.draft = input.value; });
     form.append(field("Wiadomość do General Agenta", input), field("Załącznik do 4 MB", attachment), submit);
     if (!organizationId) target.append(node("p", "Rozmowa osobista. Wybierz spółkę, aby pracować w jej zakresie."));
-    target.append(form, result);
+    target.append(historyButton, newConversation, history, form, result);
     let refreshing = false;
     let refreshDelay = 2500;
     async function refreshProgress() {
@@ -318,7 +361,7 @@ const pages = {
       if (!document.hidden && navigator.onLine) {
         refreshing = true;
         try {
-          const reply = await api("/api/chat/" + encodeURIComponent(current.conversationId));
+          const reply = await api(scopedPath(current.conversationId));
           if (!active() || chat !== current) return;
           if (reply.conversation?.id !== current.conversationId || !Array.isArray(reply.conversation.messages))
             throw Error("Nieprawidłowy stan rozmowy.");
@@ -349,6 +392,7 @@ const pages = {
     redrawChat = () => {
       if (!active()) return;
       submit.disabled = current.sending;
+      newConversation.disabled = current.sending;
       input.disabled = current.sending;
       attachment.disabled = current.sending;
       input.value = current.draft;

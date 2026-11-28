@@ -1,5 +1,13 @@
 const ChatService = require("../services/ChatService");
 
+function requestedOrganization(req) {
+    const value = req.query?.organizationId;
+    if (value === undefined || value === "") return value;
+    if (typeof value !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(value))
+        throw Object.assign(new Error("Nieprawidłowy zakres rozmowy."), { status: 400 });
+    return value;
+}
+
 class ChatController {
 
     async chat(req, res) {
@@ -101,10 +109,11 @@ class ChatController {
             const conversations =
                 await ChatService.listConversations(
 
-                    req.user.id
+                    req.user.id, requestedOrganization(req)
 
                 );
 
+            res.set("Cache-Control", "private, no-store");
             return res.json({
 
                 success: true,
@@ -115,6 +124,7 @@ class ChatController {
 
         }
         catch (err) {
+            if ([400, 403].includes(err?.status)) return res.status(err.status).json({ success: false, error: err.message });
 
             console.error("[ChatController]", err?.name || "Error");
 
@@ -138,7 +148,7 @@ class ChatController {
                 await ChatService.getConversation(
 
                     req.user.id,
-                    req.params.id
+                    req.params.id, requestedOrganization(req)
 
                 );
 
@@ -165,6 +175,7 @@ class ChatController {
 
         }
         catch (err) {
+            if ([400, 403].includes(err?.status)) return res.status(err.status).json({ success: false, error: err.message });
 
             console.error("[ChatController]", err?.name || "Error");
 

@@ -55,7 +55,10 @@ async function main() {
             net: organizationId === "beta" ? "25.00" : "100.00", gross: organizationId === "beta" ? "27.00" : "123.00" }]
         } };
       } else if (url.pathname.endsWith("/workspace")) result = { data: { tasks: [] } };
-      else if (url.pathname === "/api/chat") {
+      else if (url.pathname === "/api/chat" && request.method() === "GET") {
+        assert.equal(url.searchParams.get("organizationId"), "beta");
+        result = { success: true, conversations: [{ id: "demo-id", title: "Rozmowa firmowa" }] };
+      } else if (url.pathname === "/api/chat") {
         chat = request.postDataJSON();
         if (chat.message === "Pokaż zadania") {
           startedReply();
@@ -72,7 +75,8 @@ async function main() {
               : { answer: "Ponowienie zakończone" }) };
         }
       } else if (url.pathname === "/api/chat/demo-id") {
-        result = { conversation: { id: "demo-id", messages: [
+        assert.equal(url.searchParams.get("organizationId"), "beta");
+        result = { success: true, conversation: { id: "demo-id", messages: [
           { id: "fixture-pending", role: "assistant", content: "Wynik z lokalnej atrapy", metadata: { organizationId: "beta" } },
           { id: "other-message", role: "assistant", content: "Inna spółka", metadata: { organizationId: "alpha" } }
         ] } };
@@ -138,6 +142,12 @@ async function main() {
     await page.getByLabel("Spółka", { exact: true }).selectOption("alpha");
     assert.equal(await page.getByText("Treść załącznika odebrana").count(), 0);
     await page.getByLabel("Spółka", { exact: true }).selectOption("beta");
+    assert.equal(await page.getByText("Wynik z lokalnej atrapy").count(), 0);
+    await page.getByRole("button", { name: "Zapisane rozmowy" }).click();
+    await page.getByRole("button", { name: "Rozmowa firmowa" }).click();
+    await page.getByText("Wynik z lokalnej atrapy").waitFor();
+    assert.equal(await page.getByText("Inna spółka", { exact: true }).count(), 0);
+    await page.getByRole("button", { name: "Nowa rozmowa" }).click();
     assert.equal(await page.getByText("Wynik z lokalnej atrapy").count(), 0);
     await page.getByRole("button", { name: "Inwestycje" }).click();
     await page.getByRole("button", { name: "Szczegóły" }).click();

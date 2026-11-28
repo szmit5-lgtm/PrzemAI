@@ -163,17 +163,27 @@ async function browserFlow(browser, owner, companies) {
     const data = await response.json();
     assert.equal(data.pending, true);
     const answer = page.getByText("Faktura-" + company, { exact: false }).last();
-    const reportButton = answer.getByRole("button", { name: "Pobierz raport" });
-    await reportButton.waitFor();
+    await answer.getByRole("button", { name: "Pobierz Word" }).waitFor();
     const content = await answer.textContent();
     for (const key of ["Faktura", "Dokument", "Przypisana"])
       assert.match(content, new RegExp(key + "-" + company));
     assert.doesNotMatch(content, new RegExp(excluded));
-    const downloaded = page.waitForEvent("download");
-    await reportButton.click();
-    const download = await downloaded;
-    assert.equal(download.suggestedFilename(), "raport-przemai.rtf");
-    assert.match(await readFile(await download.path(), "utf8"), new RegExp("Faktura-" + company));
+    for (const [label, extension] of [["Word", "docx"], ["PDF", "pdf"], ["Excel", "xlsx"]]) {
+      const downloaded = page.waitForEvent("download");
+      await answer.getByRole("button", { name: "Pobierz " + label }).click();
+      const download = await downloaded;
+      assert.equal(download.suggestedFilename(), "raport-przemai." + extension);
+      const bytes = await readFile(await download.path());
+      if (extension === "pdf") {
+        assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
+      } else {
+        const text = extension === "docx"
+          ? (await require("mammoth").extractRawText({ buffer: bytes })).value
+          : (await require("read-excel-file/node").readSheet(bytes)).flat().join("\n");
+        assert.match(text, new RegExp("Faktura-" + company));
+        assert.doesNotMatch(text, new RegExp(excluded));
+      }
+    }
     return data.conversationId;
   };
   const conversation = await sendFor("Dekonica", "Deherus");
@@ -263,6 +273,19 @@ async function main() {
     assert.match(contextProbes[0], /P1_PERSONAL_CONTEXT_MARKER/);
     assert.doesNotMatch(contextProbes[0], /P1_COMPANY_CONTEXT_MARKER/);
     console.log("Personal context survives newer company turns without sharing company text OK");
+    const orgQuery = "?organizationId=" + companies.Dekonica.id;
+    const scopedList = await json("/api/chat" + orgQuery, { token: ownerToken });
+    assert.equal(scopedList.status, 200);
+    const scopedRow = scopedList.data.conversations.find(row => row.id === mixed.id);
+    assert.equal(scopedRow.title, "Rozmowa firmowa");
+    assert.equal(scopedRow._count.messages, 20);
+    const scopedDetails = await json("/api/chat/" + mixed.id + orgQuery, { token: ownerToken });
+    assert.equal(scopedDetails.status, 200);
+    assert.equal(scopedDetails.data.conversation.messages.length, 20);
+    assert.doesNotMatch(JSON.stringify(scopedDetails.data), /P1_PERSONAL_CONTEXT_MARKER|P1_CONTEXT_SCOPE_QUERY/);
+    const personalDetails = await json("/api/chat/" + mixed.id + "?organizationId=", { token: ownerToken });
+    assert.equal(personalDetails.status, 200);
+    assert.doesNotMatch(JSON.stringify(personalDetails.data), /P1_COMPANY_CONTEXT_MARKER/);
 
     const token = await tokenFor(users.member);
     const memberRequest = { organizationId: companies.Dekonica.id,
