@@ -288,7 +288,7 @@ export default function ChatPage(){
      setOrganizationId(lastScope||"");
      setMessages(result.messages?.length?result.messages.map(m=>({
        id:m.id,role:m.role,content:m.content,pending:Boolean(m.metadata?.pending),
-       restricted:Boolean(m.metadata?.restricted), organizationId:m.metadata?.organizationId
+       restricted:Boolean(m.metadata?.restricted), organizationId:m.metadata?.organizationId, origin:m.metadata?.origin
      })):[welcomeMessage]);
      setSidebarOpen(false);
    }catch(err){setError(err?.message||"Nie udało się otworzyć rozmowy.");}
@@ -535,6 +535,7 @@ export default function ChatPage(){
           {item.role==="user"?<MessageCircle size={16}/>:<Sparkles size={16}/>}
          </span>
          <div className={"max-w-[min(95%,850px)] min-w-0 break-words whitespace-pre-wrap rounded-2xl border px-4 py-3 text-sm leading-7 sm:px-5 "+(item.role==="user"?"border-blue-400/20 bg-[#244b9e] text-white":"border-white/10 bg-[#18243f] text-slate-100")}>
+          {item.origin==="WHATSAPP"&&<span className="mb-1 block text-xs font-semibold text-blue-100">WhatsApp</span>}
           {item.content}
           {activeConversationId&&item.role==="assistant"&&item.id&&!item.pending&&!item.restricted&&
            <div className="mt-2 flex flex-wrap gap-3 text-xs text-violet-200">
@@ -556,6 +557,12 @@ export default function ChatPage(){
      </div>
      <div className="min-w-0 shrink-0 border-t border-white/10 bg-[#101a33] px-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3 sm:px-6 sm:pb-4 sm:pt-4">
       <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
+       {messages.some(item=>item.origin==="WHATSAPP"&&item.organizationId===organizationId)&&
+        <button type="button" disabled={busy||Boolean(message.trim())}
+         onClick={()=>setMessage("Przygotuj szkic odpowiedzi na ostatnią wiadomość z WhatsApp w tej rozmowie. Uwzględnij kontekst rozmowy i pozostaw odpowiedź do mojej akceptacji.")}
+         className="min-h-11 rounded-xl border border-emerald-400/30 px-3 text-sm text-emerald-100 disabled:opacity-40">
+         Szkic odpowiedzi WhatsApp
+        </button>}
        <button type="button" aria-pressed={voiceMode} onClick={startVoiceMode}
         disabled={!voiceSupported||busy}
         className={"inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold disabled:opacity-40 sm:flex-none "+(voiceMode

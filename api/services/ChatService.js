@@ -118,7 +118,7 @@ class ChatService {
         ] = await Promise.all([
 
             settings.executiveMode && !organizationId
-                ? TaskService.list(userId)
+                ? TaskService.list(userId, null, { take: 30 })
                 : Promise.resolve([]),
 
             settings.historyEnabled && !organizationId

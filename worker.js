@@ -95,14 +95,19 @@ const { discoverPublicLeads } = require("./publicLeadDiscovery");
 const { searchPublicCompanies } = require("./publicCompanySearch");
 const { buildSalesLeadReport } = require("./salesLeadPipeline");
 
+const MAX_KALDEVA_ATTEMPTS = 3;
+const KALDEVA_STALE_MS = 15 * 60000;
+const kaldevaAttempt = report => Number.isSafeInteger(report?.attempt) && report.attempt >= 0 ? report.attempt : 0;
+
 async function processKaldevaJobs() {
+  const cutoff = new Date(Date.now() - KALDEVA_STALE_MS);
   // A worker restart must not leave a claimed search stuck as "running" forever.
   // Only reclaim jobs older than the search timeout with a generous safety margin.
   const stale = await prisma.history.findMany({
     where: {
       type: "KALDEVA_SALES",
       report: { path: ["status"], equals: "running" },
-      updatedAt: { lt: new Date(Date.now() - 15 * 60000) },
+      updatedAt: { lt: cutoff },
       ...(ownerScope ? { userId: ownerScope } : {})
     },
     orderBy: { updatedAt: "asc" }, take: 5,
@@ -111,12 +116,17 @@ async function processKaldevaJobs() {
   for (const row of stale) {
     if (stopping) return 0;
     if (row.report?.actorId !== row.userId || row.report?.companyId !== "kaldeva:" + row.userId) continue;
-    const failed = { ...row.report, status: "failed", error: "worker_interrupted_retry_search" };
+    // Legacy running jobs already consumed one attempt.
+    const attempt = Math.max(1, kaldevaAttempt(row.report));
+    const recovered = attempt < MAX_KALDEVA_ATTEMPTS
+      ? { ...row.report, attempt, status: "queued", error: null }
+      : { ...row.report, attempt, status: "failed", error: "worker_interrupted_retry_limit" };
     await prisma.$executeRaw`
-      UPDATE "History" SET "report" = ${JSON.stringify(failed)}::jsonb, "updatedAt" = NOW()
+      UPDATE "History" SET "report" = ${JSON.stringify(recovered)}::jsonb, "updatedAt" = NOW()
       WHERE "id" = ${row.id} AND "userId" = ${row.userId}
         AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
-        AND "updatedAt" < ${new Date(Date.now() - 15 * 60000)}
+        AND "updatedAt" < ${cutoff}
+        AND ("report"->>'attempt') IS NOT DISTINCT FROM ${row.report.attempt == null ? null : String(row.report.attempt)}::text
     `;
   }
   if (stopping) return 0;
@@ -135,14 +145,26 @@ async function processKaldevaJobs() {
     const job = row.report;
     if (job?.status !== "queued" || job.actorId !== row.userId ||
         job.companyId !== "kaldeva:" + row.userId || typeof job.query !== "string") continue;
-    const running = { ...job, status: "running" };
+    const attempt = kaldevaAttempt(job);
+    if (attempt >= MAX_KALDEVA_ATTEMPTS) continue;
+    const running = { ...job, attempt: attempt + 1, status: "running" };
     // Claim only a still-queued job; cancellation or a second worker wins safely.
     const claimed = await prisma.$executeRaw`
       UPDATE "History" SET "report" = ${JSON.stringify(running)}::jsonb, "updatedAt" = NOW()
       WHERE "id" = ${row.id} AND "userId" = ${row.userId}
         AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'queued'
+        AND ("report"->>'attempt') IS NOT DISTINCT FROM ${job.attempt == null ? null : String(job.attempt)}::text
     `;
     if (claimed !== 1) continue;
+    if (stopping) {
+      await prisma.$executeRaw`
+        UPDATE "History" SET "report" = ${JSON.stringify(job)}::jsonb, "updatedAt" = NOW()
+        WHERE "id" = ${row.id} AND "userId" = ${row.userId}
+          AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
+          AND "report"->>'attempt' = ${String(running.attempt)}
+      `;
+      break;
+    }
     let result;
     try {
       const found = await discoverPublicLeads({
@@ -165,6 +187,7 @@ async function processKaldevaJobs() {
       WHERE "id" = ${row.id} AND "userId" = ${row.userId}
         AND "type" = 'KALDEVA_SALES' AND "report"->>'status' = 'running'
         AND "report"->>'actorId' = ${row.userId}
+        AND "report"->>'attempt' = ${String(running.attempt)}
     `;
     if (saved !== 1) {
       console.warn("[Worker] Kaldeva result discarded: job no longer running", row.id);

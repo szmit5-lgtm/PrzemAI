@@ -4,6 +4,7 @@ const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
 const { dailyLimit, monthlyLimit } = require("../../lib/openAIRequestPolicy");
 const { integrationHealth } = require("../services/IntegrationHealthService");
+const { claudeMonthlyLimit } = require("../../lib/claudeRequestPolicy");
 const router = express.Router();
 
 // IMPORTANT: Never trust a JWT role, email suffix, or user-supplied flag.
@@ -38,6 +39,7 @@ router.get("/ai-usage", async (_req, res) => {
   try {
     const requestsLimit = dailyLimit();
     const budgetLimitMicroPln = monthlyLimit();
+    const claudeBudgetLimitMicroPln = claudeMonthlyLimit();
     const day = new Date().toISOString().slice(0, 10);
     const month = day.slice(0, 7);
     const [daily, monthly] = await Promise.all([
@@ -45,7 +47,7 @@ router.get("/ai-usage", async (_req, res) => {
         where: { day: new Date(day) }, select: { requests: true }
       }),
       prisma.openAIMonthlyBudget.findUnique({
-        where: { month: new Date(month + "-01") }, select: { reservedMicroPln: true }
+        where: { month: new Date(month + "-01") }, select: { reservedMicroPln: true, claudeReservedMicroPln: true }
       })
     ]);
     return res.json({ success: true, data: {
@@ -54,10 +56,14 @@ router.get("/ai-usage", async (_req, res) => {
       requests: daily?.requests ?? 0,
       requestsLimit,
       reservedMicroPln: String(monthly?.reservedMicroPln ?? 0n),
-      budgetLimitMicroPln: String(budgetLimitMicroPln)
+      budgetLimitMicroPln: String(budgetLimitMicroPln),
+      claudeReservedMicroPln: String(monthly?.claudeReservedMicroPln ?? 0n),
+      claudeBudgetLimitMicroPln: String(claudeBudgetLimitMicroPln),
+      totalReservedMicroPln: String((monthly?.reservedMicroPln ?? 0n) + (monthly?.claudeReservedMicroPln ?? 0n)),
+      totalBudgetLimitMicroPln: "200000000"
     } });
   } catch {
-    return res.status(503).json({ success: false, error: "Dane o wykorzystaniu budżetu OpenAI są niedostępne." });
+    return res.status(503).json({ success: false, error: "Dane o wykorzystaniu budżetu AI są niedostępne." });
   }
 });
 

@@ -23,22 +23,30 @@ export default function AiUsage() {
 
   return (
     <section className="mt-5 rounded-3xl border border-white/10 bg-[#111c35] p-5" aria-labelledby="ai-usage-title">
-      <h2 id="ai-usage-title" className="text-xl font-bold">Budżet OpenAI</h2>
+      <h2 id="ai-usage-title" className="text-xl font-bold">Budżet AI</h2>
       {error && <p role="alert" className="mt-3 text-rose-300">{error}</p>}
       {!error && !usage && <p role="status" className="mt-3 text-slate-300">Pobieram wykorzystanie budżetu…</p>}
       {usage && (
         <>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="text-sm text-slate-300">Rezerwacje miesięczne · {usage.month} UTC</dt>
+              <dt className="text-sm text-slate-300">OpenAI · {usage.month} UTC</dt>
               <dd className="mt-1 text-xl font-semibold">{formatMoney(usage.reservedMicroPln)} / {formatMoney(usage.budgetLimitMicroPln)}</dd>
             </div>
             <div>
-              <dt className="text-sm text-slate-300">Żądania objęte limitem · {usage.day} UTC</dt>
+              <dt className="text-sm text-slate-300">Claude · {usage.month} UTC</dt>
+              <dd className="mt-1 text-xl font-semibold">{formatMoney(usage.claudeReservedMicroPln)} / {formatMoney(usage.claudeBudgetLimitMicroPln)}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-slate-300">Wspólny budżet · {usage.month} UTC</dt>
+              <dd className="mt-1 text-xl font-semibold">{formatMoney(usage.totalReservedMicroPln)} / {formatMoney(usage.totalBudgetLimitMicroPln)}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-slate-300">Żądania OpenAI · {usage.day} UTC</dt>
               <dd className="mt-1 text-xl font-semibold">{usage.requests} / {usage.requestsLimit}</dd>
             </div>
           </dl>
-          <p className="mt-4 text-sm text-slate-300">Rezerwacje pokazują szacowaną górną granicę kosztów żądań dopuszczonych przez limit. Rzeczywiste opłaty są dostępne w rozliczeniach OpenAI.</p>
+          <p className="mt-4 text-sm text-slate-300">Rezerwacje pokazują szacowaną górną granicę kosztów żądań dopuszczonych przez limit. Rzeczywiste opłaty są dostępne w rozliczeniach dostawców.</p>
         </>
       )}
     </section>

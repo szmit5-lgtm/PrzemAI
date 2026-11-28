@@ -53,6 +53,7 @@ jobs:
           node scripts/testWorkspaceToolsE2E.js
           node scripts/testSharedHistoryE2E.js
           node scripts/testDashboardOverviewE2E.js
+          node scripts/testSharedAiBudgetE2E.js
       - name: Prepare release browser tests
         if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next' || github.ref == 'refs/heads/feature/platform-reliability' || github.head_ref == 'feature/platform-reliability'
         run: |

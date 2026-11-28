@@ -58,7 +58,7 @@ class TaskService {
 
     }
 
-    async list(userId, status = null) {
+    async list(userId, status = null, { take } = {}) {
 
         return prisma.task.findMany({
 
@@ -70,6 +70,8 @@ class TaskService {
                 ...(status ? { status } : {})
 
             },
+
+            ...(take !== undefined && { take }),
 
             orderBy: [
 

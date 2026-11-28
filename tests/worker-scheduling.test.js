@@ -40,9 +40,9 @@ function startWorker(overrides = {}) {
   const dependencies = {
     dotenv: { config() {} },
     "./lib/prisma": prisma,
-    "./publicLeadDiscovery": { discoverPublicLeads: async () => { throw new Error("Unexpected lead discovery"); } },
+    "./publicLeadDiscovery": { discoverPublicLeads: overrides.discover || (async () => { throw new Error("Unexpected lead discovery"); }) },
     "./publicCompanySearch": { searchPublicCompanies: async () => { throw new Error("Unexpected company search"); } },
-    "./salesLeadPipeline": { buildSalesLeadReport: () => { throw new Error("Unexpected sales report"); } },
+    "./salesLeadPipeline": { buildSalesLeadReport: overrides.buildReport || (() => { throw new Error("Unexpected sales report"); }) },
     "./core/agents/OrphanedDraftTaskRecovery": {recoverInterruptedDraftTasks:async()=>({recovered:0})},
     "./core/agents/AgentRunner": AgentRunner,
     "./api/services/AgentService": AgentService
@@ -590,4 +590,35 @@ test("parallel lanes respect the limit and serialize scheduled agents of one use
   releases.get("a2")();
   await settled();
   assert.equal(events.errors.length, 0);
+});
+
+test("Kaldeva retries an interrupted job, caps attempts and fences late results", async () => {
+  const first = { id: "retry", userId: "owner", report: {
+    actorId: "owner", companyId: "kaldeva:owner", query: "synthetic", status: "running", attempt: 1
+  } };
+  const exhausted = { id: "exhausted", userId: "owner", report: { ...first.report, attempt: 3 } };
+  const writes = [];
+  let queued;
+  const events = startWorker({
+    prisma: {
+      history: { findMany: async ({ where }) => where.report.equals === "running" ? [first, exhausted] : [queued] },
+      user: { findMany: async () => [{ id: "owner" }] },
+      $executeRaw: async (parts, payload, id, ...rest) => {
+        const report = JSON.parse(payload);
+        writes.push({ id, report, sql: parts.join("?"), last: rest.at(-1) });
+        if (id === first.id && report.status === "queued") queued = { ...first, report };
+        return report.status === "completed" ? 0 : 1;
+      }
+    },
+    discover: async () => ({ leads: [] }),
+    buildReport: () => ({ accepted: [] })
+  });
+  await settled();
+  assert.deepEqual(writes.map(({ id, report }) => [id, report.status, report.attempt]), [
+    ["retry", "queued", 1], ["exhausted", "failed", 3],
+    ["retry", "running", 2], ["retry", "completed", 2]
+  ]);
+  assert.match(writes[3].sql, /"report"->>'attempt' = \?/);
+  assert.equal(writes[3].last, "2");
+  assert.ok(events.warnings.some(entry => /result discarded/.test(entry[0])));
 });

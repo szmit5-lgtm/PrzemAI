@@ -99,13 +99,31 @@ async function main() {
     assert.deepEqual(conversation.messages.map(item => item.content), ["Tekst z WWW", "Tekst z WhatsApp", "Tekst z Telegrama"]);
     assert.equal((await authenticated(other, details, "GET")).status, 403);
     assert.equal(await db.whatsAppMessage.count({ where: { organizationId: org.id } }), 1);
+    assert.equal(conversation.messages[1].metadata.origin, "WHATSAPP");
+    const chat = require("../api/services/ChatService");
+    let generationCount = 0;
+    chat.ai.ask = async ({ user }) => {
+      generationCount++;
+      for (const text of ["Tekst z WWW", "Tekst z WhatsApp", "Tekst z Telegrama"]) assert.ok(user.includes(text));
+      return "Szkic syntetyczny do akceptacji.";
+    };
+    const draftMarkdown = "Przygotuj szkic odpowiedzi na ostatnią wiadomość z WhatsApp w tej rozmowie.";
+    const draftRequest = { message: draftMarkdown, conversationId: thread.id, organizationId: org.id, requestId: randomUUID() };
+    const draft = await authenticated(owner, "/chat", "POST", draftRequest);
+    assert.equal(draft.status, 200);
+    assert.equal((await draft.json()).answer, "Szkic syntetyczny do akceptacji.");
+    const cached = await authenticated(owner, "/chat", "POST", draftRequest);
+    assert.equal(cached.status, 200);
+    assert.equal(generationCount, 1);
+    assert.equal((await authenticated(other, "/chat", "POST", draftRequest)).status, 403);
+    assert.equal(await db.whatsAppMessage.count({ where: { organizationId: org.id, direction: "OUTBOUND" } }), 0);
     assert.equal((await authenticated(owner, link, "DELETE", request)).status, 200);
     assert.equal(await isLinked(owner), false);
     assert.equal((await webhook("Tekst z WhatsApp", delivery)).status, 200);
     assert.equal((await webhook("Po odłączeniu")).status, 200);
     assert.equal(await db.whatsAppMessage.count({ where: { organizationId: org.id } }), 2);
-    assert.equal(await db.chatMessage.count({ where: { conversationId: thread.id } }), 3);
-    console.log("Shared history E2E: signed provider identity, scopes, replay, revocation, no sends");
+    assert.equal(await db.chatMessage.count({ where: { conversationId: thread.id } }), 5);
+    console.log("Shared history E2E: signed provider identity, scopes, shared-context draft and replay, revocation, no sends");
   } finally {
     await new Promise(resolve => server.close(resolve));
     await db.$disconnect();

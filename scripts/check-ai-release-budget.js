@@ -28,10 +28,13 @@ async function checkBudget(db, env = process.env) {
       COALESCE((SELECT "requests" FROM "OpenAIRequestBudget"
         WHERE "day" = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date), 0) AS "daily",
       COALESCE((SELECT "reservedMicroPln" FROM "OpenAIMonthlyBudget"
-        WHERE "month" = date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date), 0) AS "monthly"
+        WHERE "month" = date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date), 0) AS "monthly",
+      COALESCE((SELECT "claudeReservedMicroPln" FROM "OpenAIMonthlyBudget"
+        WHERE "month" = date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date), 0) AS "claude"
   `;
   if (daily - Number(usage.daily) < 3) throw new Error("AI_DAILY_HEADROOM");
-  if (monthly - BigInt(usage.monthly) < 3n * cost) throw new Error("AI_MONTHLY_HEADROOM");
+  if (monthly - BigInt(usage.monthly) < 3n * cost ||
+      200000000n - BigInt(usage.monthly) - BigInt(usage.claude ?? 0) < 3n * cost) throw new Error("AI_MONTHLY_HEADROOM");
 }
 
 if (require.main === module) {

@@ -3,9 +3,10 @@
 /**
  * Manual, opt-in Anthropic smoke test for staging only.
  * Usage: ANTHROPIC_API_KEY=... node scripts/test-anthropic.js
- * No database, email, GitHub or production actions.
+ * Uses a PostgreSQL budget reservation before attempting the provider.
  */
 const https = require("node:https");
+const { claudeMonthlyLimit, reserveClaude, estimateClaudeSmoke } = require("../lib/claudeRequestPolicy");
 
 async function main() {
   if (process.env.CLAUDE_DEV_ENABLED !== "true") {
@@ -19,10 +20,8 @@ async function main() {
   if (process.env.CLAUDE_TEST_ISOLATED !== "true") {
     throw new Error("Set CLAUDE_TEST_ISOLATED=true only after independently verifying database and service isolation.");
   }
-  const budget = Number(process.env.CLAUDE_MONTHLY_BUDGET_PLN);
-  if (!Number.isFinite(budget) || budget <= 0 || budget > 50) {
-    throw new Error("CLAUDE_MONTHLY_BUDGET_PLN must be configured between 0 and 50 PLN.");
-  }
+  const budget = claudeMonthlyLimit();
+  if (budget === 0n) throw new Error("CLAUDE_MONTHLY_BUDGET_PLN must be configured between 0 and 50 PLN.");
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured.");
   const model = process.env.CLAUDE_DEV_MODEL || "claude-haiku-4-5";
@@ -31,6 +30,17 @@ async function main() {
     max_tokens: 16,
     messages: [{ role: "user", content: "Reply with exactly: PRZEMAI_CLAUDE_OK" }]
   });
+  const cost = estimateClaudeSmoke(model, payload);
+  if (!process.env.DATABASE_URL) throw new Error("Claude requires a PostgreSQL budget ledger.");
+  const db = require("../lib/prisma");
+  try {
+    await reserveClaude(cost, budget, db);
+  } catch (error) {
+    if (error.code === "AI_MONTHLY_BUDGET_LIMIT") throw error;
+    throw new Error("BUDGET_DATABASE_UNAVAILABLE");
+  } finally {
+    await db.$disconnect().catch(() => {});
+  }
   const data = await new Promise((resolve, reject) => {
     const req = https.request("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -70,7 +80,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch(error => {
-    console.error("[Claude smoke test]", error.message);
+    console.error("[Claude smoke test]", error.code || error.message);
     process.exitCode = 1;
   });
 }

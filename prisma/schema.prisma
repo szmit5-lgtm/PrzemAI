@@ -637,4 +637,5 @@ model InvoiceCorrection {
 model OpenAIMonthlyBudget {
   month            DateTime @id @db.Date
   reservedMicroPln BigInt
+  claudeReservedMicroPln BigInt @default(0)
 }
