@@ -5,6 +5,7 @@ const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
 const { evaluateOutbound } = require("../services/WhatsAppPolicy");
 const { whatsAppContent, publicAttachment, draftForMessage } = require("../services/WhatsAppInboundService");
+const historyLink = require("../services/WhatsAppHistoryLinkService");
 const router = express.Router();
 
 // Private conversations and generated drafts must never be cached by browsers,
@@ -79,6 +80,13 @@ router.post("/webhook", async (req, res) => {
       const timestamp = Number(message.timestamp);
       const receivedAt = Number.isSafeInteger(timestamp) && timestamp > 0 &&
         timestamp < 4102444800 ? new Date(timestamp * 1000) : new Date();
+      if (type === "text") {
+        const text = message.text?.body;
+        if (process.env.WHATSAPP_HISTORY_LINK_ENABLED === "true") {
+          if (await historyLink.mirror({ db: prisma, organizationId, phoneNumberId, contact: message.from,
+            messageId: message.id, text, receivedAt })) continue;
+        } else if (historyLink.isPairingText(text)) continue;
+      }
       try {
         await prisma.whatsAppMessage.create({
           data: { organizationId, externalMessageId: message.id,
@@ -93,6 +101,34 @@ router.post("/webhook", async (req, res) => {
   } catch (error) {
     // No PII in logs. Retry on database or migration failures.
     console.error("WhatsApp webhook persistence failed:", error?.code || "UNKNOWN");
+    return res.sendStatus(503);
+  }
+});
+
+function configuredHistoryOrg(req) {
+  return Boolean(process.env.WHATSAPP_APP_SECRET && process.env.WHATSAPP_PHONE_NUMBER_ID &&
+    process.env.WHATSAPP_ORGANIZATION_ID === req.params.organizationId);
+}
+
+router.post("/organizations/:organizationId/history-link", verifyToken, async (req, res) => {
+  if (process.env.WHATSAPP_HISTORY_LINK_ENABLED !== "true" || !configuredHistoryOrg(req)) return res.sendStatus(404);
+  try {
+    const data = await historyLink.issue({ db: prisma, userId: req.user.id, organizationId: req.params.organizationId,
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID, conversationId: req.body?.conversationId,
+      contact: req.body?.contact });
+    return data ? res.status(201).json({ success: true, data }) : res.sendStatus(403);
+  } catch {
+    return res.sendStatus(503);
+  }
+});
+
+router.delete("/organizations/:organizationId/history-link", verifyToken, async (req, res) => {
+  if (!configuredHistoryOrg(req)) return res.sendStatus(404);
+  try {
+    await historyLink.unlink({ db: prisma, userId: req.user.id, organizationId: req.params.organizationId,
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID, contact: req.body?.contact });
+    return res.json({ success: true });
+  } catch {
     return res.sendStatus(503);
   }
 });

@@ -3,6 +3,8 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
 const { verifyRehearsalRestore } = require("../scripts/check-rehearsal-restore");
+const { createHash } = require("node:crypto");
+const { rehearse } = require("../scripts/rehearse-restored-migrations");
 const { check } = require("../scripts/check-staging-isolation");
 
 const env = {
@@ -26,7 +28,7 @@ const evidence = {
   latestMigration: "20261126190000_financial_intelligence"
 };
 
-function fixture({ identity = {}, history = {} } = {}) {
+function fixture({ identity = {}, history = {}, badChecksum = false } = {}) {
   const calls = [];
   return {
     calls,
@@ -37,6 +39,11 @@ function fixture({ identity = {}, history = {} } = {}) {
         async $transaction(callback) {
           return callback({
             async $executeRawUnsafe(sql) { calls.push(sql); },
+            async $queryRaw() {
+              calls.push("checksums");
+              return [{ migration_name: evidence.latestMigration,
+                checksum: badChecksum ? "wrong" : createHash("sha256").update("migration").digest("hex") }];
+            },
             async $queryRawUnsafe(sql) {
               assert.match(sql.trim(), /^SELECT/);
               if (sql.includes("pg_control_system()")) {
@@ -44,6 +51,7 @@ function fixture({ identity = {}, history = {} } = {}) {
                 return [{ database: evidence.database, cluster: evidence.cluster, readOnly: true,
                   migrations: true, users: true, organizations: true, ...identity }];
               }
+              if (sql.includes("monthlyAiBudget")) return [{ monthlyAiBudget: true }];
               assert.match(sql, /public\."_prisma_migrations"/);
               calls.push("migration history");
               return [{ latest: evidence.latestMigration, clean: true, ...history }];
@@ -95,5 +103,26 @@ test("rejects wrong runtime identity, incomplete schema, and unsuitable migratio
     const db = fixture(overrides);
     await assert.rejects(verifyRehearsalRestore({ env, evidence, createClient: db.createClient }), error);
     assert.equal(db.calls.at(-1), "disconnect");
+  }
+});
+
+
+test("migration rehearsal validates the restore and checksums before applying", async () => {
+  const readMigration = name => {
+    assert.equal(name, evidence.latestMigration);
+    return "migration";
+  };
+  const db = fixture();
+  const prisma = command => db.calls.push(command);
+  assert.equal(await rehearse({ env, evidence, createClient: db.createClient, readMigration, prisma, apply: false }),
+    "BASELINE_VERIFIED");
+  assert.ok(!db.calls.includes("deploy"));
+  assert.equal(await rehearse({ env, evidence, createClient: db.createClient, readMigration, prisma, apply: true }),
+    "NATIVE_MIGRATIONS_AND_SCHEMA_VERIFIED");
+  assert.ok(db.calls.indexOf("deploy") > db.calls.lastIndexOf("checksums"));
+  assert.ok(db.calls.indexOf("status") > db.calls.indexOf("deploy"));
+  for (const invalid of [fixture({ badChecksum: true }), fixture({ identity: { cluster: "7673220878021664822" } })]) {
+    await assert.rejects(rehearse({ env, evidence, createClient: invalid.createClient, readMigration,
+      prisma: () => assert.fail("unexpected write"), apply: true }));
   }
 });

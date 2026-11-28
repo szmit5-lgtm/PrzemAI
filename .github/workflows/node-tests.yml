@@ -42,7 +42,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Product workspace isolation and admin budget E2E
-        if: github.head_ref == 'feature/product-readiness' || github.ref == 'refs/heads/feature/product-readiness'
+        if: github.head_ref == 'feature/product-readiness' || github.ref == 'refs/heads/feature/product-readiness' || github.ref == 'refs/heads/integration/przemai-next'
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_product_ci
           PRZEMAI_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -50,6 +50,7 @@ jobs:
           docker exec "$PRZEMAI_TEST_POSTGRES_CONTAINER" createdb -U postgres przemai_p0_e2e_product_ci
           npx prisma migrate deploy
           node scripts/testWorkspaceToolsE2E.js
+          node scripts/testSharedHistoryE2E.js
       - name: Prepare release browser tests
         if: github.head_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/release/przemai-p0-integration' || github.base_ref == 'release/przemai-p0-integration' || github.ref == 'refs/heads/integration/przemai-next'
         run: |
@@ -96,5 +97,8 @@ jobs:
           npm audit --omit=dev --audit-level=high
           PRZEMAI_MOBILE_API_ORIGIN=https://api.example.test npm run prepare:store
           node browser-smoke.cjs
+      - name: Audit runtime dependencies
+        if: github.ref == 'refs/heads/integration/przemai-next'
+        run: npm audit --omit=dev --audit-level=high
       - name: Run Node tests
         run: npm test

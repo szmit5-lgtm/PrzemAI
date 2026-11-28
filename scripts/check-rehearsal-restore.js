@@ -40,7 +40,7 @@ function validateEvidence(evidence) {
   }
 }
 
-async function verifyRehearsalRestore({ env = process.env, evidence, createClient } = {}) {
+async function verifyRehearsalRestore({ env = process.env, evidence, createClient, inspect } = {}) {
   check(env, { database: DATABASE });
   // Metadata can confirm the target and baseline. The operator must separately
   // attest that the verified archive finished restoring both schema and data.
@@ -64,6 +64,7 @@ async function verifyRehearsalRestore({ env = process.env, evidence, createClien
       if (!history || history.clean !== true || history.latest !== evidence.latestMigration) {
         throw new Error("REHEARSAL_BASELINE_UNVERIFIED");
       }
+      if (inspect) await inspect(tx);
       return { targetAndBaselineVerified: true, operatorRestoreAttestationAccepted: true };
     });
   } finally {

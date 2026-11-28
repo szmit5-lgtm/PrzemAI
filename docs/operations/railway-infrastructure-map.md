@@ -9,7 +9,7 @@ Stan informacji przekazanych przez operatora na 27 listopada 2026.
 | Izolowany klaster prób | passionate-freedom | staging → Postgres-Vycl | Prywatny host `postgres-vycl.railway.internal`. Identyfikator klastra staging należy potwierdzić w sesji operatorskiej. |
 | Baza próbnego odtworzenia | passionate-freedom | staging → Postgres-Vycl | Docelowa baza logiczna `przemai_p0_rehearsal` |
 
-Operator zgłosił przesłanie kopii produkcyjnej do staging i sprawdzenie SHA256. Zakończenie odtworzenia pozostaje do potwierdzenia. Zgodność sumy potwierdza integralność pliku kopii. Odtworzenie potwierdzają wynik programu odtwarzającego i kontrola bazy docelowej. Zapisuj status tych etapów oddzielnie.
+Operator zgłosił przesłanie kopii produkcyjnej do staging i sprawdzenie SHA256. Operator potwierdził zakończenie odtworzenia jako `RESTORE_OK`. Zgodność sumy potwierdza integralność pliku kopii. Odtworzenie potwierdzają wynik programu odtwarzającego i kontrola bazy docelowej. Zapisuj status tych etapów oddzielnie.
 
 ## Potwierdzenie odtworzenia przed migracjami
 
@@ -47,3 +47,16 @@ W tym samym odizolowanym środowisku użyj połączenia skonfigurowanego do bazy
 | `latestMigration` | Nazwa ostatniej ukończonej migracji oczekiwanej w kopii |
 
 Przechowuj plik poświadczenia poza repozytorium. Sonda najpierw sprawdza środowisko i poświadczenie, a następnie w transakcji tylko do odczytu weryfikuje bazę docelową, identyfikator klastra i stan historii migracji. Kod 0 oznacza zgodność odczytanych metadanych z poświadczeniem operatora. Kod 1 wstrzymuje próbę migracji. Poświadczenie pozostaje dowodem operatora, a odczyt metadanych nie sprawdza ponownie zawartości archiwum.
+
+## Migracja na już odtworzonej bazie
+
+Operator potwierdził zakończenie odtworzenia jako `RESTORE_OK`. Użyj istniejącego poświadczenia. Próba nie tworzy kopii ani nie powtarza odtwarzania.
+
+W zatwierdzonej usłudze staging uruchom z katalogu czystego checkoutu kandydata:
+
+```sh
+node scripts/rehearse-restored-migrations.js /bezpieczna/sciezka/restore-attestation.json <pelny-SHA> --check
+node scripts/rehearse-restored-migrations.js /bezpieczna/sciezka/restore-attestation.json <pelny-SHA> --apply
+```
+
+Tryb odczytu sprawdza SHA, nazwę bazy, instancję PostgreSQL, stan odtworzenia i sumy ukończonych migracji. Tryb zapisu powtarza kontrole, wykonuje natywne `prisma migrate deploy`, `prisma migrate status` i odczyt katalogu PostgreSQL. Używa połączenia przeznaczonego wyłącznie do bazy próbnej. Po niepowodzeniu zachowaj historię migracji i ocenę operatora przed ponowieniem. Próbę przerwij, jeśli środowisko ma aktywne integracje zewnętrzne.

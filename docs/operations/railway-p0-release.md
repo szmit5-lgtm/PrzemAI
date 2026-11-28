@@ -28,6 +28,10 @@ Operator potwierdził w Railway produkcyjny worker `729ef733d114a2ab7d611e913939
 
 `scripts/testProductionCutover.sh` instaluje klientów Prisma z lockfile obu produkcyjnych SHA. Odtwarza syntetyczny stan poprzedniego API w odrębnym PostgreSQL 16, zrzuca go przez `pg_dump`, odtwarza przez `pg_restore` w pustej bazie i porównuje zachowanie danych oraz rejestr migracji. Następnie wykonuje natywne migracje P0, uruchamia poprzednie komponenty bez integracji i porównuje ich zachowanie z kandydatem. Przed produkcją powtórz odtworzenie **bieżącej kopii produkcyjnej** w odizolowanym klastrze, z wyłączonymi integracjami, i zapisz czas odtworzenia oraz status migracji. Syntetyczna próba CI nie dowodzi stanu rzeczywistej kopii.
 
+## Kandydat po konsolidacji
+
+Przed dopuszczeniem wydania wymagane są pełne testy CI dla SHA kandydata, wynik `NATIVE_MIGRATIONS_AND_SCHEMA_VERIFIED` na już odtworzonej bazie próbnej, potwierdzona izolacja usług i pozytywna kontrola budżetu in situ. Polecenia próby na istniejącej kopii opisuje [mapa infrastruktury](railway-infrastructure-map.md). Dane z tej kopii pozostają w izolowanym środowisku. Funkcję wspólnej historii WhatsApp włączaj osobno po weryfikacji pojedynczego powiązania webhooka i spółki. W awarii ruchu przychodzącego można wyłączyć `WHATSAPP_HISTORY_LINK_ENABLED` i wykonać kroki wycofania poniżej. Tryb wyłączony zachowuje dotychczasową skrzynkę.
+
 ## Kolejność wydania
 
 1. W uzgodnionym oknie wstrzymaj przyjmowanie zleceń WWW i Telegram oraz harmonogramy. Zanotuj stan zadań oczekujących, rozpoczętych i zakończonych oraz audyty prób zewnętrznych. Zatrzymaj stare API i wszystkie repliki starego workera. Wyślij SIGTERM i pozostaw co najmniej 25 sekund na domknięcie cyklu. Potwierdź w Railway zamknięcie procesów oraz brak automatycznego restartu przed migracją. Jeżeli przekroczono czas zamknięcia, ustal skutki przerwanego cyklu na podstawie audytu. Pozostaw oczekujące zadania w kolejce, a przerwane oceń przed ręcznym ponowieniem.

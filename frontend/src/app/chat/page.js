@@ -7,6 +7,7 @@ import {
   MessageCircle,MessageSquare,MessageSquarePlus,Mic,MicOff,Send,
   ShieldCheck,Sparkles,Trash2,Volume2,VolumeX,X
 } from "lucide-react";
+import WhatsAppHistoryLink from "./WhatsAppHistoryLink";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import {
@@ -579,6 +580,9 @@ export default function ChatPage(){
       {messages.some(item=>item.pending&&(item.organizationId||"")===selectedScope)&&
        <button type="button" disabled={busy||listening||Boolean(attachment)} onClick={()=>send("Status")}
         className="mb-2 text-xs text-violet-200">Sprawdź lub wznów zlecenie</button>}
+      {selectedScope && activeConversationId &&
+       <WhatsAppHistoryLink key={selectedScope + ":" + activeConversationId}
+        organizationId={selectedScope} conversationId={activeConversationId} />}
       <label className="mb-2 block text-xs text-slate-300">
        Załącz PDF, DOCX, XLSX lub zdjęcie (do 4 MB)
        <input type="file" accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" disabled={busy||listening}
