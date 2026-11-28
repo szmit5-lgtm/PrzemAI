@@ -775,9 +775,9 @@ export function getTelegramStatus(signal) {
  return request("/api/telegram/status", { signal });
 }
 
-export function changeWhatsAppHistoryLink(organizationId, conversationId, contact, unlink) {
-    return request("/api/whatsapp/organizations/" + encodeURIComponent(organizationId) + "/history-link", {
-        method: unlink ? "DELETE" : "POST",
+export function changeWhatsAppHistoryLink(organizationId, conversationId, contact, action) {
+    return request("/api/whatsapp/organizations/" + encodeURIComponent(organizationId) + "/history-link" + (action === "status" ? "/status" : ""), {
+        method: action === "unlink" ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId, contact })
     });

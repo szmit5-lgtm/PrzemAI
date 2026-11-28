@@ -90,6 +90,18 @@ async function mirror({ db, organizationId, phoneNumberId, contact, messageId, t
   }, { isolationLevel: "Serializable" });
 }
 
+async function status({ db, userId, organizationId, phoneNumberId, conversationId, contact }) {
+  if (!userId || typeof contact !== "string" || !contactPattern.test(contact) ||
+      typeof conversationId !== "string" || !conversationPattern.test(conversationId) ||
+      !await hasMembership(db, userId, organizationId) ||
+      !await hasThread(db, userId, organizationId, conversationId)) return { linked: false };
+  const row = await db.history.findFirst({
+    where: { id: bindingId(organizationId, phoneNumberId, contact), userId, type: LINK },
+    select: { report: true }
+  });
+  return { linked: row?.report?.conversationId === conversationId };
+}
+
 async function unlink({ db, userId, organizationId, phoneNumberId, contact }) {
   if (!userId || typeof contact !== "string" || !contactPattern.test(contact)) return;
   await db.history.deleteMany({ where: {
@@ -104,4 +116,4 @@ async function unlink({ db, userId, organizationId, phoneNumberId, contact }) {
   } });
 }
 
-module.exports = { issue, mirror, unlink, isPairingText: text => typeof text === "string" && text.trim().toUpperCase().startsWith(PREFIX) };
+module.exports = { issue, mirror, status, unlink, isPairingText: text => typeof text === "string" && text.trim().toUpperCase().startsWith(PREFIX) };

@@ -55,14 +55,22 @@ async function main() {
     const link = "/whatsapp/organizations/" + org.id + "/history-link";
     const details = "/chat/" + thread.id + "?organizationId=" + org.id;
     const request = { conversationId: thread.id, contact };
+    const isLinked = async user => {
+      const result = await authenticated(user, link + "/status", "POST", request);
+      assert.equal(result.status, 200);
+      return (await result.json()).data.linked;
+    };
     assert.equal((await authenticated(other, link, "POST", request)).status, 403);
     const pairing = await authenticated(owner, link, "POST", request);
     assert.equal(pairing.status, 201);
     const { data: { message: code } } = await pairing.json();
     assert.equal((await webhook(code, undefined, contact, "wrong-signature")).status, 403);
     assert.equal((await webhook(code, undefined, "48987654321")).status, 200);
+    assert.equal(await isLinked(owner), false);
     assert.equal((await webhook("Przed powiązaniem")).status, 200);
     assert.equal((await webhook(code)).status, 200);
+    assert.equal(await isLinked(owner), true);
+    assert.equal(await isLinked(other), false);
     const delivery = "wamid." + randomUUID();
     for (let i = 0; i < 2; i++) assert.equal((await webhook("Tekst z WhatsApp", delivery)).status, 200);
 
@@ -92,6 +100,7 @@ async function main() {
     assert.equal((await authenticated(other, details, "GET")).status, 403);
     assert.equal(await db.whatsAppMessage.count({ where: { organizationId: org.id } }), 1);
     assert.equal((await authenticated(owner, link, "DELETE", request)).status, 200);
+    assert.equal(await isLinked(owner), false);
     assert.equal((await webhook("Tekst z WhatsApp", delivery)).status, 200);
     assert.equal((await webhook("Po odłączeniu")).status, 200);
     assert.equal(await db.whatsAppMessage.count({ where: { organizationId: org.id } }), 2);

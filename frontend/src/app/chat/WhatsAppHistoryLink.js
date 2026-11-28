@@ -8,13 +8,18 @@ export default function WhatsAppHistoryLink({ organizationId, conversationId }) 
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
-  async function change(unlink) {
+  async function change(action) {
     setBusy(true);
-    setCode("");
+    if (action !== "status") setCode("");
     setStatus("");
     try {
-      const response = await changeWhatsAppHistoryLink(organizationId, conversationId, contact, unlink);
-      if (unlink) setStatus("Wyłączono przekazywanie nowych wiadomości z tego numeru.");
+      const response = await changeWhatsAppHistoryLink(organizationId, conversationId, contact, action);
+      if (action === "unlink") setStatus("Wyłączono przekazywanie nowych wiadomości z tego numeru.");
+      else if (action === "status") {
+        const linked = response?.data?.linked === true;
+        if (linked) setCode("");
+        setStatus(linked ? "Numer przekazuje wiadomości do tej rozmowy." : "Brak potwierdzonego powiązania z tą rozmową.");
+      }
       else if (typeof response?.data?.message === "string") {
         setCode(response.data.message);
         setStatus("Wyślij kod ręcznie z podanego numeru na firmowy numer WhatsApp. Kod wygaśnie po 5 minutach.");
@@ -26,7 +31,7 @@ export default function WhatsAppHistoryLink({ organizationId, conversationId }) 
   const enabled = !busy && /^\d{6,20}$/.test(contact);
   return <details className="text-xs text-slate-300">
     <summary className="cursor-pointer text-violet-200">Połącz historię WhatsApp</summary>
-    <form onSubmit={event => { event.preventDefault(); if (enabled) void change(false); }} className="mt-2 space-y-2">
+    <form onSubmit={event => { event.preventDefault(); if (enabled) void change("issue"); }} className="mt-2 space-y-2">
       <label className="block">Numer nadawcy z prefiksem kraju, same cyfry
         <input value={contact} onChange={event => { setContact(event.target.value); setCode(""); setStatus(""); }}
           type="tel" inputMode="numeric" maxLength={20} disabled={busy}
@@ -35,7 +40,9 @@ export default function WhatsAppHistoryLink({ organizationId, conversationId }) 
       <div className="flex flex-wrap gap-3">
         <button className="min-h-9 text-violet-200 disabled:opacity-50" disabled={!enabled} type="submit">Wygeneruj kod</button>
         <button className="min-h-9 text-slate-300 disabled:opacity-50" disabled={!enabled} type="button"
-          onClick={() => change(true)}>Odłącz numer</button>
+          onClick={() => change("unlink")}>Odłącz numer</button>
+        <button className="min-h-9 text-slate-300 disabled:opacity-50" disabled={!enabled} type="button"
+          onClick={() => change("status")}>Sprawdź powiązanie</button>
       </div>
       {status && <p role="status">{status}</p>}
       {code && <code className="block select-all break-all">{code}</code>}

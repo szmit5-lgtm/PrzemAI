@@ -122,6 +122,18 @@ router.post("/organizations/:organizationId/history-link", verifyToken, async (r
   }
 });
 
+router.post("/organizations/:organizationId/history-link/status", verifyToken, async (req, res) => {
+  if (process.env.WHATSAPP_HISTORY_LINK_ENABLED !== "true" || !configuredHistoryOrg(req)) return res.sendStatus(404);
+  try {
+    const data = await historyLink.status({ db: prisma, userId: req.user.id, organizationId: req.params.organizationId,
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID, conversationId: req.body?.conversationId,
+      contact: req.body?.contact });
+    return res.json({ success: true, data });
+  } catch {
+    return res.sendStatus(503);
+  }
+});
+
 router.delete("/organizations/:organizationId/history-link", verifyToken, async (req, res) => {
   if (!configuredHistoryOrg(req)) return res.sendStatus(404);
   try {

@@ -580,6 +580,11 @@ export default function ChatPage(){
       {messages.some(item=>item.pending&&(item.organizationId||"")===selectedScope)&&
        <button type="button" disabled={busy||listening||Boolean(attachment)} onClick={()=>send("Status")}
         className="mb-2 text-xs text-violet-200">Sprawdź lub wznów zlecenie</button>}
+      {activeConversationId && <details className="text-xs text-slate-300">
+       <summary className="cursor-pointer text-violet-200">Kontynuuj w Telegramie</summary>
+       <p className="mt-2">Na powiązanym koncie wybierz ten sam zakres i użyj polecenia z własną wiadomością.</p>
+       <code className="block select-all break-all">{"/watek " + activeConversationId + " Twoja wiadomość"}</code>
+      </details>}
       {selectedScope && activeConversationId &&
        <WhatsAppHistoryLink key={selectedScope + ":" + activeConversationId}
         organizationId={selectedScope} conversationId={activeConversationId} />}
