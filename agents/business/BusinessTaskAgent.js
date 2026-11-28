@@ -43,17 +43,28 @@ class BusinessTaskAgent{
   const ai=this.ai||new AIEngine();
   let completed=0,failed=0;
   for(const task of tasks){
+   const m=task.metadata&&typeof task.metadata==="object"&&!Array.isArray(task.metadata)?task.metadata:{};
+   const startedAt=new Date();
+   const claim={id:task.id,userId,source:"AGENT",status:"IN_PROGRESS",startedAt};
    const lock=await this.db.task.updateMany({
-    where:{id:task.id,userId,source:"AGENT",status:"TODO",metadata:{path:["agentKey"],equals:agentKey}},
-    data:{status:"IN_PROGRESS",startedAt:new Date()}
+    where:{id:task.id,userId,source:"AGENT",status:"TODO",updatedAt:task.updatedAt,metadata:{path:["agentKey"],equals:agentKey}},
+    data:{status:"IN_PROGRESS",startedAt,metadata:{...m,workerPhase:"PREPARING"}}
    });
    if(lock.count!==1)continue;
-   const m=task.metadata&&typeof task.metadata==="object"&&!Array.isArray(task.metadata)?task.metadata:{};
    try{
     // Search only for explicit public-client discovery tasks. No search on
     // ordinary conversations, and no claim that a search hit is a qualified lead.
     const searchIntent=[task.title,task.description].filter(Boolean).join(" ");
     const wantsSearch=agentKey==="sales" && (Boolean(String(m.searchQuery||"").trim()) || /(?:wyszukaj|znajdź|poszukaj|szukaj).{0,100}(?:klient|firm|odbiorc|instalator|dystrybutor)/i.test(searchIntent));
+    const context=agentKey==="construction"
+      ?await investmentContext({userId,instruction:String(task.description||task.title||""),db:this.db})
+      :"";
+    // Persist intent before any external access. An interrupted EXECUTING
+    // task may already have consumed provider budget and needs an explicit retry.
+    const intent=await this.db.task.updateMany({
+     where:claim, data:{metadata:{...m,workerPhase:"EXECUTING"}}
+    });
+    if(intent.count!==1)continue;
     let sources=[];
     if(wantsSearch){
      const searchQuery=String(m.searchQuery||task.description||task.title||"").replace(/^(?:wyszukaj|znajdź|poszukaj|szukaj)\s+/i,"").slice(0,180);
@@ -61,9 +72,6 @@ class BusinessTaskAgent{
      if(!sources.length)throw Error("Brak wyników publicznego wyszukiwania; nie generuję fikcyjnych leadów.");
      console.log("[BusinessTaskAgent] Public source candidates",JSON.stringify({agentKey,count:sources.length}));
     }
-    const context=agentKey==="construction"
-      ?await investmentContext({userId,instruction:String(task.description||task.title||""),db:this.db})
-      :"";
     const result=await ai.ask({
      system:"Jesteś "+def.name+" w PrzemAI. "+def.description+
       " Odpowiadaj po polsku. Wykonujesz analizę, piszesz szkice i plany działań wyłącznie na podstawie informacji dostarczonych w zleceniu. "+
@@ -82,15 +90,15 @@ class BusinessTaskAgent{
     ];
     const updatedConversation=appendTurn(turns,"assistant",result.slice(0,16000));
     const update=await this.db.task.updateMany({
-     where:{id:task.id,userId,source:"AGENT",status:"IN_PROGRESS"},
-     data:{status:"DONE",completedAt:new Date(),metadata:{...m,result:result.slice(0,45000),conversation:updatedConversation,publicSources:sources,publicSourceCount:sources.length,searchPerformed:wantsSearch,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
+     where:claim,
+     data:{status:"DONE",completedAt:new Date(),metadata:{...m,workerPhase:"DONE",result:result.slice(0,45000),conversation:updatedConversation,publicSources:sources,publicSourceCount:sources.length,searchPerformed:wantsSearch,resultStatus:"DRAFT_READY",processedAt:new Date().toISOString()}}
     });
     if(update.count===1){completed++;console.log("[BusinessTaskAgent] Draft saved",JSON.stringify({agentKey,publicSources:sources.length}));}
    }catch(error){
     failed++;
     await this.db.task.updateMany({
-     where:{id:task.id,userId,source:"AGENT",status:"IN_PROGRESS"},
-     data:{status:"ERROR",metadata:{...m,resultStatus:"FAILED",error:"Nie udało się opracować zlecenia."}}
+     where:claim,
+     data:{status:"ERROR",metadata:{...m,workerPhase:"FAILED",resultStatus:"FAILED",error:"Nie udało się opracować zlecenia."}}
     });
     console.error("[BusinessTaskAgent] Failed",JSON.stringify({agentKey:def.key,taskId:task.id,errorType:error?.name||"Error",reason:String(error?.message||"unknown").slice(0,180)}));
    }

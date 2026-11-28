@@ -110,13 +110,27 @@ test("shutdown after scan never updates a task or triggers paid AI",async()=>{
  assert.equal(r.recovered,0);
  assert.equal(m.queries.filter(x=>x.kind==="task.update").length,0);
 });
-test("worker recovers drafts before processing new work but does not requeue them",()=>{
+test("worker runs draft recovery before processing new work",()=>{
  const worker=fs.readFileSync(path.join(__dirname,"../worker.js"),"utf8");
  assert.match(worker,/const \{recoverInterruptedDraftTasks\}=require/);
  assert.match(worker,/recoverInterruptedDraftTasks\(\{/);
  assert.match(worker,/recoveredDraftTasks=draftRecovery\.recovered/);
  assert.match(worker,/recoveredDraftTasks\n/);
  const recovery=fs.readFileSync(path.join(__dirname,"../core/agents/OrphanedDraftTaskRecovery.js"),"utf8");
- assert.doesNotMatch(recovery,/data:\{status:"TODO"/);
  assert.doesNotMatch(recovery,/\.agentRun\.create\(|ai\.ask\(|sendMail\(/);
+});
+
+test("only proven preparatory drafts are requeued and recovery is capped",async()=>{
+ const before=draft("before"), after=draft("after"), exhausted=draft("cap");
+ before.metadata.workerPhase="PREPARING";
+ after.metadata.workerPhase="EXECUTING";
+ exhausted.metadata={...exhausted.metadata,workerPhase:"PREPARING",workerRecoveryAttempts:2};
+ const m=mock({tasks:[before,after,exhausted]});
+ const result=await recoverInterruptedDraftTasks({db:m.db,now:()=>NOW});
+ assert.equal(result.recovered,3);
+ assert.equal(before.status,"TODO");
+ assert.equal(before.metadata.workerRecoveryAttempts,1);
+ assert.equal(after.status,"ERROR");
+ assert.equal(exhausted.status,"ERROR");
+ assert.equal(m.queries.find(x=>x.query.where.id==="before").query.data.startedAt,null);
 });

@@ -226,7 +226,7 @@ async function cycle() {
         db:prisma,ownerScope,shouldStop:()=>stopping
       });
       recoveredDraftTasks=draftRecovery.recovered;
-      if (recoveredDraftTasks) console.warn("[Worker] Abandoned draft tasks marked ERROR", recoveredDraftTasks);
+      if (recoveredDraftTasks) console.warn("[Worker] Interrupted draft tasks recovered", recoveredDraftTasks);
     }catch(error){
       console.error("[Worker] Draft task recovery failed", error?.message||"unknown");
     }

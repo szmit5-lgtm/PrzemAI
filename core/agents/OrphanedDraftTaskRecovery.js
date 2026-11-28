@@ -1,12 +1,11 @@
 "use strict";
 
-// Prevent a worker restart from leaving draft tasks permanently IN_PROGRESS.
-// An abandoned task is marked ERROR for a human to inspect and explicitly
-// retry. Never requeue it automatically: execution may already have produced
-// an external read or an expensive AI response.
+// Requeue only work with a persisted pre-external-call phase. Legacy tasks
+// and ambiguous external operations require an explicit operator retry.
 const {getAgentDefinition}=require("../../lib/agentCatalog");
 const STALE_TASK_MS=90*60*1000;
 const MAX_STALE_TASKS_PER_CYCLE=40;
+const MAX_PREPARATION_RECOVERIES=2;
 const INTERRUPTION="Praca agenta została przerwana albo utracono potwierdzenie wykonania. Sprawdź zlecenie i w razie potrzeby użyj „Ponów zadanie”.";
 
 function isDraftTask(task){
@@ -48,6 +47,9 @@ async function recoverInterruptedDraftTasks({
   if(shouldStop())break;
   const m=task.metadata&&typeof task.metadata==="object"&&!Array.isArray(task.metadata)
    ?task.metadata:{};
+  const attempts=Number.isSafeInteger(m.workerRecoveryAttempts)&&m.workerRecoveryAttempts>=0
+   ?m.workerRecoveryAttempts:0;
+  const canRetry=m.workerPhase==="PREPARING"&&attempts<MAX_PREPARATION_RECOVERIES;
   const updated=await db.task.updateMany({
    where:{
     id:task.id,userId:task.userId,source:"AGENT",
@@ -55,9 +57,11 @@ async function recoverInterruptedDraftTasks({
     startedAt:task.startedAt,updatedAt:task.updatedAt,
     metadata:{path:["agentKey"],equals:key}
    },
-   data:{status:"ERROR",
-    metadata:{...m,resultStatus:"FAILED",error:INTERRUPTION,
-     interruptedAt:now().toISOString(),recoveredByWatchdog:true}}
+   data:canRetry
+    ?{status:"TODO",startedAt:null,metadata:{...m,workerPhase:"QUEUED",
+      workerRecoveryAttempts:attempts+1,recoveredByWatchdog:true}}
+    :{status:"ERROR",metadata:{...m,workerPhase:"FAILED",resultStatus:"FAILED",error:INTERRUPTION,
+      interruptedAt:now().toISOString(),recoveredByWatchdog:true}}
   });
   if(updated.count===1)recovered++;
  }

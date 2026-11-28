@@ -5,8 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, FileText, Filter, Inbox, RefreshCw, Wallet, ShieldCheck } from "lucide-react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
-import { getFinancialDocuments, getFinanceSummary, getProfile, queueKsefHistoryImport } from "@/lib/api";
-import { parseFinanceDashboardResponses } from "@/lib/financeDashboardPayload";
+import { useVerifiedProfile } from "../components/AuthGuard";
+import { getFinancialDocuments, getFinanceSummary, queueKsefHistoryImport } from "@/lib/api";
+import { parseFinancialDocuments, parseFinanceSummary } from "@/lib/financeDashboardPayload";
 
 const SOURCE_LABELS = {
   MAIL: "Poczta",
@@ -67,7 +68,8 @@ export default function FinancePage() {
   const [error, setError] = useState("");
   const [refreshedAt, setRefreshedAt] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [ownerId, setOwnerId] = useState("");
+  const ownerId = useVerifiedProfile()?.id || "";
+  const [summaryError, setSummaryError] = useState("");
   const [importing, setImporting] = useState(false);
   const [importNotice, setImportNotice] = useState("");
   async function requestKsefImport() {
@@ -86,8 +88,18 @@ export default function FinancePage() {
     }
   }
   useEffect(() => {
-    getProfile().then(result => setOwnerId(result?.user?.id || "")).catch(()=>{});
-  }, []);
+    let active = true;
+    setSummaryError("");
+    getFinanceSummary().then(response => {
+      if (active) setSummary(parseFinanceSummary(response));
+    }).catch(err => {
+      if (active) {
+        setSummary(null);
+        setSummaryError(err?.message || "Nie udało się pobrać podsumowania finansowego.");
+      }
+    });
+    return () => { active = false; };
+  }, [refreshKey]);
 
   useEffect(() => {
     let active = true;
@@ -95,22 +107,17 @@ export default function FinancePage() {
       setLoading(true);
       setError("");
       try {
-        const [documentsResponse, summaryResponse] = await Promise.all([
-          getFinancialDocuments({ limit: PAGE_SIZE + 1, offset: page * PAGE_SIZE, source }),
-          getFinanceSummary()
-        ]);
+        const response = await getFinancialDocuments({ limit: PAGE_SIZE + 1, offset: page * PAGE_SIZE, source });
         if (!active) return;
-        const { documents, summary: financeSummary } = parseFinanceDashboardResponses(documentsResponse, summaryResponse);
+        const documents = parseFinancialDocuments(response);
         setItems(documents.slice(0, PAGE_SIZE));
         setHasMore(documents.length > PAGE_SIZE);
-        setSummary(financeSummary);
         setRefreshedAt(new Date());
       } catch (err) {
         if (!active) return;
         setError(err?.message || "Nie udało się pobrać danych finansowych.");
         setItems([]);
         setHasMore(false);
-        setSummary(null);
       } finally {
         if (active) setLoading(false);
       }
@@ -170,6 +177,7 @@ export default function FinancePage() {
           </div>
         </section>
 
+        {summaryError && <p role="alert" className="mt-3 text-sm text-rose-200">{summaryError}</p>}
         {Array.isArray(summary?.amounts) && summary.amounts.length > 0 &&
           <section className="mt-7 min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[.045] p-4 sm:p-6">
             <h2 className="text-xl font-bold">Zestawienie kwot z KSeF</h2>

@@ -21,7 +21,7 @@ function buildFake(tasks){
    const t=tasks.find(t=>t.id===args.where.id && t.userId===args.where.userId &&
      t.status===args.where.status);
    if(!t)return {count:0};
-   t.status=args.data.status;
+   if(args.data.status!==undefined)t.status=args.data.status;
    if(args.data.metadata)t.metadata=args.data.metadata;
    return {count:1};
   }
