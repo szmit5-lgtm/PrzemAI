@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  attachInvestmentRecord, changeInvestmentTaskStatus, createInvestmentTask, downloadOrganizationDocument, getInvestmentFinance,
+  attachInvestmentRecord, changeInvestmentTaskStatus, createInvestmentTask, downloadInvestmentReport, downloadOrganizationDocument, getInvestmentFinance,
   getInvestmentPanel, getOrganizationDocuments, getOrganizationWorkspace, uploadOrganizationDocument
 } from "@/lib/api";
 
@@ -30,6 +30,16 @@ function Finance({ organizationId, investmentId }) {
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState(null);
   const [retry, setRetry] = useState(0);
+  const [exportError, setExportError] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  async function exportFile(format) {
+    setExportError("");
+    setExporting(true);
+    try { await downloadInvestmentReport(organizationId, investmentId, year, format); }
+    catch (error) { setExportError(error.message); }
+    finally { setExporting(false); }
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -49,6 +59,11 @@ function Finance({ organizationId, investmentId }) {
           .map(value => <option key={value}>{value}</option>)}
       </select>
     </label>
+    <div role="group" aria-label="Raport inwestycji" className="mt-3 flex flex-wrap gap-2">
+      <button className={button} type="button" disabled={exporting} onClick={() => exportFile("pdf")}>Pobierz PDF</button>
+      <button className={button} type="button" disabled={exporting} onClick={() => exportFile("xlsx")}>Pobierz Excel</button>
+    </div>
+    {exportError && <p role="alert" className="mt-2 text-rose-200">{exportError}</p>}
     {!current && <p role="status" className="mt-3 text-sm text-slate-300">Pobieranie faktur KSeF…</p>}
     {current?.error && <div className="mt-3 space-y-2">
       <p role="alert">{current.error.message}</p>
@@ -102,6 +117,27 @@ function Finance({ organizationId, investmentId }) {
             </div>
           </>}
     </>}
+  </Section>;
+}
+
+function InvestmentTimeline({ panel }) {
+  const events = [
+    { key: "investment", label: "Dodano inwestycję", at: panel.investment.createdAt },
+    ...panel.tasks.flatMap(task => [
+      { key: task.id + ":task", label: "Dodano zadanie · " + task.title, at: task.createdAt },
+      { key: task.id + ":complete", label: "Zakończono zadanie · " + task.title, at: task.completedAt }
+    ]),
+    ...panel.documents.map(file => ({ key: file.id + ":doc", label: "Dodano dokument · " + file.name, at: file.createdAt })),
+    ...panel.reports.map(file => ({ key: file.id + ":report", label: "Dodano sprawozdanie · " + file.name, at: file.createdAt }))
+  ].filter(event => event.at).sort((left, right) => right.at.localeCompare(left.at) || left.key.localeCompare(right.key));
+  return <Section id="historia" title="Oś czasu">
+    {events.length ? <ol className="divide-y divide-white/10">
+      {events.slice(0, 25).map(event => <li key={event.key} className="grid gap-1 py-2 text-sm sm:grid-cols-[9rem_1fr]">
+        <time dateTime={event.at} className="text-slate-300">{date.format(new Date(event.at))}</time>
+        <span className="break-words">{event.label}</span>
+      </li>)}
+    </ol> : <p className="text-sm text-slate-300">Brak zapisanych dat zdarzeń.</p>}
+    {(events.length > 25 || panel.moreTasks) && <p className="mt-2 text-xs text-slate-300">Oś pokazuje najnowsze zdarzenia z widocznych rekordów.</p>}
   </Section>;
 }
 
@@ -248,7 +284,7 @@ function InvestmentPanel({ organizationId, investmentId }) {
             {panel.investment.progress != null && <progress aria-label="Postęp prac" max="100" value={panel.investment.progress} className="w-full accent-cyan-400"/>}
           </div>
           <nav aria-label="Sekcje inwestycji" className="mt-3 flex flex-wrap gap-2">
-            {[["zadania", "Zadania"], ["dokumenty", "Dokumenty"], ["sprawozdania", "Sprawozdania"], ["finanse", "Finanse"]]
+            {[["historia", "Oś czasu"], ["zadania", "Zadania"], ["dokumenty", "Dokumenty"], ["sprawozdania", "Sprawozdania"], ["finanse", "Finanse"]]
               .map(([id, label]) => <a key={id} className={button} href={"#" + id}>{label}</a>)}
           </nav>
         </header>
@@ -265,7 +301,7 @@ function InvestmentPanel({ organizationId, investmentId }) {
                     const status = event.target.value;
                     run(async () => {
                       await changeInvestmentTaskStatus(organizationId, investmentId, task.id, status);
-                      setPanel(current => ({ ...current, tasks: current.tasks.map(row => row.id === task.id ? { ...row, status } : row) }));
+                      setRevision(value => value + 1);
                     });
                   }}>
                   {["TODO", "IN_PROGRESS", "DONE"].map(status => <option key={status} value={status}>{statusLabels[status]}</option>)}
@@ -301,6 +337,7 @@ function InvestmentPanel({ organizationId, investmentId }) {
           </form>
           <AttachRecords organizationId={organizationId} investmentId={investmentId} onAttached={() => setRevision(value => value + 1)}/>
         </Section>}
+        <InvestmentTimeline panel={panel}/>
         <Finance organizationId={organizationId} investmentId={investmentId}/>
         <Section title="Agenci">
           <div className="flex flex-wrap gap-2">

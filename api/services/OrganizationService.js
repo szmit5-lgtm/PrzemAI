@@ -237,7 +237,14 @@ class OrganizationService{
       legacyDataNotice:"Faktury KSeF, historia, czat i agenci ze starego konta pozostają osobiste, dopóki ich dane nie zostaną bezpiecznie przeniesione do organizacji."};
   }
   async createCompanyTask(userId,orgId,payload,investmentId=null){
-    await this.membership(userId,orgId);
+    const assigneeUserId = payload?.assigneeUserId || null;
+    await this.membership(userId,orgId,assigneeUserId ? ["OWNER","ADMIN"] : undefined);
+    if (assigneeUserId) {
+      const assignee = await this.membership(assigneeUserId, orgId);
+      if (investmentId && assignee.role === "MEMBER" && !await this.db.organizationInvestment.findFirst({
+        where: { id: investmentId, organizationId: orgId, assignedUserIds: { has: assigneeUserId } }, select: { id: true }
+      })) throw new OrganizationError("Pracownik nie ma dostępu do tej inwestycji.", 403);
+    }
     const title=typeof payload?.title==="string"?payload.title.trim():"";
     const description=typeof payload?.description==="string"?payload.description.trim():"";
     const priority=["LOW","MEDIUM","HIGH","URGENT"].includes(payload?.priority)?payload.priority:"MEDIUM";
@@ -253,7 +260,7 @@ class OrganizationService{
     }
     return this.db.task.create({
       data:{userId,title,description,source:"COMPANY",priority,status:"TODO",dueDate,investmentId,investmentScoped:investmentId!==null,
-        tags:["COMPANY"],metadata:{organizationId:orgId,createdBy:userId}},
+        tags:["COMPANY"],metadata:{organizationId:orgId,createdBy:userId,...(assigneeUserId && { assigneeUserId })}},
       select:{id:true,title:true,description:true,status:true,priority:true,dueDate:true,createdAt:true}
     });
   }

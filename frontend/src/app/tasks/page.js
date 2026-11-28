@@ -8,6 +8,8 @@ import UserMenu from "../components/UserMenu";
 import { getTasks, createTask, deleteTask, completeTask } from "@/lib/api";
 import { parseTaskDashboardResponse, parseTaskMutationResponse, parseTaskDeletionResponse } from "@/lib/taskDashboardPayload";
 
+import { taskScheduleFilter } from "@/lib/taskSchedule.mjs";
+
 const emptyForm = { title: "", description: "", priority: "MEDIUM", dueDate: "" };
 const priorityLabels = { LOW: "Niski", MEDIUM: "Średni", HIGH: "Wysoki" };
 const priorityColors = {
@@ -107,7 +109,7 @@ export default function TasksPage() {
   const openCount = tasks.filter(task => task.status !== "DONE").length;
   const completedCount = tasks.filter(task => task.status === "DONE").length;
   const busy = saving || Boolean(pendingId);
-  const visibleTasks = tasks.filter(task => taskFilter === "ALL" || (taskFilter === "DONE" ? task.status === "DONE" : task.status !== "DONE"));
+  const visibleTasks = taskScheduleFilter(tasks, taskFilter);
 
   return (
     <main className="min-h-screen min-w-0 overflow-x-clip bg-[#080e20] px-3 py-5 text-slate-100 sm:px-8">
@@ -154,7 +156,7 @@ export default function TasksPage() {
             </form>
           </section>
           <section aria-labelledby="tasks-list-title" className="min-w-0 rounded-3xl border border-white/10 bg-white/[.045] p-5 sm:p-7">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2><div role="group" aria-label="Filtr zadań" className="flex flex-wrap gap-2">{[["OPEN", "Do zrobienia"], ["DONE", "Wykonane"], ["ALL", "Wszystkie"]].map(([value, label]) => <button key={value} type="button" aria-pressed={taskFilter === value} onClick={() => setTaskFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${taskFilter === value ? "bg-violet-400 text-slate-950" : "border border-white/15 text-slate-200 hover:bg-white/10"}`}>{label}</button>)}</div></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="tasks-list-title" className="text-xl font-bold">Lista zadań</h2><div role="group" aria-label="Filtr zadań" className="flex flex-wrap gap-2">{[["OPEN", "Do zrobienia"], ["OVERDUE", "Zaległe"], ["UPCOMING", "Nadchodzące · 7 dni"], ["DONE", "Wykonane"], ["ALL", "Wszystkie"]].map(([value, label]) => <button key={value} type="button" aria-pressed={taskFilter === value} onClick={() => setTaskFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${taskFilter === value ? "bg-violet-400 text-slate-950" : "border border-white/15 text-slate-200 hover:bg-white/10"}`}>{label}</button>)}</div></div>
             {loading ? <p role="status" className="mt-7 text-sm text-slate-300">Pobieranie zadań…</p> : loadError ? <p className="mt-7 text-sm text-slate-300">Lista zadań jest chwilowo niedostępna. <button type="button" onClick={loadTasks} className="font-semibold text-violet-300 underline">Spróbuj ponownie</button></p> : visibleTasks.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-10 text-center"><CheckCircle2 size={36} className="mx-auto text-violet-300" /><p className="mt-4 text-lg font-bold">Brak zadań w wybranym widoku</p><p className="mt-2 text-sm text-slate-400">Zmień filtr albo dodaj nowe zadanie.</p></div>
             ) : (

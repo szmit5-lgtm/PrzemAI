@@ -3,14 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
-import { getOwnerBriefing } from "@/lib/api";
+import { getOwnerBriefing, updateOwnerAlert, updateOwnerBriefingSchedule } from "@/lib/api";
 
 const alertLabels = {
   taskOverdue: "Przeterminowane zadanie",
+  urgentTask: "Pilne zadanie przed terminem",
   overduePayable: "Zaległe zobowiązania",
   overdueReceivable: "Zaległe należności",
   negativeForecast: "Ujemna prognoza salda operacyjnego"
 };
+const alertActions = {
+  ACKNOWLEDGED: "Potwierdź", SNOOZED: "Odłóż na 24 godziny", CLOSED: "Zamknij", OPEN: "Otwórz ponownie"
+};
+const alertStates = { ACKNOWLEDGED: "Potwierdzony", SNOOZED: "Odłożony", CLOSED: "Zamknięty" };
 const statuses = { IN_PROGRESS: "W toku", ON_HOLD: "Wstrzymane", NOT_SET: "Bez statusu" };
 const section = "rounded-2xl border border-white/10 bg-[#111c35] p-4 sm:p-6";
 const source = "break-words text-violet-300 underline underline-offset-4";
@@ -73,6 +78,43 @@ export default function OwnerBriefingPage() {
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [showHandled, setShowHandled] = useState(false);
+  const [updating, setUpdating] = useState(null);
+  const [alertError, setAlertError] = useState("");
+
+  const [time, setTime] = useState("");
+  const [savingTime, setSavingTime] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
+
+  async function saveTime(event) {
+    event.preventDefault();
+    setSavingTime(true);
+    setScheduleError("");
+    try {
+      const { data } = await updateOwnerBriefingSchedule(time);
+      setSnapshot(current => current && ({ ...current, scheduledTime: data.time }));
+    } catch (error) {
+      setScheduleError(error.message);
+    } finally {
+      setSavingTime(false);
+    }
+  }
+
+  async function changeAlert(alert, status) {
+    setUpdating(alert.id);
+    setAlertError("");
+    try {
+      const { data } = await updateOwnerAlert(alert.id, status);
+      setSnapshot(current => current && ({
+        ...current, alerts: current.alerts.map(row => row.id === data.alertId
+          ? { ...row, status: data.status, snoozedUntil: data.snoozedUntil } : row)
+      }));
+    } catch (failure) {
+      setAlertError(failure.message);
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -81,12 +123,17 @@ export default function OwnerBriefingPage() {
     getOwnerBriefing(controller.signal).then(({ data }) => {
       if (!data || !Array.isArray(data.companies) || !Array.isArray(data.alerts))
         throw new Error("Nieprawidłowa odpowiedź raportu.");
-      if (!controller.signal.aborted) setSnapshot(data);
+      if (!controller.signal.aborted) {
+        setSnapshot(data);
+        setTime(data.scheduledTime || "07:00");
+      }
     }).catch(failure => {
       if (!controller.signal.aborted) setError(failure.message);
     });
     return () => controller.abort();
   }, [refresh]);
+
+  const visibleAlerts = snapshot?.alerts.filter(alert => showHandled || alert.status === "OPEN") || [];
 
   return (
     <main className="min-h-screen bg-[#080e20] text-slate-100">
@@ -97,7 +144,7 @@ export default function OwnerBriefingPage() {
             <h1 className="text-3xl font-bold">Poranny raport właściciela</h1>
             {snapshot && <p className="mt-2 text-slate-300">Stan na <time dateTime={snapshot.day}>{snapshot.day}</time> · terminy do 7 dni naprzód</p>}
           </div>
-          <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={!snapshot && !error}
+          <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={Boolean(updating) || (!snapshot && !error)}
             className="min-h-11 rounded-lg border border-violet-400/40 px-4 disabled:opacity-50">Odśwież</button>
         </header>
         {error && <p role="alert" className="text-rose-300">{error}</p>}
@@ -105,14 +152,49 @@ export default function OwnerBriefingPage() {
         {snapshot && !snapshot.companies.length && <p>Raport jest dostępny dla właścicieli aktywnych spółek.</p>}
         {snapshot && snapshot.companies.length > 0 && (
           <>
+            <section className={section + " mb-5"} aria-labelledby="schedule-title">
+              <h2 id="schedule-title" className="text-xl font-semibold">Porównanie dzienne</h2>
+              <form onSubmit={saveTime} className="mt-3 flex flex-wrap items-end gap-2">
+                <label className="grid gap-1 text-sm">Godzina raportu w Polsce
+                  <input type="time" className="min-h-11 rounded-lg border border-white/20 bg-slate-950 px-3"
+                    value={time} required onChange={event => setTime(event.target.value)}/>
+                </label>
+                <button disabled={savingTime || time === snapshot.scheduledTime}
+                  className="min-h-11 rounded-lg border border-violet-400/40 px-4 disabled:opacity-50">Zapisz godzinę</button>
+              </form>
+              {scheduleError && <p role="alert" className="mt-2 text-rose-300">{scheduleError}</p>}
+              <p className="mt-3 text-sm text-slate-300">{snapshot.generatedAt
+                ? "Dzisiejszy zapis o " + new Date(snapshot.generatedAt).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw" })
+                : "Brak dzisiejszego zapisu harmonogramu."}</p>
+              {Boolean(snapshot.comparison?.length) && <ul className="mt-2 space-y-1 text-sm">
+                {snapshot.comparison.map(row => <li key={row.name}>{row.name} · otwarte alerty o zaległych zadaniach
+                  {" "}{row.previous} wczoraj, {row.current} dzisiaj</li>)}
+              </ul>}
+              {!snapshot.comparison?.length && <p className="mt-2 text-sm text-slate-300">Brak danych porównawczych z poprzedniego dnia.</p>}
+            </section>
             <section aria-labelledby="owner-alerts" className={section + " mb-5"}>
               <h2 id="owner-alerts" className="text-xl font-semibold">Alerty wymagające uwagi</h2>
-              {snapshot.alerts.length ? (
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={showHandled} onChange={event => setShowHandled(event.target.checked)} />
+                Pokaż odłożone, potwierdzone i zamknięte
+              </label>
+              {alertError && <p role="alert" className="mt-2 text-rose-300">{alertError}</p>}
+              {visibleAlerts.length ? (
                 <ul className="mt-3 grid gap-2">
-                  {snapshot.alerts.map(alert => (
+                  {visibleAlerts.map(alert => (
                     <li key={alert.id} className="break-words border-b border-white/10 pb-2">
                       <Link className={source} href={alert.href}>{alert.company} · {alertLabels[alert.kind]}</Link>{" "}
                       {alert.title ? <>{alert.title} · <time dateTime={alert.dueOn}>{alert.dueOn}</time></> : amount(alert.amount, alert.currency)}
+                      {alert.status !== "OPEN" && <p className="mt-1 text-xs text-slate-300">
+                        {alertStates[alert.status]}
+                        {alert.snoozedUntil && <> do <time dateTime={alert.snoozedUntil}>{new Date(alert.snoozedUntil).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</time></>}
+                      </p>}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(alert.status === "OPEN" ? ["ACKNOWLEDGED", "SNOOZED", "CLOSED"] : ["OPEN"]).map(status =>
+                          <button key={status} type="button" disabled={Boolean(updating)} onClick={() => changeAlert(alert, status)}
+                            className="min-h-10 rounded-lg border border-white/20 px-3 text-sm disabled:opacity-50">{alertActions[status]}</button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

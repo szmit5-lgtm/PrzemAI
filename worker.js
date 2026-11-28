@@ -37,6 +37,10 @@ let cycleNumber = 0;
 let interval;
 let warnedNoUsers = false;
 let ownerBootRunQueued = false;
+const dailyBriefing = process.env.OWNER_BRIEFING_SCHEDULER_ENABLED === "true"
+  ? new (require("./api/services/OwnerDailyBriefingService").OwnerDailyBriefingService)() : null;
+let lastBriefingScan = 0;
+
 
 async function recoverStaleRuns() {
   const cutoff = new Date(Date.now() - STALE_RUN_MS);
@@ -233,6 +237,14 @@ async function cycle() {
     if (stopping) return;
     try { const jobs = await processKaldevaJobs(); if (jobs) console.log("[Worker] Kaldeva jobs processed", jobs); }
     catch (error) { console.error("[Worker] Kaldeva queue failed", error?.message || "unknown"); }
+    if (!stopping && dailyBriefing && Date.now() - lastBriefingScan >= 60000) {
+      lastBriefingScan = Date.now();
+      try {
+        await dailyBriefing.runDue({ ownerId: ownerScope, shouldStop: () => stopping });
+      } catch (error) {
+        console.error("[Worker] Owner briefing scan failed", error?.name, error?.code);
+      }
+    }
     // A SIGTERM during the stale scan must not start user provisioning.
     if (stopping) return;
     const users = await prisma.user.findMany({

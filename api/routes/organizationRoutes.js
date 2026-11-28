@@ -211,6 +211,13 @@ router.get("/:id/domains/:domainId",verifyToken,
   handler(req=>service.domainInstructions(req.user.id,req.params.id,req.params.domainId)));
 router.post("/:id/domains/:domainId/verify",verifyToken,
   handler(req=>service.verifyDomain(req.user.id,req.params.id,req.params.domainId)));
+const { OrganizationMemoryService } = require("../services/OrganizationMemoryService");
+const businessMemory = new OrganizationMemoryService();
+router.get("/:id/business-memory", verifyToken, handler(req => businessMemory.list(req.user.id, req.params.id)));
+router.post("/:id/business-memory", verifyToken, handler(req => businessMemory.save(req.user.id, req.params.id, req.body)));
+router.put("/:id/business-memory/:memoryId", verifyToken, handler(req => businessMemory.save(req.user.id, req.params.id, req.body, req.params.memoryId)));
+router.delete("/:id/business-memory/:memoryId", verifyToken, handler(req => businessMemory.remove(req.user.id, req.params.id, req.params.memoryId)));
+
 router.get("/:id/investments",verifyToken,
   handler(req=>investmentService.list(req.user.id,req.params.id)));
 router.get("/:id/investments/:investmentId",verifyToken,
@@ -220,6 +227,53 @@ router.get("/:id/investments/:investmentId/finance",verifyToken,
     const {investment}=await investmentService.requireInvestment(req.user.id,req.params.id,req.params.investmentId);
     return investmentFinance.forInvestment(req.user.id,req.params.id,investment,req.query.year,req.query.offset);
   }));
+router.get("/:id/investments/:investmentId/report", verifyToken, async (req, res) => {
+  const { id, investmentId } = req.params;
+  const { format, year: queryYear } = req.query;
+  const year = Number(queryYear);
+  if (!["pdf", "xlsx"].includes(format) || typeof queryYear !== "string" ||
+      !/^\d{4}$/.test(queryYear) || year < 2020 || year > 2100) {
+    return res.status(400).json({ success: false, error: "Nieprawidłowy format lub rok raportu." });
+  }
+  try {
+    const userId = req.user.id;
+    const { investment, tasks, documents, reports, moreTasks } = await investmentService.panel(userId, id, investmentId);
+    let finance;
+    try {
+      finance = await investmentFinance.forInvestment(userId, id, investment, year, 0);
+    } catch (error) {
+      if (!(error instanceof OrganizationError) || ![403, 404].includes(error.status)) throw error;
+    }
+    const asOf = value => value ? new Date(value).toISOString().slice(0, 10) : "Brak";
+    const clean = value => String(value ?? "").replace(/\s+/g, " ").trim();
+    const lines = [
+      "Raport inwestycji · " + clean(investment.name),
+      "Rok faktur: " + year + " · Stan: " + asOf(new Date()),
+      "Status: " + clean(investment.status),
+      "Postęp: " + (investment.progress == null ? "Brak pomiaru" : investment.progress + "%"),
+      "",
+      "Finanse z przypisanych faktur KSeF",
+      ...(finance?.profitability?.length ? finance.profitability.map(row => [
+        row.currency, "przychody netto " + (row.netSales ?? "brak"), "koszty netto " + (row.netCosts ?? "brak"),
+        "wynik netto " + (row.netResult ?? "brak"), "marża " + (row.marginPercent == null ? "brak" : row.marginPercent + "%")
+      ].join(" · ")) : [finance ? "Brak rozliczonych danych finansowych w tym zakresie." : "Finanse niedostępne dla zalogowanego użytkownika."]),
+      "", "Zadania",
+      ...tasks.map(task => clean(task.title) + " · " + clean(task.status) + " · termin " + asOf(task.dueDate)),
+      ...(moreTasks ? ["Lista ograniczona do 100 najnowszych zadań."] : []),
+      "", "Dokumenty i sprawozdania",
+      ...[...documents, ...reports].map(file => clean(file.name) + " · " + asOf(file.createdAt))
+    ];
+    const output = await require("../services/ChatReportExport").exportChatReport(format, lines.join("\n"));
+    await investmentService.requireInvestment(userId, id, investmentId);
+    if (finance) await financeService.accessible(userId, id);
+    res.set("X-Content-Type-Options", "nosniff");
+    return res.attachment("raport-inwestycji-" + year + "." + format).type(output.contentType).send(output.body);
+  } catch (error) {
+    const status = error instanceof OrganizationError ? error.status : 503;
+    if (status >= 500) console.error("[Investment report] Read failed", error?.name, error?.code);
+    return res.status(status).json({ success: false, error: status >= 500 ? "Raport jest niedostępny." : error.message });
+  }
+});
 router.post("/:id/investments/:investmentId/tasks",verifyToken,
   handler(async req=>{
     const {investment}=await investmentService.requireInvestment(req.user.id,req.params.id,req.params.investmentId);

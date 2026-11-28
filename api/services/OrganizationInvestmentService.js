@@ -56,7 +56,7 @@ class OrganizationInvestmentService {
       }),
       this.db.task.findMany({
         where: { source: "COMPANY", investmentId, metadata: { path: ["organizationId"], equals: organizationId } },
-        select: { id: true, title: true, status: true, dueDate: true },
+        select: { id: true, title: true, status: true, dueDate: true, createdAt: true, completedAt: true },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 101
       })

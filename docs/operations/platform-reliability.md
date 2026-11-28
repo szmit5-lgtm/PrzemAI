@@ -25,3 +25,7 @@ Kaldeva zapisuje kolejkę i minutowy limit przyjmowania zleceń w PostgreSQL. Po
 Migracja `20261128120000_shared_ai_budget` zachowuje wcześniejsze rezerwacje OpenAI. Jeżeli stan już przekracza 200 PLN, wstrzymaj wydanie i uzgodnij rozliczenie przed migracją. Po migracji wycofuj kod zachowując schemat i liczniki. Ograniczenie SQL obowiązuje także przy zapisie ze starszego API. Dowód migracji P0 z wcześniejszego SHA nie obejmuje tej zmiany.
 
 Worker wznawia również szkice porzucone w fazie przygotowania, przed zapisem zamiaru użycia AI lub usługi zewnętrznej. Limit wynosi dwa wznowienia. Po zapisaniu zamiaru wykonania lub przy rekordzie ze starszej wersji watchdog oznacza zadanie jako wymagające sprawdzenia. Znacznik rozpoczęcia chroni wynik kolejnej próby przed spóźnionym zapisem.
+
+## Harmonogram właściciela
+
+Po migracjach P0 oraz migracjach alertów, pamięci spółki i porównania dziennego sprawdź harmonogram na izolowanej bazie. Ustawienie `OWNER_BRIEFING_SCHEDULER_ENABLED=true` włącza skan workera. Godzina domyślna to 07:00 w `Europe/Warsaw`. Worker zapisuje po jednym podsumowaniu na właściciela i polski dzień kalendarzowy. Odczyt w WWW porównuje otwarte alerty o zaległych zadaniach ze snapshotem poprzedniego dnia. Harmonogram korzysta z bazy, bez modeli i wysyłek. Przy wycofaniu workera zachowaj tabele i dane.

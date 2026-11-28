@@ -493,6 +493,25 @@ export function getInvestmentPanel(orgId, investmentId, signal) {
     return request(investmentEndpoint(orgId, investmentId), { signal, cache: "no-store" });
 }
 
+export async function downloadInvestmentReport(orgId, investmentId, year, format) {
+    const params = new URLSearchParams({ year, format });
+    const response = await fetch(investmentEndpoint(orgId, investmentId) + "/report?" + params, {
+        credentials: "same-origin", cache: "no-store"
+    });
+    if (response.status === 401) handleExpiredSession();
+    const expected = format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    if (!response.ok || !response.headers.get("content-type")?.startsWith(expected)) {
+        const failure = await response.json().catch(() => null);
+        throw new Error(failure?.error || "Raport inwestycji jest niedostępny.");
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "raport-inwestycji-" + year + "." + format;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function getInvestmentFinance(orgId, investmentId, year, offset, signal) {
     return request(investmentEndpoint(orgId, investmentId) + "/finance?" +
         new URLSearchParams({ year, offset }), { signal, cache: "no-store" });
@@ -793,4 +812,32 @@ export function getSystemIntegrationHealth(signal) {
 
 export function getOwnerBriefing(signal) {
     return request("/api/executive/owner-briefing", { signal });
+}
+
+export function updateOwnerAlert(alertId, status) {
+    return request("/api/executive/owner-briefing/alerts", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertId, status })
+    });
+}
+
+export function getBusinessMemories(orgId, signal) {
+    return request("/api/organizations/" + encodeURIComponent(orgId) + "/business-memory", { signal });
+}
+
+export function saveBusinessMemory(orgId, id, entry) {
+    return request("/api/organizations/" + encodeURIComponent(orgId) + "/business-memory" + (id ? "/" + encodeURIComponent(id) : ""), {
+        method: id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry)
+    });
+}
+
+export function removeBusinessMemory(orgId, id) {
+    return request("/api/organizations/" + encodeURIComponent(orgId) + "/business-memory/" + encodeURIComponent(id), { method: "DELETE" });
+}
+
+export function updateOwnerBriefingSchedule(time) {
+    return request("/api/executive/owner-briefing/schedule", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ time })
+    });
 }

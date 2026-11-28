@@ -16,6 +16,8 @@ import {
  verifyOrganizationDomain
 } from "@/lib/api";
 const statuses={TODO:"Do zrobienia",IN_PROGRESS:"W trakcie",DONE:"Zakończone"};
+import { taskScheduleFilter } from "@/lib/taskSchedule.mjs";
+
 const roles={OWNER:"Właściciel",ADMIN:"Administrator",MEMBER:"Pracownik"};
 const tabs=[["tasks","Zadania firmowe"],["documents","Dokumenty"],["team","Zespół"],["brand","Wygląd i logo"],["domain","Domena"]];
 const date=value=>{
@@ -38,6 +40,7 @@ export default function CompanyWorkspace(){
  const [description,setDescription]=useState("");
  const [dueDate,setDueDate]=useState("");
  const [priority,setPriority]=useState("MEDIUM");
+ const [assignee,setAssignee]=useState("");
  const [displayName,setDisplayName]=useState("");
  const [logoUrl,setLogoUrl]=useState("");
  const [logoUploadError,setLogoUploadError]=useState("");
@@ -52,7 +55,7 @@ export default function CompanyWorkspace(){
  const tasks=data?.tasks||[];
  const openTasks=tasks.filter(t=>t.status!=="DONE");
  const urgentTasks=openTasks.filter(t=>["HIGH","URGENT"].includes(t.priority));
- const visibleTasks=taskFilter==="ALL"?tasks:tasks.filter(t=>t.status===taskFilter);
+ const visibleTasks=taskScheduleFilter(tasks,taskFilter);
  const isAdmin=["OWNER","ADMIN"].includes(org?.role);
  const isOwner=org?.role==="OWNER";
  useEffect(()=>{
@@ -88,8 +91,8 @@ export default function CompanyWorkspace(){
  function submitTask(e){
   e.preventDefault();
   mutate(async()=>{
-   await createOrganizationTask(id,{title,description,priority,dueDate});
-   setTitle("");setDescription("");setDueDate("");setPriority("MEDIUM");
+   await createOrganizationTask(id,{title,description,priority,dueDate,assigneeUserId:assignee});
+   setTitle("");setDescription("");setDueDate("");setPriority("MEDIUM");setAssignee("");
   },"Zadanie zostało dodane do tej firmy.");
  }
  function selectLogoFile(event){
@@ -249,6 +252,10 @@ export default function CompanyWorkspace(){
      {isAdmin&&<button type="button" onClick={()=>{setTab("brand");document.getElementById("company-workspace-tabs")?.scrollIntoView({behavior:"smooth",block:"start"});}}
       className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold"><Palette size={17}/> Edytuj profil firmy</button>}
     </section>
+    {isAdmin && <Link href={"/company/" + encodeURIComponent(id) + "/business-memory"}
+      className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-violet-400/30 px-4 text-sm font-semibold text-violet-200">
+      Pamięć biznesowa spółki
+    </Link>}
     <Link href={"/company/"+encodeURIComponent(id)+"/investments"}
       className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/30 bg-gradient-to-r from-[#103246] to-[#18294b] p-4 transition hover:border-cyan-300/60">
       <span className="flex min-w-0 items-center gap-3">
@@ -306,18 +313,30 @@ export default function CompanyWorkspace(){
          </select>
         </label>
        </div>
+       {isAdmin && <label className="block text-sm">Przypisz osobę
+        <select value={assignee} onChange={event => setAssignee(event.target.value)}
+          className="mt-2 block min-h-11 w-full rounded-xl border border-white/20 bg-[#0a162d] px-3 text-white">
+          <option value="">Bez przypisania</option>
+          {members.filter(member => member.status === "ACTIVE").map(member =>
+            <option key={member.id} value={member.user.id}>{member.user.email}</option>)}
+        </select>
+       </label>}
        <button type="submit" disabled={busy} className="min-h-12 w-full rounded-xl bg-violet-500 font-bold text-white hover:bg-violet-400 disabled:opacity-40">Dodaj zadanie</button>
       </form>
       <section className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#111c35] p-4 sm:p-6">
        <h2 className="text-xl font-bold">Zadania {org.displayName||org.name}</h2>
        <p className="mt-1 text-xs text-slate-400">{tasks.length} widocznych zadań tej firmy</p>
-       <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtr statusu zadań">{[["ALL","Wszystkie"],["TODO","Do zrobienia"],["IN_PROGRESS","W trakcie"],["DONE","Zakończone"]].map(([key,label])=><button key={key} type="button" aria-pressed={taskFilter===key} onClick={()=>setTaskFilter(key)} className={"min-h-10 rounded-lg border px-3 text-xs font-semibold "+(taskFilter===key?"border-violet-300 bg-violet-500/25 text-white":"border-white/15 text-slate-300")}>{label}</button>)}</div>
+       <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtr statusu zadań">{[["ALL","Wszystkie"],["TODO","Do zrobienia"],["IN_PROGRESS","W trakcie"],["OVERDUE","Zaległe"],["UPCOMING","Nadchodzące · 7 dni"],["DONE","Zakończone"]].map(([key,label])=><button key={key} type="button" aria-pressed={taskFilter===key} onClick={()=>setTaskFilter(key)} className={"min-h-10 rounded-lg border px-3 text-xs font-semibold "+(taskFilter===key?"border-violet-300 bg-violet-500/25 text-white":"border-white/15 text-slate-300")}>{label}</button>)}</div>
        <div className="mt-4 max-h-[760px] space-y-3 overflow-y-auto pr-1">
         {visibleTasks.map(t=><article key={t.id} className="min-w-0 rounded-2xl border border-white/10 bg-[#192844] p-4">
          <div className="flex flex-wrap items-center justify-between gap-2">
           <strong className="min-w-0 break-words text-sm">{t.title}</strong>
           <span className="text-xs text-slate-400">{date(t.dueDate)}</span>
          </div>
+         {t.metadata?.assigneeUserId && <p className="mt-1 break-words text-xs text-slate-300">
+          {members.find(member => member.user?.id === t.metadata.assigneeUserId && member.status === "ACTIVE")?.user?.email
+            || "Zadanie przypisane do członka zespołu"}
+         </p>}
          {t.description&&<p className="mt-2 whitespace-pre-wrap break-words text-xs leading-6 text-slate-300">{t.description}</p>}
          <div className="mt-3 flex min-w-0 items-center justify-between gap-2">
           <span className="text-[11px] text-slate-400">{t.priority==="URGENT"?"Pilne":t.priority==="HIGH"?"Wysoki priorytet":t.priority==="LOW"?"Niski priorytet":"Średni priorytet"}</span>

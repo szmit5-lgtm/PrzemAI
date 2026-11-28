@@ -197,6 +197,72 @@ async function main() {
     const { data: employeeBriefing } = await (await readBriefing(employee)).json();
     assert.deepEqual(employeeBriefing.companies, []);
     assert.deepEqual(employeeBriefing.alerts, []);
+    assert.equal(briefing.scheduledTime, "07:00");
+    const { OwnerDailyBriefingService } = require("../api/services/OwnerDailyBriefingService");
+    let generated = 0;
+    const scheduler = new OwnerDailyBriefingService({ db, briefing: { read: async () => { generated++; return briefing; } } });
+    await scheduler.runDue({ ownerId: owner.id, now: new Date("2026-03-29T04:59:00Z") });
+    assert.equal(generated, 0);
+    await Promise.all([1, 2].map(() => scheduler.runDue({ ownerId: owner.id, now: new Date("2026-03-29T05:00:00Z") })));
+    assert.equal(generated, 1);
+    const nextDay = await scheduler.decorate(owner.id, { ...briefing, day: "2026-03-30" });
+    assert.equal(nextDay.comparison.find(company => company.name === "Dekonica").previous, 1);
+    await scheduler.setSchedule(owner.id, "08:45");
+    await scheduler.runDue({ ownerId: owner.id, now: new Date("2026-03-30T06:44:00Z") });
+    assert.equal(generated, 1);
+    await scheduler.runDue({ ownerId: owner.id, now: new Date("2026-03-30T06:45:00Z") });
+    assert.equal(generated, 2);
+    await assert.rejects(scheduler.setSchedule(employee.id, "08:45"), { status: 403 });
+    console.log("Scheduled owner report E2E: Warsaw DST, one snapshot, comparison and custom time");
+    const taskAlert = briefing.alerts.find(alert => alert.kind === "taskOverdue");
+    const updateAlert = (user, status) => fetch(endpointBriefing + "/alerts", {
+      method: "PATCH",
+      headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET), "Content-Type": "application/json" },
+      body: JSON.stringify({ alertId: taskAlert.id, status })
+    });
+    assert.equal((await updateAlert(employee, "CLOSED")).status, 404);
+    for (const expected of ["ACKNOWLEDGED", "SNOOZED", "CLOSED", "OPEN"]) {
+      assert.equal((await updateAlert(owner, expected)).status, 200);
+      const { data: fresh } = await (await readBriefing(owner)).json();
+      assert.equal(fresh.alerts.find(alert => alert.id === taskAlert.id).status, expected);
+    }
+    const reportEndpoint = endpoint + "/api/organizations/" + dek.id + "/investments/" + ownedInvestment.id + "/report";
+    const exportReport = (user, format) => fetch(reportEndpoint + "?" + new URLSearchParams({ format, year }), {
+      headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) }
+    });
+    assert.equal((await exportReport(employee, "pdf")).status, 404);
+    assert.equal((await exportReport(owner, "html")).status, 400);
+    const pdf = await exportReport(owner, "pdf");
+    assert.equal(pdf.status, 200);
+    assert.equal(Buffer.from(await pdf.arrayBuffer()).subarray(0, 5).toString(), "%PDF-");
+    const excel = await exportReport(owner, "xlsx");
+    assert.equal(excel.status, 200);
+    const cells = (await require("read-excel-file/node").readSheet(Buffer.from(await excel.arrayBuffer()))).flat().join(" ");
+    assert.match(cells, /Termin Dekoniki/);
+    assert.doesNotMatch(cells, /Obca inwestycja|Odłączone zadanie/);
+    const memoryEndpoint = "/business-memory";
+    const memory = { kind: "AGREEMENT", text: "Syntetyczne ustalenie", counterparty: "Kontrahent", investmentId: ownedInvestment.id };
+    assert.equal((await request(dek, employee, memoryEndpoint)).status, 403);
+    assert.equal((await request(dek, owner, memoryEndpoint, "POST", { ...memory, investmentId: foreignInvestment.id })).status, 404);
+    const savedMemory = await request(dek, owner, memoryEndpoint, "POST", memory);
+    assert.ok([200, 201].includes(savedMemory.status));
+    const entryPath = memoryEndpoint + "/" + savedMemory.data.id;
+    assert.equal((await request(deh, owner, entryPath, "PUT", { ...memory, investmentId: null })).status, 404);
+    assert.equal((await request(deh, owner, entryPath, "DELETE")).status, 404);
+    assert.deepEqual((await request(deh, owner, memoryEndpoint)).data.items, []);
+    const updatedMemory = await request(dek, owner, entryPath, "PUT", { ...memory, kind: "DECISION", text: "Zmienione ustalenie" });
+    assert.equal(updatedMemory.data.kind, "DECISION");
+    assert.equal((await request(dek, owner, memoryEndpoint)).data.items[0].text, "Zmienione ustalenie");
+    assert.equal((await request(dek, owner, entryPath, "DELETE")).status, 200);
+    assert.deepEqual((await request(dek, owner, memoryEndpoint)).data.items, []);
+    const scopedTask = { title: "Zadanie do przypisania", assigneeUserId: employee.id };
+    assert.equal((await request(dek, employee, "/workspace/tasks", "POST", scopedTask)).status, 403);
+    assert.equal((await request(dek, owner, "/investments/" + ownedInvestment.id + "/tasks", "POST", scopedTask)).status, 403);
+    const assigned = await request(dek, owner, "/workspace/tasks", "POST", scopedTask);
+    assert.ok([200, 201].includes(assigned.status));
+    const workspace = await request(dek, owner, "/workspace");
+    assert.equal(workspace.data.tasks.find(task => task.id === assigned.data.id).metadata.assigneeUserId, employee.id);
+    console.log("Business memory E2E: write, correction, removal and cross-company denial");
     console.log("Owner briefing E2E: ownership, company-scoped investment tasks and deduplicated alerts");
     const initial=await report();
     assert.equal(item(initial,invoice.id).status,dayBeforeToday(late)?"OVERDUE":"UNPAID");
