@@ -28,4 +28,4 @@ Worker wznawia również szkice porzucone w fazie przygotowania, przed zapisem z
 
 ## Harmonogram właściciela
 
-Po migracjach P0 oraz migracjach alertów, pamięci spółki i porównania dziennego sprawdź harmonogram na izolowanej bazie. Ustawienie `OWNER_BRIEFING_SCHEDULER_ENABLED=true` włącza skan workera. Godzina domyślna to 07:00 w `Europe/Warsaw`. Worker zapisuje po jednym podsumowaniu na właściciela i polski dzień kalendarzowy. Odczyt w WWW porównuje otwarte alerty o zaległych zadaniach ze snapshotem poprzedniego dnia. Harmonogram korzysta z bazy, bez modeli i wysyłek. Przy wycofaniu workera zachowaj tabele i dane.
+Po migracjach P0 oraz migracjach alertów, pamięci spółki, porównania dziennego i budżetu inwestycji sprawdź harmonogram na izolowanej bazie. Ustawienie `OWNER_BRIEFING_SCHEDULER_ENABLED=true` włącza skan workera. Godzina domyślna to 07:00 w `Europe/Warsaw`. Worker zapisuje po jednym podsumowaniu na właściciela i polski dzień kalendarzowy. Odczyt w WWW porównuje otwarte alerty o zaległych zadaniach ze snapshotem poprzedniego dnia. Harmonogram korzysta z bazy, bez modeli i wysyłek. Przy wycofaniu workera zachowaj tabele i dane.

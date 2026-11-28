@@ -240,8 +240,8 @@ async function main() {
     assert.equal((await uploadPhoto(owner, Buffer.from("invalid"), photoQuery)).status, 400);
     const photo = await uploadPhoto(owner, image, photoQuery);
     assert.equal(photo.status, 201);
-    const { item } = await photo.json();
-    const photoUrl = documentsUrl + "/investment/" + ownedInvestment.id + "/" + item.id + "/download";
+    const { item: photoItem } = await photo.json();
+    const photoUrl = documentsUrl + "/investment/" + ownedInvestment.id + "/" + photoItem.id + "/download";
     const downloadPhoto = user => fetch(photoUrl, { headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) } });
     assert.equal((await downloadPhoto(employee)).status, 404);
     const downloadedPhoto = await downloadPhoto(owner);
