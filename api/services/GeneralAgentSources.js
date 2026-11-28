@@ -147,7 +147,7 @@ class GeneralAgentSources {
           "Kwoty zawierają korekty ze znakiem z KSeF. Pola missing wskazują kwoty nieznane. " +
           "Szczegóły faktur to maksymalnie 25 pozycji. Raport bankowy obejmuje wyłącznie zaimportowane operacje i potwierdzone salda. " +
           "Dane bankowe dotyczą lat jawnie wskazanych w pytaniu (maksymalnie pięciu) lub bieżącego roku. Brak okresu bankowego oznacza brak danych w kontekście. " +
-          "Prognoza opiera się na importach i terminach płatności. Rentowność obejmuje przypisane faktury netto. " +
+          "Prognoza środków bieżących opiera się na saldach rachunków bieżących i pełnych kwotach do rozliczenia w terminie. Salda VAT są osobne. Rentowność obejmuje przypisane faktury netto. " +
           (access.invoices ? "" : "Faktury KSeF są poza dostępnym zakresem."),
         investmentIds,
         invoiceTotals,

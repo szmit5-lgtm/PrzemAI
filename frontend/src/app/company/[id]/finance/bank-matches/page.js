@@ -136,13 +136,14 @@ export default function BankKsefMatchesPage(){
    {!loading&&!error&&report&&<>
     {settlements&&<section className="mt-5 rounded-2xl border border-white/10 bg-[#111c35] p-5">
      <h2 className="text-lg font-bold">Rozliczenia na {settlements.asOf}</h2>
-     <p className="mt-2 text-sm text-slate-300">Należności i zobowiązania uwzględniają otwarte faktury z poprzednich lat. Prognoza zakłada rozliczenie kwot wymagalnych do końca bieżącego miesiąca.</p>
+     <p className="mt-2 text-sm text-slate-300">Należności i zobowiązania obejmują otwarte faktury z poprzednich lat. Prognoza zakłada rozliczenie pełnych kwot wymagalnych do końca bieżącego miesiąca z rachunków bieżących. Środki na rachunkach VAT pokazujemy osobno.</p>
      {settlements.balances.map(row=><p key={row.currency} className="mt-2 text-sm">
       Należności {money(row.receivable,row.currency)} · Zobowiązania {money(row.payable,row.currency)} · Koszty stałe w {year} {money(row.fixedCosts,row.currency)}
      </p>)}
      {settlements.forecast.map(row=><p key={row.currency} className="mt-2 text-sm">
-      Prognoza {row.currency} · {row.projectedMonthEnd===null?"Brak potwierdzonego salda":money(row.projectedMonthEnd,row.currency)}
-      {row.latestClosings.length>0&&" · daty sald źródłowych "+[...new Set(row.latestClosings)].join(", ")}
+      Prognoza środków bieżących {row.currency} · {row.projectedMonthEnd===null?"Brak pełnych sald rachunków bieżących":money(row.projectedMonthEnd,row.currency)}
+      {row.vatBalanceFromImports!=null&&" · Saldo VAT "+money(row.vatBalanceFromImports,row.currency)}
+      {row.operatingClosings?.length>0&&" · daty sald rachunków bieżących "+[...new Set(row.operatingClosings)].join(", ")}
      </p>)}
      {Object.keys(settlements.diagnostics).length>0&&<p className="mt-2 text-sm text-amber-200">
       Nieprawidłowy XML KSeF · {Object.entries(settlements.diagnostics).map(([reason,count])=>xmlReason[reason]+" ("+count+")").join(", ")}

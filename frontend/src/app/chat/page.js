@@ -10,7 +10,7 @@ import {
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import {
-  parseChatListResponse,parseChatDetailResponse,
+  parseChatListResponse,parseChatDetailResponse, mergePendingChatMessages,
   parseChatSendResponse,parseChatArchiveResponse
 } from "@/lib/chatDashboardPayload";
 import {
@@ -65,19 +65,25 @@ export default function ChatPage(){
  const hasPending=messages.some(item=>item.pending);
  useEffect(()=>{
    if(!activeConversationId||!hasPending)return;
-   let active=true;
-   const interval=setInterval(async ()=>{
-     try{
-       const data=parseChatDetailResponse(await getConversation(activeConversationId),activeConversationId);
-       if(!active)return;
-       const snapshot=new Map(data.messages.map(item=>[item.id,item]));
-       setMessages(items=>items.map(item=>{
-         const updated=snapshot.get(item.id);
-         return item.pending&&updated?{...item,content:updated.content,pending:Boolean(updated.metadata?.pending)}:item;
-       }));
-     }catch{}
-   },2500);
-   return ()=>{active=false;clearInterval(interval);};
+   const cancellation = new AbortController();
+   let timer;
+   let delay = 2500;
+   async function poll() {
+     if (cancellation.signal.aborted) return;
+     if (document.visibilityState === "visible" && navigator.onLine) {
+       try {
+         const response = await getConversation(activeConversationId, cancellation.signal);
+         const data = parseChatDetailResponse(response, activeConversationId);
+         if (!cancellation.signal.aborted) setMessages(items => mergePendingChatMessages(items, data.messages));
+         delay = 2500;
+       } catch {
+         delay = Math.min(delay * 2, 30000);
+       }
+     }
+     if (!cancellation.signal.aborted) timer = setTimeout(poll, delay);
+   }
+   timer = setTimeout(poll, delay);
+   return () => { cancellation.abort(); clearTimeout(timer); };
  },[activeConversationId,hasPending]);
 
  useEffect(()=>{
@@ -414,14 +420,14 @@ export default function ChatPage(){
      setMessages(current=>current.filter(x=>x.id!==temporaryId));
    }finally{setLoading(false);loadingRef.current=false;}
  }
- async function reportAction(item, telegram){
+ async function reportAction(item, action){
    setReportStatus("");
    try{
-     if(telegram){
+     if(action==="telegram"){
        const sent=await sendChatReportToTelegram(activeConversationId,item.id,
          ()=>window.confirm("Wysłać ten raport na Twoje powiązane konto Telegram?"));
        if(sent)setReportStatus("Raport wysłany na Telegram.");
-     } else await downloadChatReport(activeConversationId,item.id);
+     } else await downloadChatReport(activeConversationId,item.id,action);
    }catch(error){setReportStatus(error.message);}
  }
  function handleKeyDown(event){
@@ -531,8 +537,14 @@ export default function ChatPage(){
           {item.content}
           {activeConversationId&&item.role==="assistant"&&item.id&&!item.pending&&!item.restricted&&
            <div className="mt-2 flex flex-wrap gap-3 text-xs text-violet-200">
-            <button type="button" onClick={()=>reportAction(item,false)}>Pobierz raport</button>
-            {!item.organizationId&&<button type="button" onClick={()=>reportAction(item,true)}>Wyślij na Telegram</button>}
+            <div role="group" aria-label="Pobierz raport" className="flex flex-wrap gap-2">
+             {[["docx","Word"],["pdf","PDF"],["xlsx","Excel"]].map(([format,label])=>
+              <button key={format} type="button" onClick={()=>reportAction(item,format)}
+               className="min-h-9 rounded-lg border border-violet-400/30 px-2 hover:bg-violet-500/20">
+               Pobierz {label}
+              </button>)}
+            </div>
+            {!item.organizationId&&<button type="button" onClick={()=>reportAction(item,"telegram")}>Wyślij na Telegram</button>}
            </div>}
           {item.pending&&<p role="status" className="text-xs text-violet-200">Sprawdzam postęp zlecenia…</p>}
          </div>

@@ -1,15 +1,30 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import Link from "next/link";
 import {ArrowLeft,Copy,MessageCircle,ShieldCheck} from "lucide-react";
 import Navbar from "../../components/Navbar";
 import UserMenu from "../../components/UserMenu";
-import {createTelegramLinkCode} from "@/lib/api";
+import {createTelegramLinkCode,getTelegramStatus} from "@/lib/api";
 
 export default function TelegramPairingPage(){
   const [data,setData]=useState(null);
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
+  const [status,setStatus]=useState(null);
+  const [statusError,setStatusError]=useState("");
+  const [check,setCheck]=useState(0);
+  useEffect(()=>{
+    const controller=new AbortController();
+    setStatus(null);setStatusError("");
+    getTelegramStatus(controller.signal).then(({data})=>{
+      if(!["botConfigured","webhookSecretConfigured","automaticRegistrationEnabled","linked"].every(key=>typeof data?.[key]==="boolean"))
+        throw Error("Nie udało się potwierdzić stanu Telegrama.");
+      if(!controller.signal.aborted)setStatus(data);
+    }).catch(error=>{
+      if(!controller.signal.aborted)setStatusError(error.message||"Diagnostyka Telegrama jest niedostępna.");
+    });
+    return ()=>controller.abort();
+  },[check]);
   const generate=async()=>{
     if(loading)return;
     setLoading(true);setError("");setData(null);
@@ -34,6 +49,24 @@ export default function TelegramPairingPage(){
           Użyj istniejącego bota PrzemAI. Po aktywacji webhooka przez administratora
           bot będzie przyjmować zlecenia i pokazywać stan kolejki.
         </p>
+        <section aria-labelledby="telegram-status" className="mt-5 rounded-2xl border border-white/10 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="telegram-status" className="font-semibold">Diagnostyka Telegrama</h2>
+            <button type="button" className="min-h-10 rounded-xl border border-white/20 px-3"
+              onClick={()=>setCheck(value=>value+1)} disabled={!status&&!statusError}>Odśwież stan</button>
+          </div>
+          {!status&&!statusError&&<p role="status" className="mt-2 text-slate-300">Sprawdzanie konfiguracji…</p>}
+          {statusError&&<p role="alert" className="mt-2 text-rose-200">{statusError}</p>}
+          {status&&<>
+            <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-slate-200">
+              <dt>Konfiguracja bota</dt><dd>{status.botConfigured?"Jest":"Brak"}</dd>
+              <dt>Klucz webhooka</dt><dd>{status.webhookSecretConfigured?"Jest":"Brak lub nieprawidłowy"}</dd>
+              <dt>Automatyczna rejestracja webhooka</dt><dd>{status.automaticRegistrationEnabled?"Włączona":"Wyłączona"}</dd>
+              <dt>Twoje ostatnie powiązanie</dt><dd>{status.linked?"Aktywne":"Brak aktywnego"}</dd>
+            </dl>
+            <p className="mt-2 text-xs text-slate-400">Po dostarczeniu wiadomości testowej przez bota można potwierdzić działanie webhooka.</p>
+          </>}
+        </section>
         <ol className="mt-5 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-200">
           <li>Naciśnij „Wygeneruj kod”. Kod jest jednorazowy i ważny 10 minut.</li>
           <li>Otwórz prywatny czat z dotychczasowym botem PrzemAI na Telegramie.</li>

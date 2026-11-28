@@ -132,28 +132,41 @@ class OrganizationSettlementService {
 
   async forecast(organizationId, asOf, totals) {
     const accounts = await this.db.bankAccount.findMany({
-      where: { organizationId }, take: 201, select: { id: true, currency: true,
+      where: { organizationId }, take: 201, select: { id: true, currency: true, accountType: true,
         statements: { where: { organizationId, closingBalance: { not: null }, periodEnd: { lte: asOf } },
           orderBy: [{ periodEnd: "desc" }, { importedAt: "desc" }], take: 1,
           select: { closingBalance: true, periodEnd: true } } }
     });
     if (accounts.length > 200) throw new OrganizationError("Za dużo rachunków w raporcie.", 413);
-    const currencies = new Map([...totals.keys()].map(currency => [currency, { anchor: 0n, dates: [], missing: 0 }]));
-    await Promise.all(accounts.map(async ({ id, currency, statements: [statement] }) => {
-      const entry = currencies.get(currency) || { anchor: 0n, dates: [], missing: 0 };
+    const balances = () => ({ anchor: 0n, dates: [], missing: 0 });
+    const groups = () => ({ total: balances(), operating: balances(), vat: balances() });
+    const currencies = new Map([...totals.keys()].map(currency => [currency, groups()]));
+    await Promise.all(accounts.map(async ({ id, currency, accountType, statements: [statement] }) => {
+      const entry = currencies.get(currency) || groups();
       currencies.set(currency, entry);
-      if (!statement) { entry.missing++; return; }
+      const bands = [entry.total];
+      if (accountType === "CURRENT") bands.push(entry.operating);
+      if (accountType === "VAT") bands.push(entry.vat);
+      if (!statement) { bands.forEach(band => band.missing++); return; }
       const activity = await this.db.bankTransaction.aggregate({ where: { organizationId, bankAccountId: id,
         bookedAt: { gt: new Date(day(statement.periodEnd) + "T23:59:59.999Z"), lte: asOf } }, _sum: { amount: true } });
-      entry.anchor += cents(statement.closingBalance) + cents(activity._sum.amount);
-      entry.dates.push(day(statement.periodEnd));
+      const updatedBalance = cents(statement.closingBalance) + cents(activity._sum.amount);
+      for (const band of bands) {
+        band.anchor += updatedBalance;
+        band.dates.push(day(statement.periodEnd));
+      }
     }));
-    return [...currencies].map(([currency, { anchor, dates, missing }]) => {
-      const known = dates.length > 0 && missing === 0;
+    const known = band => band.dates.length > 0 && band.missing === 0;
+    return [...currencies].map(([currency, { total, operating, vat }]) => {
       const bucket = totals.get(currency);
-      return { currency, balanceFromImports: known ? money(anchor) : null, latestClosings: dates.sort(),
-        missingAccountBalances: missing, projectedMonthEnd: known
-          ? money(anchor + (bucket?.monthReceivable || 0n) - (bucket?.monthPayable || 0n)) : null };
+      return { currency,
+        balanceFromImports: known(total) ? money(total.anchor) : null,
+        latestClosings: total.dates.sort(), missingAccountBalances: total.missing,
+        operatingBalanceFromImports: known(operating) ? money(operating.anchor) : null,
+        vatBalanceFromImports: known(vat) ? money(vat.anchor) : null,
+        operatingClosings: operating.dates.sort(), missingOperatingAccountBalances: operating.missing,
+        projectedMonthEnd: known(operating)
+          ? money(operating.anchor + (bucket?.monthReceivable || 0n) - (bucket?.monthPayable || 0n)) : null };
     });
   }
 

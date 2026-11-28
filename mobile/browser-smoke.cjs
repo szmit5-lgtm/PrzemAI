@@ -67,8 +67,15 @@ async function main() {
           result = { success: false, error: "Błąd chwilowy testu" };
         } else {
           result = { conversationId: "demo-id",
-            answer: chat.message === "Pokaż zadania" ? "Wynik z lokalnej atrapy" : "Ponowienie zakończone" };
+            ...(chat.message === "Pokaż zadania"
+              ? { answer: "Przygotowanie raportu", pending: true, message: { id: "fixture-pending" } }
+              : { answer: "Ponowienie zakończone" }) };
         }
+      } else if (url.pathname === "/api/chat/demo-id") {
+        result = { conversation: { id: "demo-id", messages: [
+          { id: "fixture-pending", role: "assistant", content: "Wynik z lokalnej atrapy", metadata: { organizationId: "beta" } },
+          { id: "other-message", role: "assistant", content: "Inna spółka", metadata: { organizationId: "alpha" } }
+        ] } };
       } else if (url.pathname === "/api/chat/attachment") {
         chatAttachment = request.postData();
         result = { conversationId: "demo-id", answer: "Treść załącznika odebrana" };
@@ -105,7 +112,9 @@ async function main() {
     await page.getByRole("button", { name: "General Agent" }).click();
     assert.equal(await page.getByRole("button", { name: "Wyślij" }).isDisabled(), true);
     releaseReply();
+    await page.getByText("Zlecenie w toku").waitFor();
     await page.getByText("Wynik z lokalnej atrapy").waitFor();
+    assert.equal(await page.getByText("Inna spółka", { exact: true }).count(), 0);
     assert.equal(chat.organizationId, "beta");
     await page.getByLabel("Wiadomość do General Agenta").fill("Spróbuj ponownie");
     await page.getByRole("button", { name: "Wyślij" }).click();
@@ -145,7 +154,7 @@ async function main() {
     await page.getByRole("button", { name: "Dokumenty", exact: true }).click();
     await page.getByText("Sesja wygasła. Zaloguj się ponownie.").waitFor();
     assert.equal(await page.getByText("Dokument spółki").count(), 0);
-    console.log("Mobile Chromium 360 px: login, volatile session, company scope, invoices, chat navigation, retry, attachments, investments, documents and 401 passed.");
+    console.log("Mobile Chromium 360 px: login, volatile session, company scope, invoices, chat navigation, progress, retry, attachments, investments, documents and 401 passed.");
   } finally {
     await browser?.close();
     server.close();

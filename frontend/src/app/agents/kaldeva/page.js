@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { pollKaldevaJob } from "@/lib/kaldevaPolling.mjs";
 
 const API = "/api/agents/kaldeva";
 async function call(path, options = {}) {
@@ -10,7 +11,11 @@ async function call(path, options = {}) {
     cache: "no-store"
   });
   const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.success) throw new Error(data?.error || "Błąd usługi (" + response.status + ").");
+  if (!response.ok || !data?.success) {
+    const error = new Error(data?.error || "Błąd usługi (" + response.status + ").");
+    error.status = response.status;
+    throw error;
+  }
   return data.data;
 }
 export default function KaldevaPage() {
@@ -18,7 +23,10 @@ export default function KaldevaPage() {
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [id, setId] = useState("");
+  const id = job?.id;
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const selected = useRef(null);
+  const stopPolling = useRef(null);
   const [history, setHistory] = useState([]);
   const [historyError, setHistoryError] = useState("");
   async function loadHistory() {
@@ -26,53 +34,74 @@ export default function KaldevaPage() {
     catch (e) { setHistoryError(e.message); }
   }
   useEffect(() => { loadHistory(); }, []);
-  async function refresh(jobId = id) {
-    if (!jobId) return;
-    try {
-      const result = await call("/jobs/" + encodeURIComponent(jobId));
-      setJob(result);
-      setError("");
-      if (!["queued", "running"].includes(result?.status)) loadHistory();
-    } catch (e) { setError(e.message); }
+  function selectJob(next) {
+    stopPolling.current?.();
+    selected.current = next;
+    setJob(next);
+    setError("");
+    setRefreshVersion(version => version + 1);
+  }
+  function refresh() {
+    stopPolling.current?.();
+    setRefreshVersion(version => version + 1);
   }
   async function cancelJob() {
-    if (!id || job?.status !== "queued") return;
+    if (busy || !id || job?.status !== "queued") return;
+    stopPolling.current?.();
     setBusy(true); setError("");
     try {
       const cancelled = await call("/jobs/" + encodeURIComponent(id) + "/cancel", { method: "POST" });
-      setJob(cancelled);
+      selectJob(cancelled);
       await loadHistory();
     } catch (e) {
       setError(e.message);
-      await refresh(id);
+      refresh();
     } finally { setBusy(false); }
   }
   async function submit(e) {
     e.preventDefault();
-    setBusy(true); setError(""); setJob(null); setId("");
+    if (busy) return;
+    selectJob(null);
+    setBusy(true);
     try {
       const created = await call("/discover", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: query.trim() })
       });
-      setId(created.id);
-      setJob({ id: created.id, status: created.status });
+      selectJob({ id: created.id, status: created.status });
       loadHistory();
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
   useEffect(() => {
-    if (!id || !["queued", "running"].includes(job?.status)) return;
-    const timer = setTimeout(() => refresh(id), 2500);
-    return () => clearTimeout(timer);
-  }, [id, job?.status]);
+    if (!id || busy) return;
+    const stop = pollKaldevaJob({
+      status: selected.current?.status,
+      load: async signal => {
+        const result = await call("/jobs/" + encodeURIComponent(id), { signal });
+        if (result?.id !== id || !["queued", "running", "completed", "failed", "cancelled"].includes(result.status))
+          throw new Error("Nieprawidłowa odpowiedź o stanie zlecenia.");
+        return result;
+      },
+      onJob: result => {
+        const previous = selected.current?.status;
+        selected.current = result;
+        setJob(result);
+        setError("");
+        if (previous !== result.status) void loadHistory();
+      },
+      onError: err => setError(err.message)
+    });
+    stopPolling.current = stop;
+    return stop;
+  }, [id, busy, refreshVersion]);
   const result = job?.result || job?.report || {};
   const leads = Array.isArray(result.accepted) ? result.accepted : null;
   return <main className="min-h-screen bg-[#080e20] p-4 text-slate-100 sm:p-8">
     <div className="mx-auto max-w-4xl">
       <Link href="/agents" className="text-cyan-300">← Centrum agentów</Link>
       <h1 className="mt-6 text-3xl font-bold">Kaldeva — wyszukiwanie klientów</h1>
-      <p className="mt-3 text-sm text-slate-300">Wyszukujemy publiczne informacje o firmach, usuwamy duplikaty i przygotowujemy raport oraz szkice. Nie wysyłamy wiadomości. Zakończone raporty są zapisywane w historii konta. Zlecenia w toku mogą zostać przerwane przez restart serwera.</p>
+      <p className="mt-3 text-sm text-slate-300">Wyszukujemy publiczne informacje o firmach, usuwamy duplikaty i przygotowujemy raport oraz szkice. Nie wysyłamy wiadomości. Zlecenia i ich wyniki są zapisywane w historii konta. Stan wybranego zlecenia odświeża się automatycznie.</p>
       <form onSubmit={submit} className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5">
         <label htmlFor="query" className="block text-sm font-semibold">Kogo szukamy?</label>
         <textarea id="query" value={query} onChange={e => setQuery(e.target.value)} minLength={5} maxLength={200} rows={3} required className="mt-2 w-full rounded-xl border border-white/20 bg-slate-900 p-3 text-white"/>
@@ -83,7 +112,7 @@ export default function KaldevaPage() {
           <button type="button" onClick={loadHistory} className="min-h-10 rounded-lg border border-white/25 px-3 text-sm">Odśwież historię</button></div>
         {historyError && <p role="alert" className="mt-3 text-sm text-rose-200">{historyError}</p>}
         {history.length===0 && !historyError && <p className="mt-3 text-sm text-slate-400">Brak zapisanych zleceń.</p>}
-        <div className="mt-3 space-y-2">{history.map(item=><button key={item.id} type="button" onClick={()=>{setId(item.id);setJob(item);setError("");}}
+        <div className="mt-3 space-y-2">{history.map(item=><button key={item.id} type="button" disabled={busy} onClick={()=>selectJob(item)}
           className="flex min-h-12 w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-white/15 px-3 py-2 text-left text-sm hover:bg-white/10">
           <span className="break-words">{item.query||item.id}</span><span className="text-cyan-200">{item.status||"—"}</span>
         </button>)}</div>
@@ -94,7 +123,7 @@ export default function KaldevaPage() {
           <h2 className="text-xl font-semibold">Zlecenie: {job.status || "nieznany"}</h2>
           <div className="flex flex-wrap gap-2">
             {job.status === "queued" && <button type="button" disabled={busy} onClick={cancelJob} className="min-h-11 rounded-lg border border-amber-300/50 px-4 text-amber-200 disabled:opacity-50">Anuluj oczekujące</button>}
-            <button type="button" onClick={() => refresh()} className="min-h-11 rounded-lg border border-white/30 px-4">Odśwież</button>
+            <button type="button" disabled={busy} onClick={refresh} className="min-h-11 rounded-lg border border-white/30 px-4">Odśwież</button>
           </div>
         </div>
         <p className="mt-2 break-all text-xs text-slate-400">ID: {id}</p>

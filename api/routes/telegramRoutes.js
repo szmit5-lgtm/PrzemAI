@@ -1,7 +1,7 @@
 "use strict";
 const express = require("express");
 const verifyToken = require("../middleware/verifyToken");
-const {createLink,handleCommand,sendTelegramMessage,validWebhookSecret} =
+const {accountStatus,createLink,handleCommand,sendTelegramMessage,validWebhookSecret} =
   require("../services/TelegramBridgeService");
 const router=express.Router();
 
@@ -17,6 +17,16 @@ router.post("/webhook",async(req,res)=>{
   } catch(error) {
     console.error("[TelegramBridge] Incoming update failed",error?.name||"Error");
     return res.sendStatus(503);
+  }
+});
+router.get("/status", verifyToken, async (req, res) => {
+  if (typeof req.user?.id !== "string" || !req.user.id.trim()) return res.sendStatus(401);
+  res.set("Cache-Control", "private, no-store");
+  try {
+    const data = await accountStatus({ userId: req.user.id });
+    return res.json({ success: true, data });
+  } catch {
+    return res.status(503).json({ success: false, error: "Diagnostyka Telegrama jest chwilowo niedostępna." });
   }
 });
 router.post("/link-code",verifyToken,async(req,res)=>{

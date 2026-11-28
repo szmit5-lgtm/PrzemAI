@@ -222,15 +222,16 @@ export function sendChatAttachment(file, message, conversationId, organizationId
     return request("/api/chat/attachment", { method: "POST", body });
 }
 
-export async function downloadChatReport(conversationId, messageId) {
-    const path = "/api/chat/" + encodeURIComponent(conversationId) + "/report/" + encodeURIComponent(messageId) + "?format=rtf";
+export async function downloadChatReport(conversationId, messageId, format = "rtf") {
+    if (!["rtf", "docx", "pdf", "xlsx"].includes(format)) throw new Error("Nieobsługiwany format raportu.");
+    const path = "/api/chat/" + encodeURIComponent(conversationId) + "/report/" + encodeURIComponent(messageId) + "?format=" + format;
     const result = await fetch(path, { credentials: "same-origin", cache: "no-store" });
     if (result.status === 401) handleExpiredSession();
     if (!result.ok) throw new Error("Raport jest niedostępny.");
     const url = URL.createObjectURL(await result.blob());
     const link = document.createElement("a");
     link.href = url;
-    link.download = "raport-przemai.rtf";
+    link.download = "raport-przemai." + format;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -256,8 +257,8 @@ export async function getConversations() {
     return request("/api/chat");
 }
 
-export async function getConversation(id) {
-    return request(`/api/chat/${id}`);
+export async function getConversation(id, signal) {
+    return request(`/api/chat/${id}`, { signal });
 }
 
 export async function deleteConversation(id) {
@@ -768,4 +769,8 @@ export function getPersonalExport() {
 
 export function getSystemAiUsage() {
     return request("/api/admin/ai-usage");
+}
+
+export function getTelegramStatus(signal) {
+ return request("/api/telegram/status", { signal });
 }
