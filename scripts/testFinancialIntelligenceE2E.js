@@ -247,6 +247,15 @@ async function main() {
     const downloadedPhoto = await downloadPhoto(owner);
     assert.match(downloadedPhoto.headers.get("content-disposition"), /attachment/);
     assert.deepEqual(Buffer.from(await downloadedPhoto.arrayBuffer()), image);
+    const budgetsPath = "/investments/" + ownedInvestment.id + "/budget";
+    const amounts = { plannedNet: "2200,50", forecastNet: "2130.15" };
+    assert.equal((await request(dek, employee, budgetsPath + "/PLN?year=" + year, "PUT", amounts)).status, 403);
+    assert.equal((await request(deh, owner, budgetsPath + "/PLN?year=" + year, "PUT", amounts)).status, 404);
+    const budget = await request(dek, owner, budgetsPath + "/PLN?year=" + year, "PUT", amounts);
+    assert.equal(budget.status, 200);
+    assert.equal(Number(budget.data.plannedNet), 2200.50);
+    assert.equal(Number((await request(dek, owner, budgetsPath + "?year=" + year)).data.items[0].forecastNet), 2130.15);
+    assert.equal((await request(dek, employee, budgetsPath + "?year=" + year)).status, 404);
     const reportEndpoint = endpoint + "/api/organizations/" + dek.id + "/investments/" + ownedInvestment.id + "/report";
     const exportReport = (user, format) => fetch(reportEndpoint + "?" + new URLSearchParams({ format, year }), {
       headers: { Authorization: "Bearer " + jwt.sign({ id: user.id }, process.env.JWT_SECRET) }
@@ -260,6 +269,7 @@ async function main() {
     assert.equal(excel.status, 200);
     const cells = (await require("read-excel-file/node").readSheet(Buffer.from(await excel.arrayBuffer()))).flat().join(" ");
     assert.match(cells, /Termin Dekoniki/);
+    assert.match(cells, /plan 2200\.5.*prognoza 2130\.15/);
     assert.doesNotMatch(cells, /Obca inwestycja|Odłączone zadanie/);
     const memoryEndpoint = "/business-memory";
     const memory = { kind: "AGREEMENT", text: "Syntetyczne ustalenie", counterparty: "Kontrahent", investmentId: ownedInvestment.id };

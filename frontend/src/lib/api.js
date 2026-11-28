@@ -512,6 +512,16 @@ export async function downloadInvestmentReport(orgId, investmentId, year, format
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+export function getInvestmentBudget(orgId, investmentId, year, signal) {
+    return request(investmentEndpoint(orgId, investmentId) + "/budget?" + new URLSearchParams({ year }), { signal });
+}
+
+export function saveInvestmentBudget(orgId, investmentId, year, currency, values) {
+    return request(investmentEndpoint(orgId, investmentId) + "/budget/" + encodeURIComponent(currency) + "?" + new URLSearchParams({ year }), {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values)
+    });
+}
+
 export function getInvestmentFinance(orgId, investmentId, year, offset, signal) {
     return request(investmentEndpoint(orgId, investmentId) + "/finance?" +
         new URLSearchParams({ year, offset }), { signal, cache: "no-store" });

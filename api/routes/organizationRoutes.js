@@ -227,6 +227,46 @@ router.get("/:id/investments/:investmentId/finance",verifyToken,
     const {investment}=await investmentService.requireInvestment(req.user.id,req.params.id,req.params.investmentId);
     return investmentFinance.forInvestment(req.user.id,req.params.id,investment,req.query.year,req.query.offset);
   }));
+function budgetYear(input) {
+  if (typeof input !== "string" || !/^\d{4}$/.test(input) || Number(input) < 2020 || Number(input) > 2100)
+    throw new OrganizationError("Nieprawidłowy rok budżetu.");
+  return Number(input);
+}
+
+router.get("/:id/investments/:investmentId/budget", verifyToken, handler(async req => {
+  const { id, investmentId } = req.params;
+  const year = budgetYear(req.query.year);
+  const { role } = await bankAccess.authorize(req.user.id, id);
+  await investmentService.requireInvestment(req.user.id, id, investmentId);
+  const items = await prisma.investmentBudget.findMany({
+    where: { investmentId, year, investment: { organizationId: id } },
+    orderBy: { currency: "asc" },
+    select: { currency: true, plannedNet: true, forecastNet: true, updatedAt: true }
+  });
+  return { year, canEdit: role === "OWNER", items };
+}));
+
+router.put("/:id/investments/:investmentId/budget/:currency", verifyToken, handler(async req => {
+  const { id, investmentId, currency } = req.params;
+  const year = budgetYear(req.query.year);
+  const { role } = await bankAccess.authorize(req.user.id, id);
+  if (role !== "OWNER") throw new OrganizationError("Edycja budżetu wymaga roli właściciela spółki.", 403);
+  await investmentService.requireInvestment(req.user.id, id, investmentId);
+  if (!/^[A-Z]{3}$/.test(currency)) throw new OrganizationError("Podaj kod waluty z trzech wielkich liter.");
+  const parse = value => {
+    if (value === "") return null;
+    if (typeof value !== "string" || !/^\d{1,16}([,.]\d{1,2})?$/.test(value))
+      throw new OrganizationError("Podaj nieujemną kwotę netto z maksymalnie dwoma miejscami dziesiętnymi.");
+    return value.replace(",", ".");
+  };
+  const data = { plannedNet: parse(req.body?.plannedNet), forecastNet: parse(req.body?.forecastNet) };
+  return prisma.investmentBudget.upsert({
+    where: { investmentId_year_currency: { investmentId, year, currency } },
+    update: data, create: { investmentId, year, currency, ...data },
+    select: { currency: true, plannedNet: true, forecastNet: true }
+  });
+}));
+
 router.get("/:id/investments/:investmentId/report", verifyToken, async (req, res) => {
   const { id, investmentId } = req.params;
   const { format, year: queryYear } = req.query;
@@ -244,6 +284,16 @@ router.get("/:id/investments/:investmentId/report", verifyToken, async (req, res
     } catch (error) {
       if (!(error instanceof OrganizationError) || ![403, 404].includes(error.status)) throw error;
     }
+    let budgets = [];
+    try {
+      await bankAccess.authorize(userId, id);
+      budgets = await prisma.investmentBudget.findMany({
+        where: { investmentId, year, investment: { organizationId: id } },
+        orderBy: { currency: "asc" }, select: { currency: true, plannedNet: true, forecastNet: true }
+      });
+    } catch (error) {
+      if (!(error instanceof OrganizationError) || error.status !== 403) throw error;
+    }
     const asOf = value => value ? new Date(value).toISOString().slice(0, 10) : "Brak";
     const clean = value => String(value ?? "").replace(/\s+/g, " ").trim();
     const lines = [
@@ -257,6 +307,8 @@ router.get("/:id/investments/:investmentId/report", verifyToken, async (req, res
         row.currency, "przychody netto " + (row.netSales ?? "brak"), "koszty netto " + (row.netCosts ?? "brak"),
         "wynik netto " + (row.netResult ?? "brak"), "marża " + (row.marginPercent == null ? "brak" : row.marginPercent + "%")
       ].join(" · ")) : [finance ? "Brak rozliczonych danych finansowych w tym zakresie." : "Finanse niedostępne dla zalogowanego użytkownika."]),
+      ...(budgets.length ? ["", "Budżet kosztów netto — wartości wprowadzone przez właściciela",
+        ...budgets.map(row => row.currency + " · plan " + (row.plannedNet ?? "brak") + " · prognoza " + (row.forecastNet ?? "brak"))] : []),
       "", "Zadania",
       ...tasks.map(task => clean(task.title) + " · " + clean(task.status) + " · termin " + asOf(task.dueDate)),
       ...(moreTasks ? ["Lista ograniczona do 100 najnowszych zadań."] : []),
@@ -266,6 +318,7 @@ router.get("/:id/investments/:investmentId/report", verifyToken, async (req, res
     const output = await require("../services/ChatReportExport").exportChatReport(format, lines.join("\n"));
     await investmentService.requireInvestment(userId, id, investmentId);
     if (finance) await financeService.accessible(userId, id);
+    if (budgets.length) await bankAccess.authorize(userId, id);
     res.set("X-Content-Type-Options", "nosniff");
     return res.attachment("raport-inwestycji-" + year + "." + format).type(output.contentType).send(output.body);
   } catch (error) {

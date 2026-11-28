@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   attachInvestmentRecord, changeInvestmentTaskStatus, createInvestmentTask, downloadInvestmentReport, downloadOrganizationDocument, getInvestmentFinance,
-  getInvestmentPanel, getOrganizationDocuments, getOrganizationWorkspace, uploadOrganizationDocument
+  getInvestmentBudget, getInvestmentPanel, getOrganizationDocuments, getOrganizationWorkspace, saveInvestmentBudget, uploadOrganizationDocument
 } from "@/lib/api";
 
 const button = "inline-flex min-h-11 items-center rounded-lg border border-violet-400/40 px-3 text-sm font-semibold text-violet-100 hover:bg-violet-400/10 disabled:opacity-50";
@@ -23,6 +23,79 @@ function Section({ id, title, children }) {
     <h2 className="mb-3 text-lg font-semibold">{title}</h2>
     {children}
   </section>;
+}
+
+function InvestmentBudget({ organizationId, investmentId, year, actual }) {
+  const empty = { currency: "PLN", plannedNet: "", forecastNet: "" };
+  const [budget, setBudget] = useState(null);
+  const [form, setForm] = useState(empty);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getInvestmentBudget(organizationId, investmentId, year, controller.signal).then(({ data }) => {
+      if (!controller.signal.aborted) {
+        const current = data.items.find(row => row.currency === "PLN");
+        setBudget(data);
+        if (current) setForm({ currency: "PLN", plannedNet: current.plannedNet ?? "", forecastNet: current.forecastNet ?? "" });
+      }
+    }).catch(failure => {
+      if (!controller.signal.aborted) setError(failure.message);
+    });
+    return () => controller.abort();
+  }, [organizationId, investmentId, year]);
+
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const { data } = await saveInvestmentBudget(organizationId, investmentId, year, form.currency, form);
+      setBudget(current => ({ ...current, items: [...current.items.filter(row => row.currency !== data.currency), data]
+        .sort((left, right) => left.currency.localeCompare(right.currency)) }));
+    } catch (failure) { setError(failure.message); }
+    finally { setSaving(false); }
+  }
+  const currencies = [...new Set([...(budget?.items.map(row => row.currency) || []), ...actual.map(row => row.currency)])].sort();
+  const change = (name, value) => setForm(current => ({ ...current, [name]: value }));
+  const chooseCurrency = value => {
+    const currency = value.toUpperCase();
+    const row = budget.items.find(item => item.currency === currency);
+    setForm({ currency, plannedNet: row?.plannedNet ?? "", forecastNet: row?.forecastNet ?? "" });
+  };
+
+  return <div className="my-4 rounded-lg border border-white/10 p-3">
+    <h3 className="font-semibold">Budżet kosztów netto</h3>
+    <p className="mt-1 text-xs text-slate-300">Plan i prognoza to wartości wpisane przez właściciela. Wykonanie pochodzi z przypisanych faktur KSeF.</p>
+    {error && <p role="alert" className="mt-2 text-sm text-rose-200">{error}</p>}
+    {!error && !budget && <p role="status" className="mt-2 text-sm">Pobieranie budżetu…</p>}
+    {budget && currencies.length === 0 && <p className="mt-2 text-sm text-slate-300">Brak danych budżetu dla wybranego roku.</p>}
+    {budget && currencies.length > 0 && <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+      {currencies.map(currency => {
+        const row = budget.items.find(item => item.currency === currency);
+        return <li key={currency} className="rounded-lg bg-white/5 p-3">
+          <strong>{currency}</strong>
+          <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-2 gap-y-1 text-sm">
+            <dt>Plan</dt><dd>{amount(row?.plannedNet, currency)}</dd>
+            <dt>Wykonanie</dt><dd>{amount(actual.find(item => item.currency === currency)?.netCosts, currency)}</dd>
+            <dt>Prognoza</dt><dd>{amount(row?.forecastNet, currency)}</dd>
+          </dl>
+          {budget.canEdit && row && <button type="button" className="mt-2 text-sm text-violet-200 underline" disabled={saving}
+            onClick={() => setForm({ currency, plannedNet: row.plannedNet ?? "", forecastNet: row.forecastNet ?? "" })}>Edytuj {currency}</button>}
+        </li>;
+      })}
+    </ul>}
+    {budget?.canEdit && <form onSubmit={submit} className="mt-3 grid items-end gap-2 sm:grid-cols-4">
+      <label className="grid gap-1 text-sm">Waluta<input className={input} value={form.currency}
+        onChange={event => chooseCurrency(event.target.value)} minLength={3} maxLength={3} pattern="[A-Z]{3}" required/></label>
+      <label className="grid gap-1 text-sm">Plan netto<input className={input} value={form.plannedNet}
+        inputMode="decimal" maxLength={19} onChange={event => change("plannedNet", event.target.value)}/></label>
+      <label className="grid gap-1 text-sm">Prognoza netto<input className={input} value={form.forecastNet}
+        inputMode="decimal" maxLength={19} onChange={event => change("forecastNet", event.target.value)}/></label>
+      <button className={button} disabled={saving}>Zapisz budżet</button>
+    </form>}
+  </div>;
 }
 
 function Finance({ organizationId, investmentId }) {
@@ -64,6 +137,8 @@ function Finance({ organizationId, investmentId }) {
       <button className={button} type="button" disabled={exporting} onClick={() => exportFile("xlsx")}>Pobierz Excel</button>
     </div>
     {exportError && <p role="alert" className="mt-2 text-rose-200">{exportError}</p>}
+    <InvestmentBudget key={year} organizationId={organizationId} investmentId={investmentId} year={year}
+      actual={finance?.profitability || []}/>
     {!current && <p role="status" className="mt-3 text-sm text-slate-300">Pobieranie faktur KSeF…</p>}
     {current?.error && <div className="mt-3 space-y-2">
       <p role="alert">{current.error.message}</p>

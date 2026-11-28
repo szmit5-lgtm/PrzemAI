@@ -413,6 +413,7 @@ model OrganizationInvestment {
   documents OrganizationDocument[]
   tasks Task[]
   businessMemories OrganizationMemory[]
+  budgets InvestmentBudget[]
 
   @@unique([organizationId, name])
   @@index([organizationId, status])
@@ -691,4 +692,17 @@ model OwnerDailyBriefing {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, day])
+}
+
+model InvestmentBudget {
+  investmentId String
+  year         Int
+  currency     String
+  plannedNet   Decimal? @db.Decimal(18, 2)
+  forecastNet  Decimal? @db.Decimal(18, 2)
+  updatedAt    DateTime @updatedAt
+
+  investment OrganizationInvestment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+
+  @@id([investmentId, year, currency])
 }
