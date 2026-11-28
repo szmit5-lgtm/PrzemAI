@@ -59,8 +59,9 @@ function openAIMock() {
     let records;
     try { ({ records } = JSON.parse(request.input[1].content[0].text)); } catch {}
     if (records) requests.push(request);
-    if (request.input[1]?.content[0]?.text === "P1_CONTEXT_SCOPE_QUERY")
-      contextProbes.push(JSON.stringify(request.input));
+    const userPrompt = request.input[1]?.content[0]?.text;
+    if (userPrompt?.includes("KONTEKST UŻYTKOWNIKA:") && userPrompt.includes("P1_CONTEXT_SCOPE_QUERY"))
+      contextProbes.push(userPrompt);
     const answer = Object.values(records || {}).filter(Array.isArray).flat()
       .map(row => row.invoice || row.title || row.name).filter(Boolean).join(", ");
     res.setHeader("Content-Type", "application/json");
