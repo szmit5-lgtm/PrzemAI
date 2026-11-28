@@ -247,6 +247,12 @@ async function main() {
     const downloadedPhoto = await downloadPhoto(owner);
     assert.match(downloadedPhoto.headers.get("content-disposition"), /attachment/);
     assert.deepEqual(Buffer.from(await downloadedPhoto.arrayBuffer()), image);
+    const mailForm = new FormData();
+    mailForm.set("file", new Blob(["From: test@example.test\r\nSubject: Wiadomość testowa\r\n\r\nSyntetyczna treść"], { type: "message/rfc822" }), "testowa.eml");
+    const mail = await fetch(documentsUrl + photoQuery, { method: "POST", body: mailForm,
+      headers: { Authorization: "Bearer " + jwt.sign({ id: owner.id }, process.env.JWT_SECRET) } });
+    assert.equal(mail.status, 201);
+    assert.equal((await mail.json()).item.contentType, "message/rfc822");
     const budgetsPath = "/investments/" + ownedInvestment.id + "/budget";
     const amounts = { plannedNet: "2200,50", forecastNet: "2130.15" };
     assert.equal((await request(dek, employee, budgetsPath + "/PLN?year=" + year, "PUT", amounts)).status, 403);

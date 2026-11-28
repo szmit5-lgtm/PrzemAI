@@ -202,7 +202,7 @@ function InvestmentTimeline({ panel }) {
       { key: task.id + ":task", label: "Dodano zadanie · " + task.title, at: task.createdAt },
       { key: task.id + ":complete", label: "Zakończono zadanie · " + task.title, at: task.completedAt }
     ]),
-    ...panel.documents.map(file => ({ key: file.id + ":doc", label: (file.contentType?.startsWith("image/") ? "Dodano zdjęcie · " : "Zapisano dokument · ") + file.name, at: file.createdAt })),
+    ...panel.documents.map(file => ({ key: file.id + ":doc", label: (file.contentType?.startsWith("image/") ? "Dodano zdjęcie · " : file.contentType === "message/rfc822" ? "Dodano korespondencję · " : "Zapisano dokument · ") + file.name, at: file.createdAt })),
     ...panel.reports.map(file => ({ key: file.id + ":report", label: "Dodano sprawozdanie · " + file.name, at: file.createdAt }))
   ].filter(event => event.at).sort((left, right) => right.at.localeCompare(left.at) || left.key.localeCompare(right.key));
   return <Section id="historia" title="Oś czasu">
@@ -365,7 +365,7 @@ function InvestmentPanel({ organizationId, investmentId }) {
             {panel.investment.progress != null && <progress aria-label="Postęp prac" max="100" value={panel.investment.progress} className="w-full accent-cyan-400"/>}
           </div>
           <nav aria-label="Sekcje inwestycji" className="mt-3 flex flex-wrap gap-2">
-            {[["historia", "Oś czasu"], ["zadania", "Zadania"], ["dokumenty", "Dokumenty"], ["zdjecia", "Zdjęcia"], ["sprawozdania", "Sprawozdania"], ["finanse", "Finanse"]]
+            {[["historia", "Oś czasu"], ["zadania", "Zadania"], ["dokumenty", "Dokumenty"], ["zdjecia", "Zdjęcia"], ["korespondencja", "Korespondencja"], ["sprawozdania", "Sprawozdania"], ["finanse", "Finanse"]]
               .map(([id, label]) => <a key={id} className={button} href={"#" + id}>{label}</a>)}
           </nav>
         </header>
@@ -399,11 +399,15 @@ function InvestmentPanel({ organizationId, investmentId }) {
           </Section>
           <div className="space-y-3">
             <Section id="dokumenty" title="Dokumenty">
-              <Files files={panel.documents.filter(file => !file.contentType?.startsWith("image/"))} onDownload={download} empty="Brak przypisanych dokumentów."/>
+              <Files files={panel.documents.filter(file => !file.contentType?.startsWith("image/") && file.contentType !== "message/rfc822")} onDownload={download} empty="Brak przypisanych dokumentów."/>
             </Section>
             <Section id="zdjecia" title="Zdjęcia">
               <Files files={panel.documents.filter(file => file.contentType?.startsWith("image/"))}
                 onDownload={download} empty="Brak przypisanych zdjęć."/>
+            </Section>
+            <Section id="korespondencja" title="Korespondencja">
+              <Files files={panel.documents.filter(file => file.contentType === "message/rfc822")}
+                onDownload={download} empty="Brak przypisanych wiadomości EML."/>
             </Section>
             <Section id="sprawozdania" title="Sprawozdania">
               <Files files={panel.reports} onDownload={download} empty="Brak przypisanych sprawozdań."/>
@@ -414,12 +418,12 @@ function InvestmentPanel({ organizationId, investmentId }) {
           <form className="flex flex-wrap items-end gap-3" onSubmit={upload}>
             <label className="flex flex-col gap-1 text-sm">Rodzaj
               <select name="kind" className={input} value={uploadKind} onChange={event => setUploadKind(event.target.value)}>
-                <option value="document">Dokument</option><option value="report">Sprawozdanie</option><option value="photo">Zdjęcie</option>
+                <option value="document">Dokument</option><option value="report">Sprawozdanie</option><option value="photo">Zdjęcie</option><option value="mail">Korespondencja</option>
               </select>
             </label>
-            <label className="flex min-w-0 flex-col gap-1 text-sm">{uploadKind === "photo" ? "Zdjęcie PNG lub JPEG" : "Plik PDF, DOCX lub TXT"}
+            <label className="flex min-w-0 flex-col gap-1 text-sm">{uploadKind === "photo" ? "Zdjęcie PNG lub JPEG" : uploadKind === "mail" ? "Wiadomość EML widoczna dla osób z dostępem do inwestycji" : "Plik PDF, DOCX lub TXT"}
               <input key={uploadKind} className="min-w-0 max-w-full py-2" type="file" name="file"
-                accept={uploadKind === "photo" ? ".png,.jpg,.jpeg" : ".pdf,.docx,.txt"} required/>
+                accept={uploadKind === "photo" ? ".png,.jpg,.jpeg" : uploadKind === "mail" ? ".eml" : ".pdf,.docx,.txt"} required/>
             </label>
             <button className={button} disabled={busy}>Prześlij plik</button>
           </form>

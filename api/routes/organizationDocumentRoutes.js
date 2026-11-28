@@ -18,6 +18,7 @@ const MAX_ORG_FILES = 120;
 const PHOTOS = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg" };
 const ALLOWED = {
   ...PHOTOS,
+  ".eml": "message/rfc822",
   ".pdf": "application/pdf",
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".txt": "text/plain"
@@ -52,8 +53,8 @@ const upload = multer({
   limits: { files: 1, fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname || "").toLowerCase();
-    if (!ALLOWED[ext] || (PHOTOS[ext] && (typeof req.query.investmentId !== "string" || !req.query.investmentId || req.query.report === "true")))
-      return cb(Object.assign(new Error("Zdjęcie PNG lub JPEG dodaj bezpośrednio do inwestycji. Dokumenty mogą mieć format PDF, DOCX lub TXT."),
+    if (!ALLOWED[ext] || ((PHOTOS[ext] || ext === ".eml") && (typeof req.query.investmentId !== "string" || !req.query.investmentId || req.query.report === "true")))
+      return cb(Object.assign(new Error("Zdjęcie PNG lub JPEG oraz pocztę EML dodaj bezpośrednio do inwestycji. Dokumenty mogą mieć format PDF, DOCX lub TXT."),
         { code: "INVALID_DOCUMENT" }));
     cb(null, true);
   }
@@ -70,6 +71,15 @@ function validFile(file) {
       return type === (ext === ".png" ? "png" : "jpg") &&
         Number.isInteger(width) && Number.isInteger(height) &&
         width > 0 && height > 0 && width <= 12000 && height <= 12000;
+    } catch { return false; }
+  }
+  if (ext === ".eml") {
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(file.buffer);
+      const headers = text.split(/\r?\n\r?\n/, 1)[0];
+      return !text.includes("\0") && headers.length <= 65536 &&
+        /\r?\n\r?\n/.test(text) && /^From:[ \t]*[^\r\n]+/im.test(headers) &&
+        /^(?:Subject|Date):[ \t]*[^\r\n]+/im.test(headers);
     } catch { return false; }
   }
   if (ext === ".txt") {
@@ -111,7 +121,7 @@ router.post("/", (req, res) => upload(req, res, async uploadError => {
   }
   const name = fileName(req.file?.originalname);
   if (!name || !validFile(req.file)) return res.status(400).json({
-    success: false, error: "Nieprawidłowy plik. Dozwolone są PDF, DOCX, TXT oraz zdjęcia inwestycji PNG i JPEG do 8 MB."
+    success: false, error: "Nieprawidłowy plik. Dozwolone są PDF, DOCX, TXT oraz zdjęcia PNG/JPEG i wiadomości EML inwestycji do 8 MB."
   });
   const sha256 = crypto.createHash("sha256").update(req.file.buffer).digest("hex");
   const ext = path.extname(name).toLowerCase();
