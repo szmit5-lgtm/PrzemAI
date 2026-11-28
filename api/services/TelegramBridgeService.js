@@ -48,14 +48,15 @@ async function accountStatus({ userId, env = process.env, db = prisma }) {
   };
 }
 async function handleCommand({ update, db = prisma, now = new Date(),
-  chat = (...args) => require("./ChatService").chat(...args), transcribe, extractDocument }) {
+  chat = (...args) => require("./ChatService").chat(...args), transcribe, extractDocument, extractPhoto }) {
   const msg = update?.message;
-  if (!msg || (typeof msg.text !== "string" && !msg.voice && !msg.document) || msg.chat?.type !== "private" ||
+  const photo = Array.isArray(msg?.photo) && msg.photo.length > 0;
+  if (!msg || (typeof msg.text !== "string" && !msg.voice && !msg.document && !photo) || msg.chat?.type !== "private" ||
       !Number.isSafeInteger(msg.from?.id) || msg.from.id <= 0 || msg.from.is_bot === true ||
       msg.chat?.id !== msg.from.id)
     return null;
   const telegramUserId = String(msg.from.id), text = typeof msg.text === "string" ? msg.text.trim() : "";
-  if (!text && !msg.voice && !msg.document) return null;
+  if (!text && !msg.voice && !msg.document && !photo) return null;
   if (text.startsWith("/start ")) {
     const match = /^\/start\s+([0-9a-f]{8}-[0-9a-f-]{27,})$/.exec(text);
     if (!match) return {chatId:msg.chat.id, text:"Nieprawidlowy kod laczenia."};
@@ -146,7 +147,7 @@ async function handleCommand({ update, db = prisma, now = new Date(),
   if (text.startsWith("/") && !/^\/(?:spolka|watek)(?:\s|$)/.test(text))
     return {chatId:msg.chat.id,text:BOT_COMMANDS};
   const answer = await handleChat({
-    db, msg, text, userId: binding.userId, telegramUserId, chat, transcribe, extractDocument,
+    db, msg, text, userId: binding.userId, telegramUserId, chat, transcribe, extractDocument, extractPhoto,
     isStillLinked: async () => {
       const current = await findBinding(db, telegramUserId);
       return current?.userId === binding.userId && current.report?.status === "LINKED";

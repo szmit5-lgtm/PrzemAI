@@ -43,4 +43,22 @@ async function extractTelegramDocument(document, { extractor = extractAttachment
   return extractor({ buffer, originalname });
 }
 
-module.exports = { downloadTelegramFile, extractTelegramDocument };
+async function extractTelegramPhoto(variants, { extractor = extractAttachment, ...options } = {}) {
+  if (!Array.isArray(variants) || variants.length > 20) throw new Error("Unsupported Telegram photo");
+  const pixels = photo => photo.width * photo.height;
+  const selected = variants.reduce((best, photo) => {
+    if (!photo || !/^[a-zA-Z0-9_-]{1,256}$/.test(photo.file_id || "") ||
+        !Number.isSafeInteger(photo.width) || !Number.isSafeInteger(photo.height) ||
+        photo.width < 1 || photo.height < 1 || pixels(photo) > 16000000 ||
+        !Number.isSafeInteger(photo.file_size) || photo.file_size < 12 || photo.file_size > MAX_FILE)
+      return best;
+    return !best || pixels(photo) > pixels(best) ? photo : best;
+  }, null);
+  if (!selected) throw new Error("Unsupported Telegram photo");
+  const buffer = await downloadTelegramFile(selected, {
+    ...options, maxBytes: MAX_FILE, pathPattern: /^photos\/[a-zA-Z0-9_-]+\.jpe?g$/i
+  });
+  return extractor({ buffer, originalname: "zdjecie-telegram.jpg" });
+}
+
+module.exports = { downloadTelegramFile, extractTelegramDocument, extractTelegramPhoto };

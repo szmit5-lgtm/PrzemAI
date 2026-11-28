@@ -46,7 +46,8 @@ async function companyCommand({ db, organizations, userId, selectionKey, argumen
 
 async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked, chat,
   transcribe = (...args) => require("./TelegramVoiceService").transcribeTelegramVoice(...args),
-  extractDocument = (...args) => require("./TelegramMediaService").extractTelegramDocument(...args) }) {
+  extractDocument = (...args) => require("./TelegramMediaService").extractTelegramDocument(...args),
+  extractPhoto = (...args) => require("./TelegramMediaService").extractTelegramPhoto(...args) }) {
   if (!Number.isSafeInteger(msg.message_id) || msg.message_id <= 0)
     return "Nie można potwierdzić identyfikatora wiadomości.";
   const caption = typeof msg.caption === "string" ? msg.caption.trim() : "";
@@ -94,7 +95,7 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
   }
 
   let attachment = null;
-  if (!text && (msg.voice || msg.document)) {
+  if (!text && (msg.voice || msg.document || (Array.isArray(msg.photo) && msg.photo.length))) {
     const stillAuthorized = async () => await isStillLinked() &&
       ((await getSelection())?.organizationId ?? null) === organizationId &&
       await hasAccess(organizations, userId, organizationId);
@@ -102,10 +103,11 @@ async function handleChat({ db, msg, text, userId, telegramUserId, isStillLinked
     try {
       if (msg.voice) text = await transcribe(msg.voice);
       else {
-        attachment = await extractDocument(msg.document);
+        attachment = msg.document ? await extractDocument(msg.document) : await extractPhoto(msg.photo);
         text = caption || "Przeanalizuj załącznik: " + attachment.name;
       }
     } catch {
+      if (!await stillAuthorized()) return null;
       return msg.voice
         ? "Nie udało się przetworzyć głosu. Wyślij krótkie nagranie OGG lub tekst."
         : "Nie udało się odczytać dokumentu. Wyślij PDF, DOCX, XLSX lub obraz do 4 MB.";

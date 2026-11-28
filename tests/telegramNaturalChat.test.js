@@ -63,13 +63,13 @@ function fixture() {
   };
   let nextId = 1;
   function send(text, { messageId = nextId++, sender = 42, chatId = sender,
-    type = "private", updateId = messageId, chat, caption, document, voice, extractDocument, transcribe } = {}) {
+    type = "private", updateId = messageId, chat, caption, document, voice, photo, extractDocument, extractPhoto, transcribe } = {}) {
     return handleCommand({
       db,
       update: { update_id: updateId, message: {
-        message_id: messageId, text, caption, document, voice, from: { id: sender }, chat: { id: chatId, type }
+        message_id: messageId, text, caption, document, voice, photo, from: { id: sender }, chat: { id: chatId, type }
       } },
-      extractDocument, transcribe,
+      extractDocument, extractPhoto, transcribe,
       chat: async (userId, message, id, options) => {
         calls.push({ userId, message, id, ...options });
         if (!options.sharedWebThread)
@@ -295,4 +295,43 @@ test("Telegram document downloader bounds bytes and rejects paths outside the do
     fetchRequest: () => ++fetchCount === 1 ? getFile("documents/file_2.pdf") :
       new Response(Buffer.concat([bytes, bytes]))
   }), /too large/);
+});
+
+
+test("a linked Telegram photo uses its caption and selected company and rejects duplicate extraction", async () => {
+  const { send, calls } = fixture();
+  await send("/spolka alpha");
+  const photo = [{ file_id: "image", width: 200, height: 100, file_size: 200 }];
+  let extracted = 0;
+  const options = { messageId: 901, photo, caption: "Odczytaj zdjęcie", extractPhoto: async variants => {
+    assert.deepEqual(variants, photo);
+    extracted++;
+    return { name: "zdjecie-telegram.jpg", text: "Przykładowy protokół" };
+  } };
+  assert.equal(await send(undefined, { ...options, type: "group" }), null);
+  assert.match((await send(undefined, { ...options, sender: 43 })).text, /Najpierw/);
+  assert.equal((await send(undefined, options)).text, "Odpowiedź wspólnego czatu");
+  assert.equal(await send(undefined, options), null);
+  assert.equal(extracted, 1);
+  assert.equal(calls[0].organizationId, "a");
+  assert.equal(calls[0].message, "Odczytaj zdjęcie");
+  assert.match(calls[0].attachment.text, /protokół/);
+});
+
+test("Telegram photo download chooses a bounded variant and accepts only a photos path", async () => {
+  const { extractTelegramPhoto } = require("../api/services/TelegramMediaService");
+  const sizes = [
+    { file_id: "thumb", width: 30, height: 30, file_size: 20 },
+    { file_id: "selected", width: 600, height: 400, file_size: 30 },
+    { file_id: "too-large", width: 2000, height: 1000, file_size: 5000000 }
+  ];
+  const urls = [];
+  const options = { token: "synthetic", fetchRequest: async url => {
+    urls.push(url);
+    return urls.length === 1 ? Response.json({ result: { file_path: "photos/file_42.jpg" } }) : new Response(Buffer.alloc(30));
+  }, extractor: async ({ buffer, originalname }) => ({ bytes: buffer.length, originalname }) };
+  assert.deepEqual(await extractTelegramPhoto(sizes, options), { bytes: 30, originalname: "zdjecie-telegram.jpg" });
+  assert.match(urls[0], /file_id=selected$/);
+  await assert.rejects(extractTelegramPhoto(sizes, { ...options, fetchRequest: async () =>
+    Response.json({ result: { file_path: "documents/file_42.jpg" } }) }), /Unsupported Telegram file path/);
 });
