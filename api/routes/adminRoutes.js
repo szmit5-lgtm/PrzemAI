@@ -2,6 +2,7 @@
 const express = require("express");
 const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
+const { dailyLimit, monthlyLimit } = require("../../lib/openAIRequestPolicy");
 const router = express.Router();
 
 // IMPORTANT: Never trust a JWT role, email suffix, or user-supplied flag.
@@ -20,6 +21,33 @@ router.use(async (req,res,next) => {
     next();
   } catch {
     res.status(500).json({success:false,error:"Nie można sprawdzić uprawnień."});
+  }
+});
+
+router.get("/ai-usage", async (_req, res) => {
+  try {
+    const requestsLimit = dailyLimit();
+    const budgetLimitMicroPln = monthlyLimit();
+    const day = new Date().toISOString().slice(0, 10);
+    const month = day.slice(0, 7);
+    const [daily, monthly] = await Promise.all([
+      prisma.openAIRequestBudget.findUnique({
+        where: { day: new Date(day) }, select: { requests: true }
+      }),
+      prisma.openAIMonthlyBudget.findUnique({
+        where: { month: new Date(month + "-01") }, select: { reservedMicroPln: true }
+      })
+    ]);
+    return res.json({ success: true, data: {
+      day,
+      month,
+      requests: daily?.requests ?? 0,
+      requestsLimit,
+      reservedMicroPln: String(monthly?.reservedMicroPln ?? 0n),
+      budgetLimitMicroPln: String(budgetLimitMicroPln)
+    } });
+  } catch {
+    return res.status(503).json({ success: false, error: "Dane o wykorzystaniu budżetu OpenAI są niedostępne." });
   }
 });
 

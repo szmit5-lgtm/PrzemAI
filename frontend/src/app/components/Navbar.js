@@ -7,7 +7,7 @@ import { getProfile } from "@/lib/api";
 import {
   LayoutDashboard, MessageSquare, FileText, Mic, History, CheckSquare,
   Brain, Settings, Bot, Wallet, Handshake, Building2, ShieldCheck,
-  Menu, X, BriefcaseBusiness
+  Menu, X, BriefcaseBusiness, Search
 } from "lucide-react";
 
 const links = [
@@ -21,6 +21,7 @@ const links = [
   {href:"/meeting",label:"Spotkania",icon:Mic},
   {href:"/tasks",label:"Zadania",icon:CheckSquare},
   {href:"/history",label:"Historia",icon:History},
+  {href:"/search",label:"Szukaj",icon:Search},
   {href:"/memory",label:"Pamięć AI",icon:Brain},
   {href:"/settings",label:"Ustawienia",icon:Settings},
   {href:"/administracja",label:"Administracja",icon:ShieldCheck}

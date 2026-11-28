@@ -4,6 +4,7 @@ import Link from "next/link";
 import {Building2,ShieldCheck,Users,RefreshCw,Pencil,Save,X} from "lucide-react";
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
+import AiUsage from "./AiUsage";
 import {getProfile,getOrganizations,getSystemUsers,updateSystemUser} from "@/lib/api";
 
 export default function Administracja(){
@@ -92,6 +93,7 @@ export default function Administracja(){
      {!companies.length&&<p className="text-sm text-slate-400">Nie masz obecnie roli administratora w żadnej firmie.</p>}
     </div>
    </section>}
+   {!loading&&authorized&&isSystemAdmin&&<AiUsage key={refresh}/>}
    {!loading&&authorized&&isSystemAdmin&&<section className="mt-5 rounded-3xl border border-white/10 bg-[#111c35] p-5">
     <h2 className="flex items-center gap-2 text-xl font-bold"><Users className="text-violet-300"/> Użytkownicy PrzemAI</h2>
     <p className="mt-2 text-xs text-slate-400">Widok wyłącznie dla administratora systemu. Utworzenie konta nie przyznaje dostępu do żadnej firmy ani KSeF.</p>

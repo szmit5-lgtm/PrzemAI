@@ -16,6 +16,7 @@ const agentRoutes = require("./api/routes/agentRoutes");
 const financeRoutes = require("./api/routes/financeRoutes");
 const organizationRoutes = require("./api/routes/organizationRoutes");
 const adminRoutes = require("./api/routes/adminRoutes");
+const workspaceToolsRoutes = require("./api/routes/workspaceToolsRoutes");
 const whatsappRoutes = require("./api/routes/whatsappRoutes");
 const telegramRoutes = require("./api/routes/telegramRoutes");
 
@@ -49,6 +50,7 @@ app.use("/api/agents", agentRoutes);
 app.use("/api/finance", financeRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/workspace", workspaceToolsRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/telegram", telegramRoutes);
 
