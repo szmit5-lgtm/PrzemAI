@@ -592,8 +592,12 @@ export default function ChatPage(){
         :"Dotknij dużego mikrofonu i mów. Po zakończeniu wypowiedzi asystent odpowie także głosowo."}
       </p>}
       {messages.some(item=>item.pending&&(item.organizationId||"")===selectedScope)&&
+       <div className="flex flex-wrap gap-2">
        <button type="button" disabled={busy||listening||Boolean(attachment)} onClick={()=>send("Status")}
-        className="mb-2 text-xs text-violet-200">Sprawdź lub wznów zlecenie</button>}
+        className="mb-2 text-xs text-violet-200">Sprawdź lub wznów zlecenie</button>
+        <button type="button" disabled={busy||listening||Boolean(attachment)} onClick={()=>send("Zatrzymaj plan")}
+          className="min-h-11 rounded-xl border border-rose-400/40 px-3 text-sm text-rose-100 disabled:opacity-40">Zatrzymaj plan</button>
+       </div>}
       {activeConversationId && <details className="text-xs text-slate-300">
        <summary className="cursor-pointer text-violet-200">Kontynuuj w Telegramie</summary>
        <p className="mt-2">Na powiązanym koncie wybierz ten sam zakres i użyj polecenia z własną wiadomością.</p>

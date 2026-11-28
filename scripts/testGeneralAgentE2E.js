@@ -368,6 +368,12 @@ async function main() {
       ] }
     });
     assert.equal(queued.assignments[0].status, "TODO");
+    const orphan = await db.task.findUnique({ where: { id: queued.assignments[0].id } });
+    const interruptedAt = new Date(Date.now() - 120000);
+    await db.task.update({ where: { id: orphan.id }, data: {
+      status: "IN_PROGRESS", startedAt: interruptedAt, updatedAt: interruptedAt,
+      metadata: { ...orphan.metadata, executionPhase: "PREPARING" }
+    } });
     backend = startBackend();
     await ready(api + "/health");
     const statusRequest = () => json("/api/chat", { token: ownerToken, body: {
@@ -386,7 +392,35 @@ async function main() {
     const afterRevocation = await json("/api/chat/" + conversation, { token: ownerToken });
     assert.doesNotMatch(JSON.stringify(afterRevocation.data), /Faktura-Deherus|Przypisana-Deherus|Dokument-Deherus/);
     assert.match(JSON.stringify(afterRevocation.data), /Faktura-Dekonica/);
-    console.log("Queued plan resumes after backend restart; completed plan remains single-shot and revoked company results are hidden OK");
+    const sequential = await json("/api/chat", { token: ownerToken, body: {
+      organizationId: companies.Dekonica.id, requestId: randomUUID(),
+      message: "Sprawdź finanse, następnie przeanalizuj dokumenty"
+    } });
+    assert.equal(sequential.status, 200);
+    assert.equal(Boolean(sequential.data.pending), false);
+    assert.equal(requests.length, 22);
+    const stageInput = JSON.parse(requests.at(-1).input[1].content[0].text);
+    assert.match(stageInput.previousResult, /Faktura-Dekonica/);
+    assert.match(stageInput.instruction, /dokumenty/);
+    assert.ok(sequential.data.message.metadata.sources.some(source => source.label === "Faktury KSeF"));
+    const stoppedPlan = await dispatchPlan({ userId: users.owner.id, db,
+      general: { conversationId: sequential.data.conversationId, organizationId: companies.Dekonica.id,
+        planId: "stop-" + randomUUID(), sequential: true },
+      payload: { title: "Plan do zatrzymania", assignments: [
+        { agentKey: "financial", instruction: "Sprawdź finanse" },
+        { agentKey: "document", instruction: "Przeanalizuj dokumenty" }
+      ] }
+    });
+    assert.deepEqual(stoppedPlan.assignments.map(task => task.status), ["TODO", "WAITING"]);
+    const command = { conversationId: sequential.data.conversationId, organizationId: companies.Dekonica.id,
+      requestId: randomUUID(), message: "Zatrzymaj plan" };
+    const stopped = await json("/api/chat", { token: ownerToken, body: command });
+    assert.match(stopped.data.answer, /zatrzymane 2/);
+    const stoppedRows = await db.task.findMany({ where: { id: { in: stoppedPlan.assignments.map(task => task.id) } } });
+    assert.ok(stoppedRows.every(task => task.status === "CANCELLED"));
+    assert.equal(requests.length, 22);
+    console.log("Sequential stages hand off authorized results; cancelling a queued plan prevents model calls");
+    console.log("Interrupted preparation resumes after backend restart; completed plan remains single-shot and revoked company results are hidden OK");
   } finally {
     await browser?.close();
     await Promise.all([...children].map(stop));

@@ -62,7 +62,7 @@ async function dispatchPlan({ userId, payload, db = prisma, general = null }) {
       }
     }
     const assigned = [];
-    for (const { agentKey, instruction } of plan.assignments) {
+    for (const [stage, { agentKey, instruction }] of plan.assignments.entries()) {
       const agent = await tx.agent.findFirst({
         where: { userId, key: agentKey, enabled: true },
         select: { id: true }
@@ -70,14 +70,16 @@ async function dispatchPlan({ userId, payload, db = prisma, general = null }) {
       if (!agent) throw new Error("Agent " + agentKey + " jest wyłączony lub niedostępny.");
       const task = await tx.task.create({
         data: {
-          userId, source: general ? GENERAL_SOURCE : "AGENT", priority: "MEDIUM", status: "TODO",
+          userId, source: general ? GENERAL_SOURCE : "AGENT", priority: "MEDIUM",
+          status: general?.sequential && stage > 0 ? "WAITING" : "TODO",
           title: instruction.replace(/\s+/g, " ").slice(0, 110),
           description: instruction, tags: [agentKey],
           metadata: {
             agentKey, planTitle: plan.title, resultStatus: "QUEUED",
             submittedAt: new Date().toISOString(), dispatchOrigin: general ? GENERAL_SOURCE : "MULTI_AGENT",
             ...(general && { conversationId: general.conversationId, planId: general.planId,
-              organizationId: general.organizationId || "", parentPlanId: general.parentPlanId || null })
+              organizationId: general.organizationId || "", parentPlanId: general.parentPlanId || null,
+              ...(general.sequential && { stage }) })
           }
         },
         select: { id: true, status: true }
