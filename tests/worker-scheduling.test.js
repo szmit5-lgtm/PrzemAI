@@ -346,7 +346,7 @@ test("worker continues with the next due agent when claiming one agent throws", 
       agent: {
         findMany: async ({ where }) => where.status === "RUNNING" ? [] : due,
         updateMany: async ({ where }) => {
-          if (where.id === "claim-fails") throw new Error("simulated database claim failure");
+          if (where.id === "claim-fails") throw Object.assign(new Error("simulated private database claim failure"), { code: "P2034" });
           return { count: 1 };
         }
       }
@@ -358,6 +358,7 @@ test("worker continues with the next due agent when claiming one agent throws", 
   assert.equal(events.errors.length, 1);
   assert.match(events.errors[0][0], /Failed to claim agent/);
   assert.equal(events.errors[0][1], "claim-fails");
+  assert.equal(events.errors[0][2], "P2034");
   const summary = JSON.parse(events.logs.find(entry => entry[0] === "[Worker] Cycle")[1]);
   assert.equal(summary.due, 2);
   assert.equal(summary.completed, 1);

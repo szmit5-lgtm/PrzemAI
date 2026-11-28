@@ -786,3 +786,7 @@ export function changeWhatsAppHistoryLink(organizationId, conversationId, contac
         body: JSON.stringify({ conversationId, contact })
     });
 }
+
+export function getSystemIntegrationHealth(signal) {
+    return request("/api/admin/integration-health", { signal });
+}

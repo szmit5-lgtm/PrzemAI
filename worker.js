@@ -17,6 +17,17 @@ if (!/^[1-6]$/.test(configuredConcurrency)) {
   throw new Error("WORKER_AGENT_CONCURRENCY must be between 1 and 6.");
 }
 const agentConcurrency = Number(configuredConcurrency);
+const diagnosticCodes = new Set([
+  "AI_DAILY_REQUEST_LIMIT", "AI_MONTHLY_BUDGET_LIMIT", "AI_UNMETERED_REQUEST",
+  "P1001", "P1002", "P2024", "P2034", "ETIMEDOUT", "ECONNRESET"
+]);
+
+function scheduledFailureCode(error, fallback) {
+  if (diagnosticCodes.has(error?.code)) return error.code;
+  if (error?.name === "AbortError") return "ABORTED";
+  return fallback;
+}
+
 const ownerScope = process.env.WORKER_OWNER_USER_ID === undefined
   ? null : require("./lib/workerOwnerScope").workerOwnerScope();
 
@@ -279,7 +290,7 @@ async function cycle() {
         // A transient database error claiming one agent must not prevent
         // other due agents from running in the same scheduler cycle.
         failed += 1;
-        console.error("[Worker] Failed to claim agent", agent.key, error.message);
+        console.error("[Worker] Failed to claim agent", agent.key, scheduledFailureCode(error, "CLAIM_FAILED"));
         return;
       }
 
@@ -295,7 +306,7 @@ async function cycle() {
             data: { status: "IDLE", nextRunAt: new Date() }
           });
         } catch (error) {
-          console.error("[Worker] Failed to release claim during shutdown", agent.key, error.message);
+          console.error("[Worker] Failed to release claim during shutdown", agent.key, scheduledFailureCode(error, "RELEASE_FAILED"));
         }
         return;
       }
@@ -306,7 +317,7 @@ async function cycle() {
         completed += 1;
       } catch (error) {
         failed += 1;
-        console.error("[Worker] Agent failed", agent.key, error.message);
+        console.error("[Worker] Agent failed", agent.key, scheduledFailureCode(error, "RUN_FAILED"));
       }
     }
 

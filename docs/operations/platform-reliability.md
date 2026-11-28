@@ -13,3 +13,9 @@ Dashboard WWW pobiera liczniki z `GET /api/executive/overview`. Odczyt agreguje 
 `WORKER_AGENT_CONCURRENCY` przyjmuje wartości od 1 do 6. Domyślna wartość to 1. W obrębie jednego procesu równolegle wykonują się wyłącznie zaplanowane zadania różnych użytkowników. Repliki nadal używają atomowego przejęcia konkretnego agenta w bazie. Limit równoległości dotyczy procesu. Ręczne uruchomienia, Kaldeva i próby z innej repliki mają osobne reguły wykonania. Przetestuj zwiększanie limitu od 1 w odizolowanym środowisku przed zmianą konfiguracji wdrożenia.
 
 Komponenty pulpitu i workera z tej gałęzi nie dodają migracji. Przy problemach z równoległością wróć do jednego zadania na proces i zamknij poprzedni worker przed zastąpieniem go. Przy wycofaniu pulpitu wybierz wspólny zweryfikowany SHA API i frontendu. Starszy frontend kieruje odczyt do ścieżki briefingu, więc przed jego ponownym uruchomieniem uwzględnij limit wywołań zgodnie z procedurą P0.
+
+## Stan integracji
+
+Panel administracji pokazuje stan konfiguracji API i daty utrwalonych zdarzeń. Zdarzenia poczty i KSeF pochodzą z potwierdzonych synchronizacji, banki z importu, Telegram z przyjęcia żądania do przetworzenia, WhatsApp z zapisu przychodzącej wiadomości, a Kaldeva z zakończenia zadania. Uprawnienia spółek ograniczają źródła bankowe i WhatsApp. Monitor nie wywołuje usług dostawców. Liczniki kolejki obejmują konto administratora. Przy błędzie workera zidentyfikuj fazę i kod diagnostyczny przed oceną, czy poprzednia próba mogła wywołać skutki uboczne.
+
+OpenAI korzysta z dotychczasowego wspólnego limitu 200 PLN. W przypadku Claude limit 50 PLN sprawdza konfigurację ręcznego skryptu. Claude nie jest uruchomiony w schedulerze i nie ma trwałego licznika rezerwacji. Brak potwierdzenia w monitorze nie jest dowodem awarii dostawcy.

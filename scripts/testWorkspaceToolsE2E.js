@@ -130,6 +130,48 @@ async function main() {
     assert.equal(usage.budgetLimitMicroPln, "123450000");
     assert.match(usage.reservedMicroPln, /^\d+$/);
     assert.match(usage.day, /^\d{4}-\d{2}-\d{2}$/);
+    const healthUrl = api + "/admin/integration-health";
+    assert.equal((await fetch(healthUrl)).status, 401);
+    assert.equal((await fetch(healthUrl, { headers: headersFor(employee) })).status, 403);
+    process.env.OPENAI_API_KEY = "synthetic-secret-do-not-return";
+    process.env.OPENAI_PRICE_BOUNDS_JSON = "{}";
+    process.env.KSEF_OWNER_USER_ID = owner.id;
+    process.env.WHATSAPP_ORGANIZATION_ID = deherus;
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "synthetic-phone-id";
+    await db.organizationMembership.update({
+      where: { organizationId_userId: { organizationId: deherus, userId: owner.id } },
+      data: { status: "SUSPENDED" }
+    });
+    await db.whatsAppMessage.create({ data: {
+      organizationId: deherus, externalMessageId: randomUUID(), phoneNumberId: "synthetic-phone-id",
+      contactWaId: "synthetic-contact", messageType: "text", text: "private-tenant-content"
+    } });
+    await db.history.createMany({ data: [owner, employee].map(account => ({
+      userId: account.id, type: "KALDEVA_SALES", title: "synthetic", filename: "",
+      report: { status: "failed", error: "private-provider-error" }
+    })) });
+    const financeAgent = await db.agent.create({ data: {
+      key: "financial", name: "Finance", type: "FINANCIAL", userId: owner.id
+    } });
+    await db.agentRun.create({ data: {
+      agentId: financeAgent.id, status: "SUCCESS", trigger: "SCHEDULE", finishedAt: new Date(),
+      metadata: { ksefStatus: "SYNCED", private: "private-provider-error" }
+    } });
+    const health = await fetch(healthUrl, { headers: headersFor(owner) });
+    assert.equal(health.status, 200);
+    assert.match(health.headers.get("cache-control"), /no-store/);
+    const raw = await health.text();
+    const { data: telemetry } = JSON.parse(raw);
+    const integrations = Object.fromEntries(telemetry.integrations.map(item => [item.name, item]));
+    assert.equal(Object.keys(integrations).length, 10);
+    assert.equal(integrations.OpenAI.configuration, "configured");
+    assert.equal(integrations.OpenAI.evidence, null);
+    assert.equal(integrations.KSeF.evidence, "ksefSynced");
+    assert.equal(integrations.WhatsApp.evidence, null);
+    assert.equal(telemetry.queues.kaldevaFailed, 1);
+    assert.ok(telemetry.queues.kaldevaLastFailureAt);
+    assert.doesNotMatch(raw, /synthetic-secret|private-provider-error|private-tenant-content|synthetic-phone-id/);
+    console.log("Integration health E2E OK: authorization, historical evidence, tenant scope and secret redaction");
     console.log("Admin usage E2E OK: authentication, database role and approved identity, configured limits");
     console.log("Workspace E2E OK: session, CSRF, tenant roles, assigned investments, literal search, bounds and personal export");
   } finally {

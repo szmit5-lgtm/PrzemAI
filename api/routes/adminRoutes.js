@@ -3,6 +3,7 @@ const express = require("express");
 const prisma = require("../../lib/prisma");
 const verifyToken = require("../middleware/verifyToken");
 const { dailyLimit, monthlyLimit } = require("../../lib/openAIRequestPolicy");
+const { integrationHealth } = require("../services/IntegrationHealthService");
 const router = express.Router();
 
 // IMPORTANT: Never trust a JWT role, email suffix, or user-supplied flag.
@@ -21,6 +22,15 @@ router.use(async (req,res,next) => {
     next();
   } catch {
     res.status(500).json({success:false,error:"Nie można sprawdzić uprawnień."});
+  }
+});
+
+router.get("/integration-health", async (req, res) => {
+  try {
+    return res.json({ success: true, data: await integrationHealth(req.user.id) });
+  } catch (error) {
+    console.error("[Admin] Integration health read failed", error?.name, error?.code);
+    return res.status(503).json({ success: false, error: "Stan integracji jest chwilowo niedostępny." });
   }
 });
 
