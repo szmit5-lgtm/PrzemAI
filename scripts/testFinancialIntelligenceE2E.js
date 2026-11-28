@@ -192,7 +192,9 @@ async function main() {
     assert.equal(paid.balances[0].receivable,"50.00");
     assert.equal(paid.balances[0].payable,"20.00");
     assert.equal(paid.forecast[0].balanceFromImports,"1113.00");
-    assert.equal(paid.forecast[0].projectedMonthEnd,"1143.00");
+    assert.equal(paid.forecast[0].operatingBalanceFromImports,"1090.00");
+    assert.equal(paid.forecast[0].vatBalanceFromImports,"23.00");
+    assert.equal(paid.forecast[0].projectedMonthEnd,"1120.00");
     const detail=await request(dek,employee,"/bank/activity/"+year+"/"+month+"?direction=inflows&currency=PLN");
     assert.deepEqual(new Set(detail.data.items.map(row=>row.id)),new Set([net.id,vat.id]));
     assert.equal((await request(deh,employee,"/bank/activity/"+year+"/"+month+"?direction=inflows&currency=PLN")).status,403);
