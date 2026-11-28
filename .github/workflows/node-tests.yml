@@ -44,8 +44,10 @@ jobs:
       - name: Product workspace isolation and admin budget E2E
         if: github.head_ref == 'feature/product-readiness' || github.ref == 'refs/heads/feature/product-readiness'
         env:
-          DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_ci
+          DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/przemai_p0_e2e_product_ci
+          PRZEMAI_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
         run: |
+          docker exec "$PRZEMAI_TEST_POSTGRES_CONTAINER" createdb -U postgres przemai_p0_e2e_product_ci
           npx prisma migrate deploy
           node scripts/testWorkspaceToolsE2E.js
       - name: Prepare release browser tests
