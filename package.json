@@ -39,7 +39,7 @@
     "yauzl": "3.3.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9",
+    "nodemon": "3.1.11",
     "prisma": "^6.0.0"
   },
   "overrides": {

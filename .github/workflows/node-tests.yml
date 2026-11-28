@@ -94,11 +94,13 @@ jobs:
         run: |
           npm ci
           npm test
-          npm audit --omit=dev --audit-level=high
+          npm audit --audit-level=low
           PRZEMAI_MOBILE_API_ORIGIN=https://api.example.test npm run prepare:store
           node browser-smoke.cjs
-      - name: Audit runtime dependencies
+      - name: Audit backend and frontend dependencies
         if: github.ref == 'refs/heads/integration/przemai-next'
-        run: npm audit --omit=dev --audit-level=high
+        run: |
+          npm audit --audit-level=low
+          npm --prefix frontend audit --audit-level=low
       - name: Run Node tests
         run: npm test
