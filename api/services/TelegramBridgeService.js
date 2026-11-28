@@ -26,6 +26,27 @@ async function findBinding(db, telegramUserId) {
     select:{userId:true,report:true},orderBy:{updatedAt:"desc"}
   });
 }
+
+async function accountStatus({ userId, env = process.env, db = prisma }) {
+  if (typeof userId !== "string" || !userId.trim()) throw Error("UNAUTHORIZED");
+  const botConfigured = Boolean(env.TELEGRAM_TOKEN?.trim());
+  const webhookSecretConfigured = typeof env.TELEGRAM_WEBHOOK_SECRET === "string" &&
+    /^[a-zA-Z0-9_-]{16,256}$/.test(env.TELEGRAM_WEBHOOK_SECRET);
+  const recentLink = await db.history.findFirst({
+    where: { userId, type: LINK_TYPE, report: { path: ["status"], equals: "LINKED" } },
+    select: { report: true },
+    orderBy: { updatedAt: "desc" }
+  });
+  const telegramUserId = recentLink?.report?.telegramUserId;
+  const current = typeof telegramUserId === "string" && /^\d{1,16}$/.test(telegramUserId)
+    ? await findBinding(db, telegramUserId) : null;
+  return {
+    botConfigured,
+    webhookSecretConfigured,
+    automaticRegistrationEnabled: env.TELEGRAM_WEBHOOK_AUTO_REGISTER === "true",
+    linked: current?.userId === userId && current?.report?.status === "LINKED"
+  };
+}
 async function handleCommand({ update, db = prisma, now = new Date(),
   chat = (...args) => require("./ChatService").chat(...args), transcribe, extractDocument }) {
   const msg = update?.message;
@@ -154,4 +175,4 @@ function validWebhookSecret(received, expected=process.env.TELEGRAM_WEBHOOK_SECR
   const a=Buffer.from(received),b=Buffer.from(expected);
   return a.length===b.length && crypto.timingSafeEqual(a,b);
 }
-module.exports={createLink,handleCommand,sendTelegramMessage,validWebhookSecret};
+module.exports={accountStatus,createLink,handleCommand,sendTelegramMessage,validWebhookSecret};

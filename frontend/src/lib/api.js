@@ -257,8 +257,8 @@ export async function getConversations() {
     return request("/api/chat");
 }
 
-export async function getConversation(id) {
-    return request(`/api/chat/${id}`);
+export async function getConversation(id, signal) {
+    return request(`/api/chat/${id}`, { signal });
 }
 
 export async function deleteConversation(id) {
@@ -753,4 +753,8 @@ export async function getOrganizationBankStatements(orgId){
 
 export async function createTelegramLinkCode(){
  return request("/api/telegram/link-code",{method:"POST"});
+}
+
+export function getTelegramStatus(signal) {
+ return request("/api/telegram/status", { signal });
 }

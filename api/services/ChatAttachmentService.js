@@ -54,12 +54,21 @@ async function readImage(bytes) {
   } finally { await fs.rm(directory, { recursive: true, force: true }); }
 }
 
-async function readScannedPdf(bytes, ocr) {
+async function readPdfFallback(bytes, ocr) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "przemai-pdf-"));
   try {
     const input = path.join(directory, "input.pdf");
     const prefix = path.join(directory, "page");
     await fs.writeFile(input, bytes, { mode: 0o600 });
+    // A digitally generated PDF can fail in pdf.js yet still have a usable
+    // text layer. OCR would lose characters and stop at the first two pages.
+    try {
+      const { stdout } = await run("pdftotext", ["-f", "1", "-l", "12", "-enc", "UTF-8", input, "-"],
+        { timeout: 10000, maxBuffer: 128 * 1024 });
+      if (stdout.trim()) return stdout;
+    } catch (error) {
+      if (error.killed || error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") throw error;
+    }
     await run("pdftoppm", ["-f", "1", "-l", "2", "-scale-to", "1600", "-png", input, prefix],
       { timeout: 10000, maxBuffer: 128 * 1024 });
     const pages = (await fs.readdir(directory)).filter(file => /^page-\d+\.png$/.test(file)).sort();
@@ -76,7 +85,7 @@ async function extractAttachment(file, { ocr = readImage } = {}) {
   let text;
   if (ext === ".pdf" && bytes.subarray(0, 5).toString() === "%PDF-") {
     try { text = (await require("pdf-parse")(bytes, { max: 12 })).text; } catch {}
-    if (!text?.trim()) text = await readScannedPdf(bytes, ocr);
+    if (!text?.trim()) text = await readPdfFallback(bytes, ocr);
   } else if (ext === ".docx" || ext === ".xlsx") {
     await checkArchive(bytes);
     if (ext === ".docx") text = (await require("mammoth").extractRawText({ buffer: bytes })).value;

@@ -17,6 +17,7 @@ let idleTimer;
 let backgroundAt;
 let chat = newChat();
 let redrawChat;
+let chatTimer;
 let notificationWork = Promise.resolve();
 let invoiceYear = new Date().getFullYear();
 let invoicePeriod = "year";
@@ -108,6 +109,8 @@ function endSession(message = "") {
   companies = [];
   chat = newChat();
   redrawChat = undefined;
+  clearTimeout(chatTimer);
+  chatTimer = undefined;
   sequence++;
   clearTimeout(idleTimer);
   void whileScheduling(clearNotifications).catch(() => {});
@@ -181,6 +184,8 @@ function card(title, text) {
 function render() {
   const run = ++sequence;
   redrawChat = undefined;
+  clearTimeout(chatTimer);
+  chatTimer = undefined;
   const active = () => token && run === sequence;
   logout.hidden = false;
   root.replaceChildren(node("h1", view));
@@ -305,13 +310,55 @@ const pages = {
     form.append(field("Wiadomość do General Agenta", input), field("Załącznik do 4 MB", attachment), submit);
     if (!organizationId) target.append(node("p", "Rozmowa osobista. Wybierz spółkę, aby pracować w jej zakresie."));
     target.append(form, result);
+    let refreshing = false;
+    let refreshDelay = 2500;
+    async function refreshProgress() {
+      if (!active() || chat !== current) return;
+      chatTimer = undefined;
+      if (!document.hidden && navigator.onLine) {
+        refreshing = true;
+        try {
+          const reply = await api("/api/chat/" + encodeURIComponent(current.conversationId));
+          if (!active() || chat !== current) return;
+          if (reply.conversation?.id !== current.conversationId || !Array.isArray(reply.conversation.messages))
+            throw Error("Nieprawidłowy stan rozmowy.");
+          const updates = new Map(reply.conversation.messages.filter(item => typeof item?.id === "string")
+            .map(item => [item.id, item]));
+          for (const turn of current.turns) {
+            if (!turn.pending) continue;
+            const item = updates.get(turn.id);
+            if (item?.role !== "assistant" || typeof item.content !== "string") continue;
+            if (item.metadata?.restricted) {
+              turn.answer = "Brak dostępu do odpowiedzi.";
+              turn.pending = false;
+            } else if ((item.metadata?.organizationId || "") === organizationId) {
+              turn.answer = item.content;
+              turn.pending = Boolean(item.metadata?.pending);
+            }
+          }
+          refreshDelay = 2500;
+        } catch {
+          refreshDelay = Math.min(30000, refreshDelay * 2);
+        } finally {
+          refreshing = false;
+        }
+      }
+      if (active() && chat === current) redrawChat();
+    }
+
     redrawChat = () => {
       if (!active()) return;
       submit.disabled = current.sending;
       input.disabled = current.sending;
       attachment.disabled = current.sending;
       input.value = current.draft;
-      result.replaceChildren(...current.turns.map(turn => card(turn.message, turn.answer)));
+      result.replaceChildren(...current.turns.map(turn => {
+        const entry = card(turn.message, turn.answer);
+        if (turn.pending) entry.append(node("p", "Zlecenie w toku"));
+        return entry;
+      }));
+      if (!refreshing && chatTimer === undefined && current.conversationId && current.turns.some(turn => turn.pending))
+        chatTimer = setTimeout(refreshProgress, refreshDelay);
       if (current.sending) result.append(node("p", "Oczekiwanie na odpowiedź…"));
       if (current.error) showError(result, Error(current.error));
     };
@@ -350,7 +397,11 @@ const pages = {
         if (typeof response.conversationId !== "string" || typeof response.answer !== "string")
           throw Error("API nie potwierdziło odpowiedzi General Agenta.");
         current.conversationId = response.conversationId;
-        current.turns.push({ message: message || file.name, answer: response.answer });
+        current.turns.push({
+          message: message || file.name, answer: response.answer,
+          id: response.message?.id, pending: typeof response.message?.id === "string" &&
+            Boolean(response.pending || response.message?.metadata?.pending)
+        });
         if (current.turns.length > 20) current.turns.shift();
         current.draft = "";
         current.pending = null;

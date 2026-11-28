@@ -45,3 +45,21 @@ export function parseChatArchiveResponse(response) {
     }
     return true;
 }
+
+
+export function mergePendingChatMessages(messages, refreshed) {
+    const snapshot = new Map(refreshed.map(item => [item.id, item]));
+    return messages.map(item => {
+        if (!item.pending) return item;
+        const updated = snapshot.get(item.id);
+        if (!updated) return item;
+        const restricted = Boolean(updated.metadata?.restricted);
+        return {
+            ...item,
+            content: updated.content,
+            pending: !restricted && Boolean(updated.metadata?.pending),
+            restricted,
+            organizationId: restricted ? null : item.organizationId
+        };
+    });
+}

@@ -72,3 +72,18 @@ test("chat UI validates all responses and does not mistake load errors for empty
     assert.match(source, /!conversationsError&&conversations.length===0/);
     assert.match(source, /Nie udało się pobrać listy rozmów/);
 });
+
+test("polling removes revoked results and only refreshes messages already displayed", async () => {
+    const { mergePendingChatMessages } = await loadParser();
+    const pending = { ...message, pending: true, organizationId: "alpha" };
+    const completed = { id: "completed", content: "Zapisany wynik", pending: false };
+    const updated = mergePendingChatMessages([pending, completed], [
+        { ...message, content: "Brak dostępu.", metadata: { restricted: true, pending: true } },
+        { id: "completed", content: "Nie zastępuj" },
+        { id: "unexpected", content: "Nie dołączaj" }
+    ]);
+    assert.deepEqual(updated, [
+        { ...pending, organizationId: null, pending: false, restricted: true, content: "Brak dostępu." },
+        completed
+    ]);
+});

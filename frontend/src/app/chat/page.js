@@ -10,7 +10,7 @@ import {
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
 import {
-  parseChatListResponse,parseChatDetailResponse,
+  parseChatListResponse,parseChatDetailResponse, mergePendingChatMessages,
   parseChatSendResponse,parseChatArchiveResponse
 } from "@/lib/chatDashboardPayload";
 import {
@@ -65,19 +65,25 @@ export default function ChatPage(){
  const hasPending=messages.some(item=>item.pending);
  useEffect(()=>{
    if(!activeConversationId||!hasPending)return;
-   let active=true;
-   const interval=setInterval(async ()=>{
-     try{
-       const data=parseChatDetailResponse(await getConversation(activeConversationId),activeConversationId);
-       if(!active)return;
-       const snapshot=new Map(data.messages.map(item=>[item.id,item]));
-       setMessages(items=>items.map(item=>{
-         const updated=snapshot.get(item.id);
-         return item.pending&&updated?{...item,content:updated.content,pending:Boolean(updated.metadata?.pending)}:item;
-       }));
-     }catch{}
-   },2500);
-   return ()=>{active=false;clearInterval(interval);};
+   const cancellation = new AbortController();
+   let timer;
+   let delay = 2500;
+   async function poll() {
+     if (cancellation.signal.aborted) return;
+     if (document.visibilityState === "visible" && navigator.onLine) {
+       try {
+         const response = await getConversation(activeConversationId, cancellation.signal);
+         const data = parseChatDetailResponse(response, activeConversationId);
+         if (!cancellation.signal.aborted) setMessages(items => mergePendingChatMessages(items, data.messages));
+         delay = 2500;
+       } catch {
+         delay = Math.min(delay * 2, 30000);
+       }
+     }
+     if (!cancellation.signal.aborted) timer = setTimeout(poll, delay);
+   }
+   timer = setTimeout(poll, delay);
+   return () => { cancellation.abort(); clearTimeout(timer); };
  },[activeConversationId,hasPending]);
 
  useEffect(()=>{
