@@ -15,7 +15,7 @@ router.get("/monitor",verifyToken,async(req,res)=>{
  }
 });
 const prisma = require("../../lib/prisma");
-const KALDEVA_HISTORY_TYPE = "KALDEVA_SALES";
+const { KALDEVA_HISTORY_TYPE, enqueueDiscovery } = require("../services/KaldevaQueueService");
 const MAIL_ALERT_TYPE="DEKONICA_MAIL_ALERT";
 const {OperationalStatusService}=require("../services/OperationalStatusService");
 const operations=new OperationalStatusService();
@@ -62,47 +62,28 @@ router.patch("/mail/alerts/:alertId/review",verifyToken,async(req,res)=>{
 
 // Live read-only Kaldeva MVP: authenticated, user-scoped, no outbound messages.
 // PostgreSQL History is the sole queue state; the worker owns execution.
-const { randomUUID } = require("node:crypto");
 const { evaluateSalesAction } = require("../../salesAgentPolicy");
-const lastDiscovery = new Map();
 router.post("/kaldeva/discover", verifyToken, async (req, res) => {
   const actorId = String(req.user?.id || "");
   if (!actorId) return res.status(401).json({ success: false, error: "Brak użytkownika." });
   const query = req.body?.query;
   if (typeof query !== "string" || query.trim().length < 5 || query.length > 200)
     return res.status(400).json({ success: false, error: "Podaj zapytanie od 5 do 200 znaków." });
-  const now = Date.now();
-  if (now - (lastDiscovery.get(actorId) || 0) < 60000)
-    return res.status(429).json({ success: false, error: "Odczekaj minutę przed następnym wyszukiwaniem." });
-  if (lastDiscovery.size > 1000) {
-    for (const [key, time] of lastDiscovery) if (now - time > 120000) lastDiscovery.delete(key);
-  }
   try {
     const companyId = "kaldeva:" + actorId;
     const decision = evaluateSalesAction({ type: "search_web", companyId }, { companyId, actorId });
     if (decision.decision !== "allow") return res.status(403).json({ success: false, error: "Brak uprawnienia do wyszukiwania." });
-    const id = randomUUID();
-    // Persist the queued job before returning 202 so it survives navigation.
-    // If persistence is unavailable, do not claim that a durable job was accepted.
-    const queued = { id, companyId, actorId, query: query.trim(), status: "queued", report: null, error: null };
-    try {
-      await prisma.history.create({ data: {
-        id, userId: actorId, type: KALDEVA_HISTORY_TYPE,
-        title: "Kaldeva: " + query.slice(0, 150), filename: "",
-        report: queued
-      } });
-    } catch (persistenceError) {
-      console.error("kaldeva_queue_persistence_error", persistenceError?.message || "unknown");
-      return res.status(503).json({ success: false, error: "Nie można zapisać zlecenia. Spróbuj ponownie." });
+    const job = await enqueueDiscovery(actorId, query.trim());
+    if (!job) {
+      return res.status(429).json({ success: false, error: "Odczekaj minutę przed następnym wyszukiwaniem." });
     }
-    lastDiscovery.set(actorId, now);
     return res.status(202).json({
       success: true,
-      data: { id, status: "queued", resultPath: "/api/agents/kaldeva/jobs/" + encodeURIComponent(id) }
+      data: { ...job, resultPath: "/api/agents/kaldeva/jobs/" + encodeURIComponent(job.id) }
     });
   } catch (error) {
-    console.error("kaldeva_enqueue_error", error?.message || "unknown");
-    return res.status(500).json({ success: false, error: "Nie udało się przyjąć zlecenia." });
+    console.error("kaldeva_queue_persistence_error", error?.name, error?.code);
+    return res.status(503).json({ success: false, error: "Nie można zapisać zlecenia. Spróbuj ponownie." });
   }
 });
 

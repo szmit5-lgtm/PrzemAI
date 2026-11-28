@@ -18,6 +18,7 @@ async function main() {
   const db = require("../lib/prisma");
   const app = express();
   app.use(express.json());
+  app.use("/api/agents", require("../api/routes/agentRoutes"));
   app.use("/api/admin", require("../api/routes/adminRoutes"));
   app.use("/api/workspace", require("../api/routes/workspaceToolsRoutes"));
   const server = app.listen(0, "127.0.0.1");
@@ -130,6 +131,26 @@ async function main() {
     assert.equal(usage.budgetLimitMicroPln, "123450000");
     assert.match(usage.reservedMicroPln, /^\d+$/);
     assert.match(usage.day, /^\d{4}-\d{2}-\d{2}$/);
+    const discover = (user, query) => fetch(api + "/agents/kaldeva/discover", {
+      method: "POST", headers: headersFor(user), body: JSON.stringify({ query })
+    });
+    const concurrent = await Promise.all(Array.from({ length: 8 }, () => discover(owner, "Kaldeva synthetic query")));
+    assert.ok(concurrent.every(response => response.status === 202));
+    const queued = await Promise.all(concurrent.map(response => response.json()));
+    assert.equal(new Set(queued.map(result => result.data.id)).size, 1);
+    const jobId = queued[0].data.id;
+    assert.equal(await db.history.count({ where: { userId: owner.id, type: "KALDEVA_SALES" } }), 1);
+    assert.equal((await discover(owner, "Different synthetic query")).status, 429);
+    const other = await (await discover(employee, "Kaldeva synthetic query")).json();
+    assert.notEqual(other.data.id, jobId);
+    const job = await db.history.findUnique({ where: { id: jobId }, select: { report: true } });
+    await db.history.update({ where: { id: jobId }, data: {
+      createdAt: new Date(Date.now() - 120_000), report: { ...job.report, status: "completed" }
+    } });
+    const reused = await (await discover(owner, "Kaldeva synthetic query")).json();
+    assert.equal(reused.data.id, jobId);
+    assert.equal(reused.data.status, "completed");
+    console.log("Kaldeva queue E2E OK: eight concurrent requests, per-user isolation and completed-result reuse");
     const healthUrl = api + "/admin/integration-health";
     assert.equal((await fetch(healthUrl)).status, 401);
     assert.equal((await fetch(healthUrl, { headers: headersFor(employee) })).status, 403);
