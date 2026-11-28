@@ -753,3 +753,15 @@ export async function getOrganizationBankStatements(orgId){
 export async function createTelegramLinkCode(){
  return request("/api/telegram/link-code",{method:"POST"});
 }
+
+export function searchWorkspace(query, organizationId) {
+    return request("/api/workspace/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, organizationId: organizationId || undefined })
+    });
+}
+
+export function getPersonalExport() {
+    return request("/api/workspace/personal-export");
+}

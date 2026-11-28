@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import Navbar from "../components/Navbar";
 import UserMenu from "../components/UserMenu";
+import PersonalExport from "./PersonalExport";
 
 import {
     User,
@@ -258,6 +259,7 @@ export default function SettingsPage() {
                 <UserMenu />
 
                 <Navbar />
+                <PersonalExport />
 
                 <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-[#111c35] p-4 shadow-sm sm:p-8">
 
